@@ -158,6 +158,23 @@ function initMobileNav() {
   });
 }
 
+/* ---- color theme picker ---- */
+function initThemePicker() {
+  const root = document.documentElement;
+  const selects = document.querySelectorAll("#theme-select, #mobile-theme-select");
+  const savedTheme = localStorage.getItem("gitbounty-theme") || "black-yellow";
+
+  root.dataset.theme = savedTheme;
+  selects.forEach(select => {
+    select.value = savedTheme;
+    select.addEventListener("change", () => {
+      root.dataset.theme = select.value;
+      localStorage.setItem("gitbounty-theme", select.value);
+      selects.forEach(other => { other.value = select.value; });
+    });
+  });
+}
+
 /* ---- smooth-scroll for nav links + active section highlight ---- */
 function initNavHighlight() {
   const sections = document.querySelectorAll("section[id]");
@@ -228,6 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initFilters();
   initHeaderScroll();
   initMobileNav();
+  initThemePicker();
   initNavHighlight();
   initCTAButtons();
   setYear();
