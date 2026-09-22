@@ -10,6 +10,11 @@
 </p>
 
 <p align="center">
+  📖 New here? Read <a href="overview.md"><strong>overview.md</strong></a> first — the plain-language explanation of
+  what this project actually is, including an open question about the product that this README hasn't caught up to yet.
+</p>
+
+<p align="center">
   <a href="#-the-problem">Problem</a> ·
   <a href="#-how-it-works">How it works</a> ·
   <a href="#-architecture">Architecture</a> ·
