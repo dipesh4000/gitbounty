@@ -214,3 +214,38 @@ def test_points_are_found_for_an_existing_user_row(api: TestClient, monkeypatch:
 
     assert _asyncio.run(count_users()) == 1     # no duplicate placeholder row
     assert api.get("/api/me/points").json()["total_points"] == 5
+
+
+@respx.mock
+def test_my_points_lists_the_merges_that_earned_them(api: TestClient) -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, title="Fix planner",
+                        author=DEV_LOGIN, body="Closes #12"),
+        ]})
+    )
+    respx.get("https://api.github.com/repos/org/a/pulls/1/files").mock(
+        return_value=httpx.Response(200, json=[{"filename": "api/routes.py"}])
+    )
+    respx.get("https://api.github.com/repos/org/a/issues/12").mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:40"}]})
+    )
+    api.post("/api/me/sync")
+
+    merges = api.get("/api/me/points").json()["recent_merges"]
+
+    assert len(merges) == 1
+    assert merges[0]["title"] == "Fix planner"
+    assert merges[0]["points"] == 45
+    assert merges[0]["issue_points"] == 40
+    assert merges[0]["category"] == "backend"
+    assert merges[0]["url"] == "https://github.com/org/a/pull/1"
+
+
+def test_the_website_origin_is_allowed_but_a_stranger_is_not(api: TestClient) -> None:
+    """The site is a separate origin, so it must be allowed -- but only the listed ones."""
+    allowed = api.get("/api/leaderboard", headers={"Origin": "http://127.0.0.1:5500"})
+    assert allowed.headers.get("access-control-allow-origin") == "http://127.0.0.1:5500"
+
+    stranger = api.get("/api/leaderboard", headers={"Origin": "https://evil.example"})
+    assert "access-control-allow-origin" not in stranger.headers

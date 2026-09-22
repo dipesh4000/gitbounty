@@ -14,7 +14,14 @@ from ...db import DatabaseNotConfigured, pool
 from ..merged_prs.github import GitHubAuthError, GitHubError, GitHubRateLimited
 from ..merged_prs.models import Category
 from ..merged_prs.service import detect_merges
-from .store import leaderboard, record_merges, upsert_user, user_points_by_category, user_totals
+from .store import (
+    leaderboard,
+    record_merges,
+    recent_merges,
+    upsert_user,
+    user_points_by_category,
+    user_totals,
+)
 
 router = APIRouter(prefix="/api", tags=["points"])
 
@@ -37,11 +44,23 @@ class SyncResponse(BaseModel):
     total_merges: int
 
 
+class MergeSummary(BaseModel):
+    repo_full_name: str
+    number: int
+    title: str
+    url: str
+    category: Category
+    merged_at: datetime
+    issue_points: int | None
+    points: int
+
+
 class MyPointsResponse(BaseModel):
     github_login: str
     total_points: int
     total_merges: int
     points_by_category: dict[str, int]
+    recent_merges: list[MergeSummary]
 
 
 class LeaderboardEntry(BaseModel):
@@ -117,12 +136,26 @@ async def my_points(user: Annotated[CurrentUser, Depends(get_current_user)]) -> 
         user_row_id = await upsert_user(connection, user.github_id, user.github_login)
         totals = await user_totals(connection, user_row_id)
         by_category = await user_points_by_category(connection, user_row_id)
+        merges = await recent_merges(connection, user_row_id)
 
     return MyPointsResponse(
         github_login=user.github_login,
         total_points=totals["points"],
         total_merges=totals["merges"],
         points_by_category=by_category,
+        recent_merges=[
+            MergeSummary(
+                repo_full_name=merge.repo_full_name,
+                number=merge.number,
+                title=merge.title,
+                url=merge.url,
+                category=Category(merge.category),
+                merged_at=merge.merged_at,
+                issue_points=merge.issue_points,
+                points=merge.points,
+            )
+            for merge in merges
+        ],
     )
 
 

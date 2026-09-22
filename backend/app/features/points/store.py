@@ -24,6 +24,20 @@ class SaveOutcome:
 
 
 @dataclass(frozen=True)
+class MergeRow:
+    """One stored merge, for showing a contributor where their points came from."""
+
+    repo_full_name: str
+    number: int
+    title: str
+    url: str
+    category: str
+    merged_at: datetime
+    issue_points: int | None
+    points: int
+
+
+@dataclass(frozen=True)
 class LeaderboardRow:
     rank: int
     github_login: str
@@ -186,4 +200,34 @@ async def leaderboard(
             merges=row["merges"],
         )
         for index, row in enumerate(rows, start=1)
+    ]
+
+
+async def recent_merges(
+    connection: asyncpg.Connection, user_id: int, limit: int = 25
+) -> list[MergeRow]:
+    """A user's most recent counted merges, newest first."""
+    rows = await connection.fetch(
+        """
+        select repo_full_name, number, title, url, category, merged_at, issue_points, points
+        from merged_prs
+        where user_id = $1
+        order by merged_at desc
+        limit $2
+        """,
+        user_id,
+        limit,
+    )
+    return [
+        MergeRow(
+            repo_full_name=row["repo_full_name"],
+            number=row["number"],
+            title=row["title"],
+            url=row["url"],
+            category=row["category"],
+            merged_at=row["merged_at"],
+            issue_points=row["issue_points"],
+            points=row["points"],
+        )
+        for row in rows
     ]

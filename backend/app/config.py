@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     database_url: str = ""
 
+    # Browser origins allowed to call this API. The website is served separately (a static file server in
+    # development, a static host in production), so it is always a different origin from this API.
+    # Comma-separated. Set it explicitly in a deployed build; never widen it to "*".
+    allowed_origins: str = "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080,http://127.0.0.1:8080"
+
+
     # Dev-only stand-in for the login feature, which isn't built yet.
     # See feature-seams.md, seam 1. Empty in any deployed build.
     dev_github_login: str = ""
@@ -17,6 +23,11 @@ class Settings(BaseSettings):
     # The stub's stand-in for GitHub's numeric user id. Set it to the real one when working against seeded data,
     # otherwise every sync lands on a separate placeholder user.
     dev_github_id: int = 0
+
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
 
 settings = Settings()
