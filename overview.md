@@ -112,8 +112,9 @@ gitbounty/
 
 - **`frontend/web/`** — This is a working demo, built first, before any backend existed, just to nail down what the
   site should look and feel like. It's a normal website (an HTML file, a CSS file for styling, a JS file for
-  behaviour) with made-up sample bounties typed directly into the code. Nothing on it is real yet: search, filters
-  and the colour-theme switcher all work, but there's no server behind it and no real data. **Treat it as a mockup,
+  behaviour) with made-up sample bounties typed directly into the code. Nothing on it is real yet: search and
+  filters work, but there's no server behind it and no real data. (It follows the operating system's light or dark
+  setting; there is no theme switcher, despite what earlier notes claimed.) **Treat it as a mockup,
   not as a foundation to build the real product on top of** — it was made to answer "how should this feel", not
   "how should this be built".
 

@@ -44,9 +44,11 @@ Do not describe planned things as if they work. Check the code before claiming a
   - the `BOUNTIES` array at the top is sample data. Replace it with an API call.
   - `AUTH_URL` inside `initCTAButtons()` is `"#"`. Point it at the GitHub login endpoint.
 - The bounty board (search, label pills, sort) works client-side over `BOUNTIES`.
-- The colour theme is set by `data-theme` on `<html>` and saved in `localStorage` under `gitbounty-theme`.
-- `frontend/web/styles.css` defines colours, fonts and spacing as CSS variables in `:root`
-  (near-black background, gold accent, Space Grotesk / Inter / JetBrains Mono). Use the variables and don't hard-code colours.
+- There is no theme switcher and no `localStorage`. Light mode comes from a single
+  `@media (prefers-color-scheme: light)` block that redefines the variables, so it follows the operating system.
+- `frontend/web/styles.css` defines colours, fonts and spacing as CSS variables in `:root`: the "Graphite Lime"
+  palette, a near-black background with a lime accent (`--accent: #C5F53A`), Space Grotesk / Inter / JetBrains
+  Mono. Use the variables and don't hard-code colours.
 
 ## Domain notes for backend work
 
