@@ -23,6 +23,10 @@ class Category(StrEnum):
     BACKEND = "backend"
     FULLSTACK = "fullstack"
     DOCS = "docs"
+    TESTING = "testing"
+    DEVOPS = "devops"
+    DESIGN = "design"
+    MOBILE = "mobile"
     OTHER = "other"
 
 
