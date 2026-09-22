@@ -1,11 +1,14 @@
 # CLAUDE.md
 
+@overview.md
 @agent.md
 @rules.md
 
 ## Claude Code specifics
 
-The two files above are loaded into every session. Two rules matter most and are easy to skip, so here they are again:
+The files above are loaded into every session. Read [`overview.md`](overview.md) first — it's the plain-language
+explanation of what this project actually is, including a still-unresolved disagreement about the product that the
+other docs haven't caught up to. Two rules from `rules.md` matter most and are easy to skip, so here they are again:
 
 1. **First actions of any task: read the git history.** `git log --stat -n 20`, `git log -p -- <path>` for what you
    are touching, and `git status -sb`. Tell the user in a line or two what it showed before you edit anything.
