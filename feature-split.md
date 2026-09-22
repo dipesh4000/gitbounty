@@ -23,6 +23,9 @@ working out which category (frontend/backend/docs/etc.) each one belongs to.
 **Points + Leaderboard** — turning detected merges into points, and the queries/pages that show weekly and
 per-category leaderboards.
 
+The technical seams between the two sides — what Aastha's features need from Nishika's, and the shared category
+list — are written down in [`feature-seams.md`](feature-seams.md).
+
 ## Order that matters
 
 Merged PR Detection needs GitHub Login (to check a user's own merges) and the Database (somewhere to store them) to
