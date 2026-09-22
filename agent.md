@@ -1,7 +1,13 @@
 # Agent guide
 
 For any AI coding agent working in this repo (Claude Code, Cursor, Codex, Gemini and so on).
-Read this file and [rules.md](rules.md) before you touch anything. The rules are not optional.
+
+**Read [`overview.md`](overview.md) first, in full, before this file or anything else.** It explains the project in
+plain language, including a real unresolved disagreement about what the product even is (a real-money bounty system
+versus a points/leaderboard system) that the rest of the docs in this repo have not caught up to. Skipping it means
+working from the wrong picture of the project.
+
+Then read this file and [rules.md](rules.md) before you touch anything. The rules are not optional.
 The first two, read the git history and commit every small step, apply to every task.
 
 ## The project in five lines
