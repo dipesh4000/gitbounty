@@ -162,3 +162,16 @@ def test_the_response_carries_points_and_the_issue_they_came_from(
     assert merge["issue_points"] == 40
     assert merge["category"] == "backend"
     assert merge["closed_issues"] == [{"repo_full_name": "org/a", "number": 12}]
+
+
+@respx.mock
+def test_me_reports_who_is_signed_in(client: TestClient, dev_login: None) -> None:
+    body = client.get("/api/me").json()
+
+    assert body["github_login"] == DEV_LOGIN
+    assert body["is_dev_stub"] is True, "the pages must be able to say nobody was really authenticated"
+
+
+def test_me_says_503_when_there_is_no_login(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "dev_github_login", "")
+    assert client.get("/api/me").status_code == 503

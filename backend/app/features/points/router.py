@@ -33,6 +33,19 @@ def _require_database() -> None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
 
 
+class MeResponse(BaseModel):
+    """Who the caller is.
+
+    TEMPORARY. Identity belongs to the GitHub Login feature (Nishika's), which isn't built yet. This exists so
+    the pages can show who is signed in, and `is_dev_stub` is here so they can say out loud that nobody has
+    actually been authenticated. When the real login lands, this is replaced by whatever it provides.
+    """
+
+    github_login: str
+    github_id: int
+    is_dev_stub: bool
+
+
 class SyncResponse(BaseModel):
     github_login: str
     newly_counted: int
@@ -75,6 +88,12 @@ class LeaderboardResponse(BaseModel):
     period: Literal["all", "week", "month"]
     category: Category | None
     entries: list[LeaderboardEntry]
+
+
+@router.get("/me", response_model=MeResponse)
+async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> MeResponse:
+    """The signed-in user. Needs no database and no GitHub token."""
+    return MeResponse(github_login=user.github_login, github_id=user.github_id, is_dev_stub=True)
 
 
 @router.post("/me/sync", response_model=SyncResponse)
