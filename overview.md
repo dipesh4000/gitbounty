@@ -121,8 +121,16 @@ at least one commit this local copy doesn't have yet (a small visual tweak to th
 side has been pushed or pulled to match the other. Whoever picks this up should reconcile that before touching
 `frontend/web/` again, so the teammate's latest visual tweaks aren't accidentally lost or overwritten.
 
+## A build plan exists for Version B
+
+[`plan.md`](plan.md) is a full chunk-by-chunk build plan for the points/leaderboard version (Version B), written from
+the project owner's side. **It does not mean the conflict above is settled with the teammate** — chunk 0 of that
+plan is telling them about the pivot and updating this file, `readme.md` and `agent.md` once they've agreed. Until
+that happens, treat `plan.md` as a candidate plan, not a confirmed direction.
+
 ## Where to go from here
 
 - Read [`rules.md`](rules.md) for the hard rules.
 - Read [`agent.md`](agent.md) if you're an AI coding assistant.
+- Read [`plan.md`](plan.md) for the build plan, if Version B is confirmed.
 - Read [`readme.md`](readme.md) for the polished pitch (remember: it currently only describes Version A).
