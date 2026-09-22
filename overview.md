@@ -22,15 +22,48 @@ phase, most likely as "redeem your points", rather than as the escrow flow `read
 
 ### What is being built now — points
 
+There are two people in every GitBounty story, and it matters which is which:
+
+- The **issue creator** — usually a maintainer. They have a problem they want fixed, and they decide what fixing it
+  is worth: "this issue is worth 40 points."
+- The **contributor** — the person who does the work. They fix it, their pull request is merged, and they receive
+  exactly the points the creator put on that issue.
+
+That's the whole mechanic, and it is deliberately the same shape as the money version in `readme.md` — a value
+attached to an issue, paid out on merge — with points in place of dollars and nothing held in escrow. It's also why
+"points become money later" is a change of unit rather than a rebuild.
+
+Around that:
+
 - A user signs in with their GitHub account.
-- They browse open issues from across GitHub, sorted into categories like frontend, backend, full-stack, or
-  documentation — so someone who only knows CSS isn't shown a database migration issue.
-- When their pull request gets merged, they earn **points** (an internal score, not a currency).
-- Points feed into **leaderboards** — for example, "most points this week", or a separate leaderboard just for
-  backend contributions. This is the "gamification": the reward is competition and recognition, not cash.
+- They browse open issues from across GitHub, sorted into categories, so someone who only knows CSS isn't shown a
+  database migration issue.
+- A merged pull request that closed a points-marked issue earns that issue's points. **Every** merged pull request
+  also earns a small flat amount, so contributing to a repo that has never heard of GitBounty still counts for
+  something and a new user's profile isn't empty.
+- Points feed into **leaderboards** — "most points this week", or one just for backend contributions. This is the
+  "gamification": the reward is competition and recognition, not cash.
 
 No wallet, no blockchain, no escrow contract. Just GitHub login, a way to read what pull requests someone has
 merged, and a running scoreboard.
+
+#### How a creator sets the points
+
+Two ways, because the two kinds of maintainer are different:
+
+- **A GitHub label on the issue**, such as `gitbounty:40`. Works on any repository with no signup and nothing
+  installed — it is just a label — which is what keeps "browse issues from across GitHub" honest.
+- **Through the GitBounty website**, for a maintainer who has signed in and wants to manage points properly.
+
+When both exist for one issue, the website value wins: it was set deliberately, by someone we authenticated, and
+it can be corrected. A label can be edited by anyone with write access to the repo.
+
+#### A known way to cheat
+
+If a creator can set any number, anyone can create a repository, put 100,000 points on a trivial issue and have a
+friend "fix" it. Merging your own pull request into your own repository already earns nothing, but that rule does
+not catch two people helping each other. A cap per issue, or a rule about which repositories are eligible, is
+needed before this is public. Not solved yet.
 
 ### What is deferred — money
 
