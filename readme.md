@@ -329,7 +329,7 @@ gitbounty/
 
 ## 🤝 Working on this repo
 
-Read [`rules.md`](rules.md) first. The two rules that catch people out: **read the git history before you start**, and **commit every small step**. AI coding agents should also read [`agent.md`](agent.md) (Claude Code loads it through [`CLAUDE.md`](CLAUDE.md)).
+Read [`rules.md`](rules.md) first. The two rules that catch people out: **read the git history before you start**, and **commit every small step**. AI coding agents should also read [`agent.md`](agent.md) (Claude Code loads it through [`CLAUDE.md`](CLAUDE.md)). A candidate chunk-by-chunk build plan lives at [`plan.md`](plan.md) — see [`overview.md`](overview.md) for why it's "candidate" rather than final.
 
 Database changes go in [`migrations/`](migrations) as new numbered SQL files.
 
