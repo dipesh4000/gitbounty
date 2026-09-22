@@ -1,14 +1,14 @@
 # Build plan
 
 Five features, sized so one person can own one and just ask Claude Code to build it. Read
-[`overview.md`](overview.md) first if you haven't — this plan is for the points/leaderboard version, not the
-money/escrow one `readme.md` still describes.
+[`overview.md`](overview.md) first — this plan is for the points/leaderboard version, not the money/escrow one
+`readme.md` still describes.
 
 ## Before touching code: 2 things
 
-1. **Tell your teammate.** GitBounty is now being built as a points/leaderboard app — no bounty money, no crypto
-   wallet. That drops the money version your teammate has been designing the pitch deck and demo site around. Have
-   that conversation before more code gets written on either side.
+1. **Aastha tells Dipesh.** GitBounty is now being built as a points/leaderboard app — no bounty money, no crypto
+   wallet. That drops the money version Dipesh has been designing the pitch deck and demo site around. That
+   conversation happens before more code gets written on either side.
 2. **Sync the git branches.** Local and `origin` have both moved since they last matched — pull the other side's
    changes in before starting new work.
 
@@ -30,8 +30,8 @@ Two things worth saying up front, so it gets built right the first time:
 - Don't award points for a PR someone merged into their own repo — that's the easy way to fake points.
 
 ### 3. Frontend — the website
-The actual site: a login button, a page to browse open issues by category, a personal page showing your points, and
-a leaderboard.
+The actual site: a login button, a page to browse open issues by category, a personal page showing points, and a
+leaderboard.
 **Tell Claude Code:** "Build the website: login, browse issues by category, my points page, leaderboard." The
 colours and fonts from the current demo ([`frontend/web/styles.css`](frontend/web/styles.css)) can be reused — the
 layout and copy should be new, since the whole point of the app changed.
@@ -46,10 +46,23 @@ login needed for this one.
 Get the backend and the website hosted somewhere real, not just running on a laptop for the demo.
 **Tell Claude Code:** "Deploy the backend and website" once each works locally.
 
+## Tech stack
+
+The simple version — one recommended choice per piece, not a comparison of alternatives:
+
+| Piece | What to use | Why |
+|---|---|---|
+| Backend | FastAPI (Python) | Aastha's strongest language and framework |
+| Auth | GitHub OAuth, via Authlib | Drops straight into FastAPI, no separate auth service needed |
+| Database | Postgres, on Dipesh's Supabase project | Already decided — schema changes are hand-written SQL files in `migrations/`, no ORM auto-migration |
+| Frontend | Plain HTML, CSS and JS | Matches the existing demo, no build tooling to learn, fastest to ship for a hackathon |
+| Extension | Chrome Manifest V3, vanilla JS | Matches the sketch in `frontend/extension/README.md`; too small to need a framework |
+| Hosting | Backend on Render or Railway, website on Vercel or Netlify | Backend needs a long-running process, so a plain static host (like GitHub Pages) won't run FastAPI; the website is static, so any of these work |
+
 ## Order that actually matters
 
-1. Backend comes first for you — Auth partly lives inside it, and the Extension's badge needs a real backend
+1. Backend comes first for Aastha — Auth partly lives inside it, and the Extension's badge needs a real backend
    endpoint to call, so building Backend → Auth → Extension in that order avoids redoing anything.
-2. Your teammate's Frontend can start against placeholder data without waiting on your backend — wire it to the
-   real API once yours is up.
+2. Dipesh's Frontend can start against placeholder data without waiting on the backend — it gets wired to the real
+   API once that's up.
 3. Deploy happens as each piece is ready, not all at the end.
