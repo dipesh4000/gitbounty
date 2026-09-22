@@ -1,23 +1,22 @@
 /* ---------------------------------------------------------
    GitBounty — design tokens
-   bg near-black (matches logo plate), warm gold accent for
-   "bounty", hairline borders instead of soft shadows.
+  Graphite Lime dark palette, with a light mode override.
 --------------------------------------------------------- */
 :root{
-  --bg:            #0B0B0C;
-  --surface-1:     #141416;
-  --surface-2:     #1B1C1F;
-  --border:        #2A2B2F;
-  --border-soft:   #202124;
-  --text:          #F2F1ED;
-  --text-secondary:#A6A7AC;
-  --text-muted:    #6F7075;
-  --accent:        #F2B705;
-  --accent-dim:    #C99B04;
-  --accent-ink:    #14110A;   /* text on top of accent */
-  --success:       #3DDC84;
-  --accent-line:   rgba(20,17,10,.28);
-  --accent-line-soft: rgba(20,17,10,.17);
+  --bg:            #101211;
+  --surface-1:     #191C19;
+  --surface-2:     #242923;
+  --border:        #384039;
+  --border-soft:   #292F2A;
+  --text:          #F1F4EC;
+  --text-secondary:#B2BBAE;
+  --text-muted:    #788276;
+  --accent:        #C5F53A;
+  --accent-dim:    #9FC72E;
+  --accent-ink:    #141A0A;
+  --success:       #7EF29B;
+  --accent-line:   rgba(20,26,10,.3);
+  --accent-line-soft: rgba(20,26,10,.18);
 
   --font-display: 'Space Grotesk', sans-serif;
   --font-body:    'Inter', sans-serif;
@@ -27,52 +26,18 @@
   --radius-md: 8px;
   --radius-pill: 999px;
 
-  --wrap: 1120px;
-  --logo-detail: #0B0B0C;
-}
-
-html[data-theme="black-shinygrey"]{
-  --bg: #090A0C; --surface-1: #15171A; --surface-2: #202328;
-  --border: #3B4048; --border-soft: #292D33; --text: #F4F6F8;
-  --text-secondary: #B9BEC6; --text-muted: #7D848E; --accent: #D7DCE3;
-  --accent-dim: #AAB2BD; --accent-ink: #111317; --logo-detail: #090A0C;
-  --accent-line: rgba(17,19,23,.28); --accent-line-soft: rgba(17,19,23,.17);
-}
-
-html[data-theme="githubblue-purple"]{
-  --bg: #07111F; --surface-1: #0D1B2D; --surface-2: #12243B;
-  --border: #264362; --border-soft: #19324D; --text: #F3F7FC;
-  --text-secondary: #AFC1D5; --text-muted: #7189A3; --accent: #A78BFA;
-  --accent-dim: #8066D6; --accent-ink: #160E2C; --success: #58D68D;
-  --logo-detail: #07111F;
-  --accent-line: rgba(22,14,44,.3); --accent-line-soft: rgba(22,14,44,.18);
-}
-
-html[data-theme="graphite-lime"]{
-  --bg: #101211; --surface-1: #191C19; --surface-2: #242923;
-  --border: #384039; --border-soft: #292F2A; --text: #F1F4EC;
-  --text-secondary: #B2BBAE; --text-muted: #788276; --accent: #C5F53A;
-  --accent-dim: #9FC72E; --accent-ink: #141A0A; --success: #7EF29B;
   --logo-detail: #101211;
-  --accent-line: rgba(20,26,10,.3); --accent-line-soft: rgba(20,26,10,.18);
 }
 
-html[data-theme="midnight-cyan"]{
-  --bg: #071719; --surface-1: #0D2427; --surface-2: #123238;
-  --border: #245158; --border-soft: #193E44; --text: #ECFAF8;
-  --text-secondary: #A9C9C8; --text-muted: #6E9999; --accent: #52E0D0;
-  --accent-dim: #38B9AC; --accent-ink: #08201F; --success: #8BF2A8;
-  --logo-detail: #071719;
-  --accent-line: rgba(8,32,31,.3); --accent-line-soft: rgba(8,32,31,.18);
-}
-
-html[data-theme="coral-ink"]{
-  --bg: #170E11; --surface-1: #241619; --surface-2: #321D22;
-  --border: #5A3038; --border-soft: #42242A; --text: #FFF3F0;
-  --text-secondary: #D4B5B2; --text-muted: #987472; --accent: #FF806F;
-  --accent-dim: #D85F52; --accent-ink: #2A0D0D; --success: #7EE0A5;
-  --logo-detail: #170E11;
-  --accent-line: rgba(42,13,13,.3); --accent-line-soft: rgba(42,13,13,.18);
+@media (prefers-color-scheme: light){
+  :root{
+    --bg: #F4F7F0; --surface-1: #FFFFFF; --surface-2: #E9EFE3;
+    --border: #C7D0C2; --border-soft: #DCE4D7; --text: #172018;
+    --text-secondary: #4D5A4B; --text-muted: #71806F; --accent: #6FAE13;
+    --accent-dim: #5D8310; --accent-ink: #F7FBEF; --success: #248044;
+    --logo-detail: #F4F7F0;
+    --accent-line: rgba(247,251,239,.3); --accent-line-soft: rgba(247,251,239,.18);
+  }
 }
 
 *, *::before, *::after{ box-sizing: border-box; }
@@ -114,7 +79,7 @@ ul, ol{ margin:0; padding:0; list-style:none; }
 img{ max-width: 100%; display:block; }
 
 .wrap{
-  max-width: var(--wrap);
+  width: 100%;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -171,7 +136,7 @@ img{ max-width: 100%; display:block; }
 /* ---------------- header ---------------- */
 .site-header{
   position: sticky; top:0; z-index: 100;
-  background: rgba(11,11,12,0.86);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -192,12 +157,6 @@ img{ max-width: 100%; display:block; }
 
 .header-cta{ display:flex; align-items:center; gap:10px; }
 
-.theme-picker{ display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:0.76rem; }
-.theme-picker select{
-  background:var(--surface-2); color:var(--text-secondary); border:1px solid var(--border);
-  border-radius:var(--radius-sm); padding:7px 9px; font:inherit; cursor:pointer;
-}
-
 .menu-toggle{
   display:none; flex-direction:column; justify-content:center; gap:5px;
   width:34px; height:34px; background:none; border:none; cursor:pointer;
@@ -212,7 +171,6 @@ img{ max-width: 100%; display:block; }
   padding: 8px 24px 20px;
   border-top: 1px solid var(--border-soft);
 }
-.mobile-nav .theme-picker{ padding:12px 4px; justify-content:space-between; }
 .mobile-nav a{
   padding: 12px 4px;
   border-bottom: 1px solid var(--border-soft);
