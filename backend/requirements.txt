@@ -4,3 +4,4 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 httpx==0.28.1            # GitHub API calls
 pydantic-settings==2.7.0 # reads config from the environment, never from code
+asyncpg==0.30.0          # Postgres driver. Plain SQL, no ORM: migrations are the record (rules.md section 4)
