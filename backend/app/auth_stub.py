@@ -61,8 +61,8 @@ def get_current_user() -> CurrentUser:
         )
 
     return CurrentUser(
-        id=0,                      # no database yet, so there is no real user row to point at
-        github_id=0,
+        id=0,                      # the database row id is resolved from github_id where it's needed
+        github_id=settings.dev_github_id,
         github_login=settings.dev_github_login,
         github_token=settings.dev_github_token,
     )

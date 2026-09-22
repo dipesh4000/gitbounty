@@ -31,6 +31,9 @@ async def db() -> AsyncIterator[asyncpg.Connection]:
 
     transaction = connection.transaction()
     await transaction.start()
+    # Start from empty inside the transaction, so a test sees only its own rows even when the development
+    # database has data in it. The rollback puts that data back; nothing is actually deleted.
+    await connection.execute("truncate merged_prs, issue_points, users restart identity cascade")
     try:
         yield connection
     finally:

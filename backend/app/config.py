@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # See feature-seams.md, seam 1. Empty in any deployed build.
     dev_github_login: str = ""
     dev_github_token: str = ""
+    # The stub's stand-in for GitHub's numeric user id. Set it to the real one when working against seeded data,
+    # otherwise every sync lands on a separate placeholder user.
+    dev_github_id: int = 0
 
 
 settings = Settings()
