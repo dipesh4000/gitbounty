@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ...auth_stub import CurrentUser, get_current_user
+from ...auth_stub import CurrentUser, get_current_user, get_current_user_with_token
 from ...db import DatabaseNotConfigured, pool
 from ..merged_prs.github import GitHubAuthError, GitHubError, GitHubRateLimited
 from ..merged_prs.models import Category
@@ -60,7 +60,7 @@ class LeaderboardResponse(BaseModel):
 
 @router.post("/me/sync", response_model=SyncResponse)
 async def sync_my_merges(
-    user: Annotated[CurrentUser, Depends(get_current_user)],
+    user: Annotated[CurrentUser, Depends(get_current_user_with_token)],
     inspect_files: Annotated[bool, Query(description="Look at each PR's files for a better category.")] = True,
 ) -> SyncResponse:
     """Fetch this user's merged PRs from GitHub and store what they earned.

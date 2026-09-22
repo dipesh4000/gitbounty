@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ...auth_stub import CurrentUser, get_current_user
+from ...auth_stub import CurrentUser, get_current_user_with_token
 from .github import GitHubAuthError, GitHubError, GitHubRateLimited
 from .models import Category
 from .service import detect_merges
@@ -47,7 +47,7 @@ class DetectionResponse(BaseModel):
 
 @router.get("", response_model=DetectionResponse)
 async def list_my_merged_prs(
-    user: Annotated[CurrentUser, Depends(get_current_user)],
+    user: Annotated[CurrentUser, Depends(get_current_user_with_token)],
     inspect_files: Annotated[
         bool,
         Query(description="Look at each PR's changed files for a better category. Costs one request per PR."),

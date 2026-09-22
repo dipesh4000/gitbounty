@@ -43,8 +43,32 @@ def test_without_a_login_it_says_so_rather_than_pretending(
 
 
 def test_the_dev_stub_is_off_by_default() -> None:
-    """The stub authenticates nobody, so it must never be on unless explicitly switched on."""
+    """The stub authenticates nobody, so it must never be on unless explicitly switched on.
+
+    This checks the shipped default rather than the running settings on purpose: the running settings read
+    backend/.env, so asserting on them would make this test pass or fail depending on whose machine it is.
+    """
+    from app.config import Settings
+
+    assert Settings.model_fields["dev_github_login"].default == ""
+    assert Settings.model_fields["dev_github_token"].default == ""
+
+
+def test_the_stub_is_off_when_no_login_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "dev_github_login", "")
     assert auth_stub.dev_login_is_enabled() is False
+
+
+def test_reading_points_does_not_require_a_github_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only endpoints that call GitHub need a token; reading stored points does not."""
+    monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
+    monkeypatch.setattr(settings, "dev_github_token", "")
+
+    assert auth_stub.get_current_user().github_login == DEV_LOGIN
+
+    with pytest.raises(Exception) as caught:
+        auth_stub.get_current_user_with_token()
+    assert "DEV_GITHUB_TOKEN" in str(caught.value)
 
 
 @respx.mock
