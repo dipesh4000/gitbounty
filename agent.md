@@ -12,8 +12,8 @@ The first two, read the git history and commit every small step, apply to every 
 
 ## The project in five lines
 
-- GitBounty rewards open-source contributors with **points (XP)**: sign in with GitHub, find an issue to work on,
-  and earn points when your pull request is merged.
+- GitBounty rewards open-source contributors with **points (XP)**. An issue creator decides what their issue is
+  worth; the contributor whose merged PR closes it receives exactly that.
 - Flow: log in with GitHub, browse open issues by category, we check *your own* account for merged PRs, points are
   awarded and feed weekly and per-category leaderboards. No wallet, no escrow, no webhooks.
 - Two surfaces: a **website** (issue browser, your points, leaderboards) and an optional **Chrome extension** that
@@ -55,11 +55,14 @@ For the points version. Not a fixed schema — the schema itself is Nishika's fe
 
 - **No webhooks.** We don't own the repos whose issues we list, so we can't ask their maintainers to install one.
   Merged PRs are found by querying GitHub *as the logged-in user*, with their own token.
-- **No points for self-merges** — merging your own PR into your own repo is the obvious way to fake a score.
-- Things to persist: users, the merged PRs we've already counted (so a re-sync doesn't double-award), points, and
-  the category each merge falls into (frontend / backend / docs / ...).
-- Categories are what make the issue browser useful: someone who only writes CSS shouldn't be shown a database
-  migration issue.
+- **No points for self-merges** — merging your own PR into your own repo is the obvious way to fake a score. This
+  does not catch two people colluding; see the cheat noted in [overview.md](overview.md), still unsolved.
+- **Points come from the issue, not from us.** A creator sets a value with a `gitbounty:N` label or on the website
+  (website wins). Every merged PR also earns a small flat amount so unmarked repos still count.
+- Things to persist: users, the merged PRs we've already counted (so a re-sync doesn't double-award), points, the
+  issue each PR closed, and the category each merge falls into.
+- Categories, shared with the issue browser: `frontend`, `backend`, `fullstack`, `docs`, `testing`, `devops`,
+  `design`, `mobile`, `other`. See [feature-seams.md](feature-seams.md) seam 3.
 
 ## Decided
 
@@ -69,7 +72,8 @@ For the points version. Not a fixed schema — the schema itself is Nishika's fe
 
 ## Undecided (ask, don't assume)
 
-- How points are actually scored (per merge? weighted by category, repo size, lines changed?).
+- How big the flat per-merge amount is, and whether a points-marked issue's value is capped.
+- How to stop two people colluding to award each other points.
 - Everything about the deferred money phase: whether points redeem for money, which chain, which token, which
   wallet provider. Don't build toward it.
 - Hosting specifics (Render or Railway for the backend, Vercel or Netlify for the site).
