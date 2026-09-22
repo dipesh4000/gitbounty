@@ -18,7 +18,9 @@ The first two, read the git history and commit every small step, apply to every 
 - Two surfaces: a **website** (bounty explorer, maintainer dashboard) and an optional **Chrome extension** that shows
   bounty badges on GitHub issue lists. The site must not require the extension.
 - Hackathon project (CodeSlayer 2K26, Web3 and Open Innovation tracks), built by a small team.
-- Full pitch and design: [readme.md](readme.md).
+- Full pitch and design: [readme.md](readme.md). A candidate build plan for the points/leaderboard version described
+  in [overview.md](overview.md) lives at [plan.md](plan.md) — not yet confirmed with the whole team, see its
+  "team sync" chunk before treating it as final.
 
 ## What exists today
 
