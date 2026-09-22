@@ -7,8 +7,9 @@
 ## Claude Code specifics
 
 The files above are loaded into every session. Read [`overview.md`](overview.md) first — it's the plain-language
-explanation of what this project actually is, including a still-unresolved disagreement about the product that the
-other docs haven't caught up to. Two rules from `rules.md` matter most and are easy to skip, so here they are again:
+explanation of what this project actually is. The short version: GitBounty is a **points/XP** app. The money and
+escrow design in `readme.md` is a deferred later phase, not what's being built. Two rules from `rules.md` matter
+most and are easy to skip, so here they are again:
 
 1. **First actions of any task: read the git history.** `git log --stat -n 20`, `git log -p -- <path>` for what you
    are touching, and `git status -sb`. Tell the user in a line or two what it showed before you edit anything.
@@ -16,6 +17,8 @@ other docs haven't caught up to. Two rules from `rules.md` matter most and are e
 
 Other Claude-specific notes:
 
-- The backend stack is undecided. Propose options and wait; don't scaffold one.
+- The backend is FastAPI (Python), per the tech stack table in [`plan.md`](plan.md). Anything still open in
+  `agent.md`'s "Undecided" list stays open: propose and wait, don't decide by scaffolding.
 - Never push unless asked. `origin` is a teammate's repository.
-- Anything that moves funds or handles keys and secrets gets flagged in your summary, even if it looks trivial.
+- Nothing moves funds in the points version. Anything handling keys, tokens or secrets still gets flagged in your
+  summary, even if it looks trivial.
