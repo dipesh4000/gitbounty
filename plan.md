@@ -6,8 +6,8 @@ Five features, sized so one person can own one and just ask Claude Code to build
 
 ## Before touching code: 2 things
 
-1. **Aastha tells Dipesh.** GitBounty is now being built as a points/leaderboard app — no bounty money, no crypto
-   wallet. That drops the money version Dipesh has been designing the pitch deck and demo site around. That
+1. **Aastha tells Nishika.** GitBounty is now being built as a points/leaderboard app — no bounty money, no crypto
+   wallet. That drops the money version Nishika has been designing the pitch deck and demo site around. That
    conversation happens before more code gets written on either side.
 2. **Sync the git branches.** Local and `origin` have both moved since they last matched — pull the other side's
    changes in before starting new work.
@@ -54,7 +54,7 @@ The simple version — one recommended choice per piece, not a comparison of alt
 |---|---|---|
 | Backend | FastAPI (Python) | Aastha's strongest language and framework |
 | Auth | GitHub OAuth, via Authlib | Drops straight into FastAPI, no separate auth service needed |
-| Database | Postgres, on Dipesh's Supabase project | Already decided — schema changes are hand-written SQL files in `migrations/`, no ORM auto-migration |
+| Database | Postgres, on Nishika's Supabase project | Already decided — schema changes are hand-written SQL files in `migrations/`, no ORM auto-migration |
 | Frontend | Plain HTML, CSS and JS | Matches the existing demo, no build tooling to learn, fastest to ship for a hackathon |
 | Extension | Chrome Manifest V3, vanilla JS | Matches the sketch in `frontend/extension/README.md`; too small to need a framework |
 | Hosting | Backend on Render or Railway, website on Vercel or Netlify | Backend needs a long-running process, so a plain static host (like GitHub Pages) won't run FastAPI; the website is static, so any of these work |
@@ -63,6 +63,6 @@ The simple version — one recommended choice per piece, not a comparison of alt
 
 1. Backend comes first for Aastha — Auth partly lives inside it, and the Extension's badge needs a real backend
    endpoint to call, so building Backend → Auth → Extension in that order avoids redoing anything.
-2. Dipesh's Frontend can start against placeholder data without waiting on the backend — it gets wired to the real
+2. Nishika's Frontend can start against placeholder data without waiting on the backend — it gets wired to the real
    API once that's up.
 3. Deploy happens as each piece is ready, not all at the end.
