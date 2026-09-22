@@ -9,10 +9,15 @@
   Maintainers attach a dollar amount to any GitHub issue. Contributors merge a fix and get paid straight to their wallet — no invoices, no 20% cut, no five-day wait.
 </p>
 
-<p align="center">
-  📖 New here? Read <a href="overview.md"><strong>overview.md</strong></a> first — the plain-language explanation of
-  what this project actually is, including an open question about the product that this README hasn't caught up to yet.
-</p>
+<blockquote align="center">
+  <strong>⚠️ This README describes a later phase, not what's being built right now.</strong><br/>
+  GitBounty is currently being built as a <strong>points / XP</strong> app: sign in with GitHub, earn points when
+  your PRs are merged, climb the leaderboards. No wallet, no escrow, no crypto. The money design below — bounties,
+  escrow, on-chain payouts — is deferred, and when money does arrive it will most likely be
+  <em>redeeming points</em> rather than the maintainer-funded escrow flow described here.<br/>
+  📖 Start with <a href="overview.md"><strong>overview.md</strong></a>, then
+  <a href="plan.md"><strong>plan.md</strong></a> for the build plan.
+</blockquote>
 
 <p align="center">
   <a href="#-the-problem">Problem</a> ·
