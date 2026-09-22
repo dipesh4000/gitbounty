@@ -48,17 +48,23 @@ Get the backend and the website hosted somewhere real, not just running on a lap
 
 ## Who does what
 
-Simplest split for two people:
+Split by actual preference, not an even 50/50 — **not yet confirmed with the teammate, discuss before starting:**
 
-- **Person A:** Auth + Backend
-- **Person B:** Frontend + Extension
-- **Deploy:** whoever's free once their part works
+- **You:** Auth + Backend + Extension. First time doing GitHub OAuth and first time building a browser extension —
+  that's fine, both are small and well-scoped features, and `frontend/extension/README.md` already sketches what
+  the extension needs to do.
+- **Your teammate:** Frontend, plus owns the Supabase project — your personal Supabase account is over its free
+  limit, and the database was always going to live in their account anyway (see [`migrations/README.md`](migrations/README.md)).
+  You write the migration file; they apply it, and anything else that touches the live Supabase project.
+- **Deploy:** each of you deploys the piece you built — you deploy the backend, your teammate deploys the website.
 
-Frontend and Extension can start being built against placeholder data — they don't have to wait on the backend to start.
+This gives you three smaller features instead of one big one, but Auth is tiny and sits right next to Backend
+anyway, and "owning Supabase" is an ongoing role for your teammate, not a one-off build task — it roughly balances out.
 
 ## Order that actually matters
 
-1. The backend needs to exist before Auth really works (auth partly lives in the backend).
-2. The website and extension need the backend's real endpoints before they show real data — but their look and
-   structure don't have to wait for that.
+1. Backend comes first for you — Auth partly lives inside it, and the Extension's badge needs a real backend
+   endpoint to call, so building Backend → Auth → Extension in that order avoids redoing anything.
+2. Your teammate's Frontend can start against placeholder data without waiting on your backend — wire it to the
+   real API once yours is up.
 3. Deploy happens as each piece is ready, not all at the end.
