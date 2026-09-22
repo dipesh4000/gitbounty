@@ -1,0 +1,68 @@
+"""A stand-in for the GitHub Login feature, which is Nishika's and isn't built yet.
+
+This exists so Merged PR Detection can be built and run now instead of waiting. It is deliberately crude: it reads
+one user out of the environment and calls them logged in. It authenticates nobody.
+
+When the real login lands, `get_current_user` is replaced by the real dependency and this file is deleted. The
+shape returned here is the shape agreed in feature-seams.md, seam 1, so nothing that depends on it has to change.
+
+It is inert unless DEV_GITHUB_LOGIN and DEV_GITHUB_TOKEN are both set, which no deployed build should ever do.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+from fastapi import HTTPException, status
+
+from .config import settings
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CurrentUser:
+    """The logged-in user, as the rest of the app expects to see them.
+
+    `github_id` is the stable identifier -- a person can rename their GitHub account and `github_login` follows
+    them, so anything stored long-term keys off the id.
+    """
+
+    id: int
+    github_id: int
+    github_login: str
+    github_token: str
+
+
+def dev_login_is_enabled() -> bool:
+    return bool(settings.dev_github_login and settings.dev_github_token)
+
+
+def warn_if_dev_login_enabled() -> None:
+    """Say so loudly at startup. A stub that authenticates nobody must never be running unnoticed."""
+    if dev_login_is_enabled():
+        logger.warning(
+            "DEV LOGIN STUB IS ON: every request is treated as GitHub user %r. "
+            "This authenticates nobody and must not be enabled outside local development.",
+            settings.dev_github_login,
+        )
+
+
+def get_current_user() -> CurrentUser:
+    """FastAPI dependency: the logged-in user, or 503 while there is no way to log in."""
+    if not dev_login_is_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "GitHub login isn't built yet. For local development, set DEV_GITHUB_LOGIN and "
+                "DEV_GITHUB_TOKEN in backend/.env (see .env.example)."
+            ),
+        )
+
+    return CurrentUser(
+        id=0,                      # no database yet, so there is no real user row to point at
+        github_id=0,
+        github_login=settings.dev_github_login,
+        github_token=settings.dev_github_token,
+    )
