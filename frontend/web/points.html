@@ -18,7 +18,7 @@
 
 <header class="site-header">
   <div class="wrap app-wrap header-inner">
-    <a class="brand" href="index.html" aria-label="GitBounty home">
+    <a class="brand" href="home.html" aria-label="GitBounty home">
       <img src="assets/logo_mark.svg" alt="" class="brand-mark">
       <span class="brand-name">GitBounty</span>
     </a>
@@ -28,6 +28,9 @@
       <a href="points.html" aria-current="page">Your points</a>
     </nav>
 
+
+    <!-- Filled by app.js: either a sign-in button or who you are. -->
+    <div class="account" id="account-slot"></div>
 
     <button class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
       <span></span><span></span><span></span>
@@ -60,6 +63,14 @@
   </div>
 </main>
 
+<footer class="app-footer">
+  <div class="wrap app-wrap app-footer-inner">
+    <span>GitBounty — built for CodeSlayer 2K26.</span>
+    <span>&copy; <span id="year"></span></span>
+  </div>
+</footer>
+
+<script src="auth-stub.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -106,6 +106,56 @@ class ApiError extends Error {
   }
 }
 
+/* GitHub's own mark, drawn inline so the button needs no image request and follows the text colour. */
+const GITHUB_MARK =
+  "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49"
+  + "-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07"
+  + "-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2"
+  + ".82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82"
+  + " 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0"
+  + " 0 16 8c0-4.42-3.58-8-8-8Z";
+
+function githubIcon() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", GITHUB_MARK);
+  svg.appendChild(path);
+  return svg;
+}
+
+/* One board renderer, shared by the leaderboard page and the landing page's top three. */
+function boardElement(entries) {
+  const board = el("ol", { class: "board" });
+  for (const entry of entries) {
+    const isYou = entry.github_login === window.GITBOUNTY_VIEWER;
+    board.appendChild(
+      el("li", { class: `board-entry${isYou ? " is-you" : ""}` }, [
+        el("span", { class: "entry-rank", text: String(entry.rank) }),
+        el("span", { class: "entry-who" }, [
+          entry.avatar_url
+            ? el("img", { class: "entry-avatar", src: entry.avatar_url, alt: "", loading: "lazy" })
+            : el("span", {
+                class: "entry-avatar is-placeholder",
+                text: (entry.github_login[0] || "?").toUpperCase(),
+                "aria-hidden": "true",
+              }),
+          el("span", { class: "entry-login", text: entry.github_login }),
+          isYou ? el("span", { class: "entry-you-tag", text: "you" }) : null,
+        ]),
+        el("span", { class: "entry-merges", text: plural(entry.merges, "merge") }),
+        el("span", { class: "entry-points" }, [
+          document.createTextNode(String(entry.points)),
+          el("span", { text: "pts" }),
+        ]),
+      ])
+    );
+  }
+  return board;
+}
+
 /* ---------------- shared states ---------------- */
 
 function showSkeleton(root, rows = 5) {
@@ -213,32 +263,7 @@ function initLeaderboard() {
       return;
     }
 
-    const board = el("ol", { class: "board" });
-    for (const entry of entries) {
-      const isYou = entry.github_login === window.GITBOUNTY_VIEWER;
-      board.appendChild(
-        el("li", { class: `board-entry${isYou ? " is-you" : ""}` }, [
-          el("span", { class: "entry-rank", text: String(entry.rank) }),
-          el("span", { class: "entry-who" }, [
-            entry.avatar_url
-              ? el("img", { class: "entry-avatar", src: entry.avatar_url, alt: "", loading: "lazy" })
-              : el("span", {
-                  class: "entry-avatar is-placeholder",
-                  text: (entry.github_login[0] || "?").toUpperCase(),
-                  "aria-hidden": "true",
-                }),
-            el("span", { class: "entry-login", text: entry.github_login }),
-            isYou ? el("span", { class: "entry-you-tag", text: "you" }) : null,
-          ]),
-          el("span", { class: "entry-merges", text: plural(entry.merges, "merge") }),
-          el("span", { class: "entry-points" }, [
-            document.createTextNode(String(entry.points)),
-            el("span", { text: "pts" }),
-          ]),
-        ])
-      );
-    }
-    root.appendChild(board);
+    root.appendChild(boardElement(entries));
   }
 
   async function refresh() {
@@ -263,6 +288,9 @@ function initLeaderboard() {
 /* ---------------- your points page ---------------- */
 
 function initPoints() {
+  /* Behind the "login": without the flag, go to the landing page and press the button. */
+  if (session() && !session().requireSession()) return;
+
   const root = document.getElementById("points-root");
   const syncButton = document.getElementById("sync-button");
   const syncResult = document.getElementById("sync-result");
@@ -408,8 +436,109 @@ function initPoints() {
     }
   }
 
+  root.parentNode.insertBefore(
+    stubNote("Nobody has been authenticated. The backend treats every request as the user in DEV_GITHUB_LOGIN."),
+    root
+  );
+
   syncButton.addEventListener("click", sync);
   load();
+}
+
+/* ---------------- the signed-in header, and the landing page ---------------- */
+
+/* The sign-in here is a stub for Nishika's GitHub Login, which isn't built. See auth-stub.js. */
+function session() {
+  return window.GitBountySession;
+}
+
+function signInButton(big = false) {
+  return el(
+    "button",
+    {
+      class: `btn btn-primary${big ? " btn-lg" : ""}`,
+      type: "button",
+      onclick: () => session().signIn(),
+    },
+    [githubIcon(), document.createTextNode("Sign in with GitHub")]
+  );
+}
+
+function initAccountSlot() {
+  const slot = document.getElementById("account-slot");
+  if (!slot || !session()) return;
+  clear(slot);
+
+  if (!session().isSignedIn()) {
+    slot.appendChild(signInButton());
+    return;
+  }
+
+  /* Identity and sign-out only. Navigation is the nav's job, and having "Your points" in both put the same
+     link on screen twice. */
+  const who = el("span", { class: "account-who" });
+  slot.appendChild(who);
+  slot.appendChild(
+    el("button", { class: "btn btn-outline", type: "button", text: "Sign out", onclick: () => session().signOut() })
+  );
+
+  /* Who you are comes from the API, not from this browser: the backend's stub decides the user, and showing a
+     different name here would be a lie. */
+  api("/api/me")
+    .then((me) => {
+      window.GITBOUNTY_VIEWER = me.github_login;
+      clear(who);
+      who.appendChild(el("b", { text: `@${me.github_login}` }));
+    })
+    .catch(() => clear(who));
+}
+
+/* The on-screen reminder that nobody has actually been authenticated. */
+function stubNote(extra) {
+  return el("div", { class: "stub-note" }, [
+    el("span", {}, [
+      el("strong", { text: "Test login. " }),
+      document.createTextNode(extra),
+    ]),
+  ]);
+}
+
+function initHome() {
+  const actions = document.getElementById("hero-actions");
+  const fineprint = document.getElementById("hero-fineprint");
+  const strip = document.getElementById("cat-strip");
+  const mini = document.getElementById("mini-board");
+
+  const signedIn = session() && session().isSignedIn();
+
+  clear(actions);
+  if (signedIn) {
+    actions.appendChild(el("a", { class: "btn btn-primary btn-lg", href: "points.html", text: "Go to your points" }));
+    actions.appendChild(el("a", { class: "btn btn-outline btn-lg", href: "leaderboard.html", text: "Leaderboard" }));
+    fineprint.textContent = "You're signed in with the test login. Sign out from the header.";
+  } else {
+    actions.appendChild(signInButton(true));
+    actions.appendChild(el("a", { class: "btn btn-outline btn-lg", href: "leaderboard.html", text: "Browse the leaderboard" }));
+    fineprint.textContent =
+      "Test login: one click, no GitHub account needed. Real GitHub sign-in isn't built yet.";
+  }
+
+  clear(strip);
+  for (const category of CATEGORIES) {
+    strip.appendChild(el("a", { class: "pill", href: `leaderboard.html?category=${category}`, text: category }));
+  }
+
+  showSkeleton(mini, 3);
+  api("/api/leaderboard?limit=3")
+    .then((data) => {
+      clear(mini);
+      if (data.entries.length === 0) {
+        showState(mini, "No one on the board yet", "Be the first: sign in and sync your merged pull requests.");
+        return;
+      }
+      mini.appendChild(boardElement(data.entries));
+    })
+    .catch((error) => showApiError(mini, error));
 }
 
 /* ---------------- shared page setup ---------------- */
@@ -433,6 +562,8 @@ function setYear() {
 document.addEventListener("DOMContentLoaded", () => {
   initMobileNav();
   setYear();
+  initAccountSlot();
+  if (document.getElementById("hero-actions")) initHome();
   if (document.getElementById("points-root")) initPoints();
   if (document.getElementById("leaderboard-root")) initLeaderboard();
 });
