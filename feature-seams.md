@@ -35,7 +35,9 @@ Roughly what has to exist — exact column names and types to be settled with Ni
 
 - **users** — our user id, `github_id`, `github_login`, avatar, created-at. Owned by the login feature.
 - **merged_prs** — one row per counted merge: the user it belongs to, the PR's GitHub id, repo full name, PR title
-  and URL, the category, when it was merged, points awarded. Unique on (user, PR id) so a re-sync is idempotent.
+  and URL, the category, when it was merged, the issue it closed (if any), and points awarded. Unique on
+  (user, PR id) so a re-sync is idempotent.
+- **issue_points** — a maintainer-set value for one issue, from the website. See seam 4.
 - **points / leaderboard reads** — whether points live as a column on `users`, or are summed from `merged_prs` on
   read, is an open question. Summing is simpler and can't drift out of sync; a stored total is faster. Aastha will
   propose one once the leaderboard queries are written.
@@ -51,10 +53,38 @@ even while the hosted schema isn't.
 Both sides use categories, so they have to agree on the same list. Nishika's Issue Browsing sorts *open issues* into
 them; Aastha's Merged PR Detection sorts *merged PRs* into them; the per-category leaderboards group by them.
 
-Proposed set, to confirm: `frontend`, `backend`, `fullstack`, `docs`, `other`.
+The list:
+
+`frontend`, `backend`, `fullstack`, `docs`, `testing`, `devops`, `design`, `mobile`, `other`
 
 Stored as a plain lowercase string in one shared place, so neither side can drift. `other` exists so nothing is
-ever uncategorised.
+ever uncategorised — it is an honest "no idea", not a dumping ground.
+
+A note for the issue browser: categorising a *merged PR* is easier than categorising an *open issue*, because a PR
+has changed files to look at and an open issue only has its title, body and labels. Don't expect the same accuracy
+from both sides.
+
+## Seam 4 — Where an issue's points come from
+
+An issue creator sets what their issue is worth in one of two ways (see [`overview.md`](overview.md)):
+
+- **A GitHub label**, such as `gitbounty:40`. Read straight from GitHub. Aastha's side parses it; no database
+  involved, no maintainer signup.
+- **On the GitBounty website**, by a signed-in maintainer. This is a *screen* (Nishika's side, since it needs login
+  and sits with the rest of the site) writing a *stored value* that Aastha's award code reads.
+
+When an issue has both, **the website value wins** — it was set deliberately by someone we authenticated, and it
+can be corrected, whereas a label can be edited by anyone with write access to the repo.
+
+What Aastha's side needs for the stored half:
+
+| What | Shape |
+|---|---|
+| A place to record a maintainer-set value | repo full name, issue number, points, who set it, when |
+| Looked up by | (repo full name, issue number) — the same pair a PR's closed issue gives us |
+
+Until that screen and table exist, only the label path is live, and the award code treats a missing stored value as
+"no override" rather than an error.
 
 ## What Aastha's side provides back
 
