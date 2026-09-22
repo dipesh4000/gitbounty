@@ -46,21 +46,6 @@ login needed for this one.
 Get the backend and the website hosted somewhere real, not just running on a laptop for the demo.
 **Tell Claude Code:** "Deploy the backend and website" once each works locally.
 
-## Who does what
-
-Split by actual preference, not an even 50/50 — **not yet confirmed with the teammate, discuss before starting:**
-
-- **You:** Auth + Backend + Extension. First time doing GitHub OAuth and first time building a browser extension —
-  that's fine, both are small and well-scoped features, and `frontend/extension/README.md` already sketches what
-  the extension needs to do.
-- **Your teammate:** Frontend, plus owns the Supabase project — your personal Supabase account is over its free
-  limit, and the database was always going to live in their account anyway (see [`migrations/README.md`](migrations/README.md)).
-  You write the migration file; they apply it, and anything else that touches the live Supabase project.
-- **Deploy:** each of you deploys the piece you built — you deploy the backend, your teammate deploys the website.
-
-This gives you three smaller features instead of one big one, but Auth is tiny and sits right next to Backend
-anyway, and "owning Supabase" is an ongoing role for your teammate, not a one-off build task — it roughly balances out.
-
 ## Order that actually matters
 
 1. Backend comes first for you — Auth partly lives inside it, and the Extension's badge needs a real backend
