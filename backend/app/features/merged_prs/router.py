@@ -17,6 +17,11 @@ from .service import detect_merges
 router = APIRouter(prefix="/api/me/merged-prs", tags=["merged PRs"])
 
 
+class ClosedIssueResponse(BaseModel):
+    repo_full_name: str
+    number: int
+
+
 class MergedPRResponse(BaseModel):
     github_pr_id: int
     repo_full_name: str
@@ -25,6 +30,11 @@ class MergedPRResponse(BaseModel):
     url: str
     merged_at: datetime
     category: Category
+    closed_issues: list[ClosedIssueResponse]
+    issue_points: int | None
+    """What the issue creator allocated, or null when no closed issue carried a value."""
+    points: int
+    """What this merge earned: the flat per-merge amount plus whatever was allocated."""
 
 
 class DetectionResponse(BaseModel):
@@ -32,6 +42,7 @@ class DetectionResponse(BaseModel):
     merges: list[MergedPRResponse]
     counted: int
     self_merges_skipped: int
+    total_points: int
 
 
 @router.get("", response_model=DetectionResponse)
@@ -74,9 +85,16 @@ async def list_my_merged_prs(
                 url=merge.pr.url,
                 merged_at=merge.pr.merged_at,
                 category=merge.category,
+                closed_issues=[
+                    ClosedIssueResponse(repo_full_name=ref.repo_full_name, number=ref.number)
+                    for ref in merge.closed_issues
+                ],
+                issue_points=merge.issue_points,
+                points=merge.points,
             )
             for merge in result.merges
         ],
         counted=len(result.merges),
         self_merges_skipped=result.self_merges_skipped,
+        total_points=result.total_points,
     )

@@ -12,6 +12,7 @@ from app.features.merged_prs.github import (
     GitHubError,
     GitHubRateLimited,
     fetch_changed_paths,
+    fetch_issue_labels,
     fetch_merged_prs,
 )
 
@@ -28,6 +29,7 @@ def search_item(
     merged_at: str | None = "2026-09-01T10:00:00Z",
     author: str = "aastha-malik",
     labels: list[str] | None = None,
+    body: str = "",
 ) -> dict:
     return {
         "id": pr_id,
@@ -37,6 +39,7 @@ def search_item(
         "repository_url": f"{GITHUB_API}/repos/{repo}",
         "user": {"login": author},
         "labels": [{"name": name} for name in (labels or [])],
+        "body": body,
         "pull_request": {"merged_at": merged_at},
     }
 
@@ -180,3 +183,30 @@ async def test_fetch_changed_paths() -> None:
         paths = await fetch_changed_paths(client, "django/django", 7, FAKE_TOKEN)
 
     assert paths == ["docs/a.md", "django/db/models.py"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_issue_labels() -> None:
+    respx.get(f"{GITHUB_API}/repos/org/project/issues/12").mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "bug"}, {"name": "gitbounty:40"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        labels = await fetch_issue_labels(client, "org/project", 12, FAKE_TOKEN)
+
+    assert labels == ("bug", "gitbounty:40")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_the_pr_body_is_kept_so_closing_references_can_be_read() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [search_item(body="Closes #12")]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        prs = await fetch_merged_prs(client, "aastha-malik", FAKE_TOKEN)
+
+    assert prs[0].body == "Closes #12"
+    assert [(ref.repo_full_name, ref.number) for ref in prs[0].closed_issues] == [("django/django", 12)]

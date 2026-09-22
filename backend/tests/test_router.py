@@ -112,3 +112,29 @@ def test_inspect_files_false_skips_the_file_lookups(client: TestClient, dev_logi
     assert response.status_code == 200
     assert files.call_count == 0
     assert response.json()["merges"][0]["category"] == "frontend"
+
+
+@respx.mock
+def test_the_response_carries_points_and_the_issue_they_came_from(
+    client: TestClient, dev_login: None
+) -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, author=DEV_LOGIN, body="Closes #12"),
+        ]})
+    )
+    respx.get("https://api.github.com/repos/org/a/pulls/1/files").mock(
+        return_value=httpx.Response(200, json=[{"filename": "api/routes.py"}])
+    )
+    respx.get("https://api.github.com/repos/org/a/issues/12").mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:40"}]})
+    )
+
+    body = client.get("/api/me/merged-prs").json()
+
+    assert body["total_points"] == 45
+    merge = body["merges"][0]
+    assert merge["points"] == 45
+    assert merge["issue_points"] == 40
+    assert merge["category"] == "backend"
+    assert merge["closed_issues"] == [{"repo_full_name": "org/a", "number": 12}]

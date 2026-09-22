@@ -99,3 +99,144 @@ async def test_a_user_with_no_merges() -> None:
 
     assert result.merges == []
     assert result.total_found == 0
+
+
+def issue_url(repo: str, number: int) -> str:
+    return f"{GITHUB_API}/repos/{repo}/issues/{number}"
+
+
+@respx.mock
+async def test_points_come_from_the_issue_the_pr_closed() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Closes #12"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    issue = respx.get(issue_url("org/a", 12)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:40"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert issue.called
+    merge = result.merges[0]
+    assert merge.issue_points == 40
+    assert merge.points == 45          # 40 allocated + the flat 5
+    assert [(ref.repo_full_name, ref.number) for ref in merge.closed_issues] == [("org/a", 12)]
+
+
+@respx.mock
+async def test_a_merge_closing_no_marked_issue_earns_the_flat_amount() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [search_item(pr_id=1, repo="org/a", number=1)]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert result.merges[0].issue_points is None
+    assert result.merges[0].points == 5
+
+
+@respx.mock
+async def test_an_issue_with_no_points_label_earns_only_the_flat_amount() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Fixes #3"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    respx.get(issue_url("org/a", 3)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "bug"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert result.merges[0].points == 5
+
+
+@respx.mock
+async def test_a_website_set_value_beats_the_label() -> None:
+    """Seam 4: a signed-in maintainer's value wins, because a label can be edited by anyone with write access."""
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Closes #12"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    label_lookup = respx.get(issue_url("org/a", 12)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:999"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(
+            client, "aastha-malik", FAKE_TOKEN, stored_issue_points={("org/a", 12): 20}
+        )
+
+    assert result.merges[0].issue_points == 20
+    assert label_lookup.call_count == 0  # no need to ask GitHub at all
+
+
+@respx.mock
+async def test_a_pr_closing_several_marked_issues_earns_all_of_them() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Closes #1 and fixes #2"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    respx.get(issue_url("org/a", 1)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:10"}]})
+    )
+    respx.get(issue_url("org/a", 2)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:30"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert result.merges[0].issue_points == 40
+    assert result.merges[0].points == 45
+
+
+@respx.mock
+async def test_an_unreadable_issue_does_not_lose_the_merge() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Closes org/private#5"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    respx.get(issue_url("org/private", 5)).mock(return_value=httpx.Response(404, json={}))
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert len(result.merges) == 1
+    assert result.merges[0].points == 5
+
+
+@respx.mock
+async def test_total_points_adds_up_what_counted() -> None:
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, body="Closes #1"),
+            search_item(pr_id=2, repo="org/b", number=2),
+            search_item(pr_id=3, repo="aastha-malik/toy", number=3, body="Closes #1"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+    respx.get(files_url("org/b", 2)).mock(return_value=httpx.Response(200, json=[]))
+    respx.get(issue_url("org/a", 1)).mock(
+        return_value=httpx.Response(200, json={"labels": [{"name": "gitbounty:20"}]})
+    )
+
+    async with httpx.AsyncClient() as client:
+        result = await detect_merges(client, "aastha-malik", FAKE_TOKEN)
+
+    assert result.total_points == 30       # (20 + 5) for the marked one, 5 for the plain one
+    assert result.self_merges_skipped == 1

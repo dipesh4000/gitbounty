@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
+from .issue_links import IssueReference, find_closed_issues
+
 
 class Category(StrEnum):
     """The shared category vocabulary.
@@ -46,6 +48,7 @@ class MergedPR:
     merged_at: datetime
     author_login: str
     labels: tuple[str, ...] = field(default_factory=tuple)
+    body: str = ""
 
     @property
     def repo_owner(self) -> str:
@@ -59,3 +62,8 @@ class MergedPR:
         this out as the obvious way to fake a score. Comparison is case-insensitive because GitHub logins are.
         """
         return self.repo_owner.casefold() == self.author_login.casefold()
+
+    @property
+    def closed_issues(self) -> list[IssueReference]:
+        """The issues this PR says it closes, which is where its points come from."""
+        return find_closed_issues(f"{self.title}\n{self.body}", self.repo_full_name)

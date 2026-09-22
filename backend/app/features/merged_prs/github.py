@@ -87,6 +87,7 @@ def _parse_item(item: dict) -> MergedPR | None:
         merged_at=datetime.fromisoformat(merged_at.replace("Z", "+00:00")),
         author_login=(item.get("user") or {}).get("login", ""),
         labels=tuple(label["name"] for label in item.get("labels", []) if "name" in label),
+        body=item.get("body") or "",
     )
 
 
@@ -147,3 +148,21 @@ async def fetch_changed_paths(
     )
     _raise_for_status(response)
     return [entry["filename"] for entry in response.json() if "filename" in entry]
+
+
+async def fetch_issue_labels(
+    client: httpx.AsyncClient,
+    repo_full_name: str,
+    number: int,
+    token: str,
+) -> tuple[str, ...]:
+    """The labels on one issue, which is where a creator's points value is read from.
+
+    One request per issue, against the ordinary 5000-per-hour limit.
+    """
+    response = await client.get(
+        f"{GITHUB_API}/repos/{repo_full_name}/issues/{number}",
+        headers=_headers(token),
+    )
+    _raise_for_status(response)
+    return tuple(label["name"] for label in response.json().get("labels", []) if "name" in label)
