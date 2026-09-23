@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from .auth import router as auth_router
 from .config import get_settings
 from .db import close_pool, fetch_one, open_pool
 
@@ -59,6 +60,8 @@ def create_app() -> FastAPI:
         except Exception as exc:  # surfaced, not swallowed
             database = f"error: {exc.__class__.__name__}"
         return {"status": "ok", "database": database}
+
+    app.include_router(auth_router)
 
     return app
 
