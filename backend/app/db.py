@@ -58,3 +58,17 @@ async def fetch_one(sql: str, params: tuple | dict | None = None) -> dict | None
 async def execute(sql: str, params: tuple | dict | None = None) -> None:
     async with get_pool().connection() as conn:
         await conn.execute(sql, params)
+
+
+async def execute_many(sql: str, rows: list[tuple]) -> int:
+    """Run one statement over many parameter sets on a single connection.
+
+    Used by the issue sync. Taking a connection per row meant a network
+    round-trip each time, which is slow when the database is a region away.
+    """
+    if not rows:
+        return 0
+    async with get_pool().connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.executemany(sql, rows)
+    return len(rows)
