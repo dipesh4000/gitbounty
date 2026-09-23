@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets — never commit a real .env (rules.md section 5)
+.env
+*.env
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

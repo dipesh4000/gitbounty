@@ -1,0 +1,20 @@
+# Web framework and server. FastAPI is the proposal in plan.md.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Async HTTP client, used for every call to the GitHub API.
+httpx==0.28.1
+
+# Postgres driver and connection pool. No ORM: migrations/ is the schema record
+# (rules.md section 4), so queries are plain SQL.
+psycopg[binary]==3.2.3
+psycopg-pool==3.2.4
+
+# Required by Starlette's SessionMiddleware to sign the session cookie.
+itsdangerous==2.2.0
+
+# Fernet, used to encrypt GitHub access tokens before they reach the database.
+cryptography==44.0.0
+
+# Loads backend/.env during local development.
+python-dotenv==1.0.1
