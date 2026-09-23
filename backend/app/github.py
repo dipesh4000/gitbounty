@@ -7,6 +7,7 @@ accident.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
@@ -22,6 +23,30 @@ _TIMEOUT = httpx.Timeout(15.0)
 
 class GitHubError(RuntimeError):
     """A GitHub request failed. The message is safe to log, not to show a user."""
+
+
+class RateLimited(GitHubError):
+    """GitHub refused the call for rate limiting. `retry_after` is in seconds."""
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(f"rate limited, retry in {retry_after}s")
+        self.retry_after = retry_after
+
+
+def _retry_after_seconds(response: httpx.Response) -> int:
+    """How long GitHub says to wait, from whichever header it used."""
+    if (header := response.headers.get("retry-after")):
+        try:
+            return max(1, int(header))
+        except ValueError:
+            pass
+    reset = response.headers.get("x-ratelimit-reset")
+    if reset:
+        try:
+            return max(1, int(float(reset) - time.time()) + 1)
+        except ValueError:
+            pass
+    return 60
 
 
 def _headers(token: str | None = None) -> dict[str, str]:
@@ -88,8 +113,8 @@ async def search_issues(token: str, query: str, per_page: int = 50, page: int = 
                 "order": "desc",
             },
         )
-    if response.status_code == 403:
-        raise GitHubError("search rate limit reached; wait a minute and retry")
+    if response.status_code in (403, 429):
+        raise RateLimited(_retry_after_seconds(response))
     if response.status_code != 200:
         raise GitHubError(f"issue search returned {response.status_code}")
     return response.json().get("items", [])
