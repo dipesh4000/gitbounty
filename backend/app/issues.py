@@ -239,6 +239,7 @@ async def browse_issues(
     category: str | None = Query(default=None, description="frontend, backend, fullstack or docs"),
     language: str | None = Query(default=None),
     q: str | None = Query(default=None, description="search the issue title"),
+    sort: str = Query(default="updated", description="updated or stars"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=25, ge=1, le=100),
 ) -> dict:
@@ -247,11 +248,18 @@ async def browse_issues(
         raise HTTPException(
             status_code=400, detail=f"category must be one of {', '.join(CATEGORIES)}"
         )
+    # Whitelisted, because this goes into an order-by clause.
+    order_by = {
+        "updated": "i.issue_updated_at desc nulls last",
+        "stars": "r.stargazers_count desc, i.issue_updated_at desc",
+    }.get(sort)
+    if order_by is None:
+        raise HTTPException(status_code=400, detail="sort must be updated or stars")
 
     # Fetch one extra row to find out whether another page exists, without
     # paying for a second count query.
     rows = await fetch_all(
-        """
+        f"""
         select
             i.id, i.number, i.title, i.html_url, i.category, i.language,
             i.labels, i.comments_count, i.issue_created_at, i.issue_updated_at,
@@ -264,7 +272,7 @@ async def browse_issues(
           and (%(category)s::text is null or i.category = %(category)s)
           and (%(language)s::text is null or lower(i.language) = lower(%(language)s))
           and (%(q)s::text is null or i.title ilike '%%' || %(q)s || '%%')
-        order by i.issue_updated_at desc nulls last
+        order by {order_by}
         limit %(limit)s offset %(offset)s
         """,
         {
@@ -281,6 +289,7 @@ async def browse_issues(
         "items": rows[:per_page],
         "page": page,
         "per_page": per_page,
+        "sort": sort,
         "has_more": has_more,
     }
 
