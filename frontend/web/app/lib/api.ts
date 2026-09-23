@@ -1,63 +1,82 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
+export const API_BASE = (process.env.NEXT_PUBLIC_GITBOUNTY_API || "http://localhost:8001").replace(/\/+$/, "");
+
+export type Issue = {
+  id: number;
+  number: number;
+  title: string;
+  html_url: string;
+  category: string;
+  language: string | null;
+  labels: string[];
+  comments_count: number;
+  issue_created_at: string | null;
+  issue_updated_at: string | null;
+  repository: string;
+  repository_description: string | null;
+  stars: number;
+};
+
+export type IssueList = {
+  items: Issue[];
+  page: number;
+  per_page: number;
+  sort: "updated" | "stars";
+  has_more: boolean;
+};
+
+export type CategoryCounts = {
+  frontend: number;
+  backend: number;
+  fullstack: number;
+  docs: number;
+};
+
+export type User = {
+  id: number;
+  github_id: number;
+  github_login: string;
+  name: string | null;
+  avatar_url: string | null;
+};
 
 export class ApiError extends Error {
-  status: number | null;
-  unreachable: boolean;
+  status: number;
 
-  constructor(message: string, options: { status?: number; unreachable?: boolean } = {}) {
+  constructor(message: string, status: number) {
     super(message);
     this.name = "ApiError";
-    this.status = options.status ?? null;
-    this.unreachable = options.unreachable ?? false;
+    this.status = status;
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: { Accept: "application/json", ...init?.headers },
-    });
-  } catch {
-    throw new ApiError("Can't reach the GitBounty API.", { unreachable: true });
-  }
-
+export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
   if (!response.ok) {
-    let detail = `The API returned ${response.status}.`;
+    let message = `Request failed (${response.status})`;
     try {
-      const body = (await response.json()) as { detail?: unknown };
-      if (typeof body.detail === "string") detail = body.detail;
+      const body = await response.json() as { detail?: unknown };
+      if (typeof body.detail === "string") message = body.detail;
     } catch {
-      // A non-JSON error still has the useful status message above.
+      // The status message still describes a non-JSON response.
     }
-    throw new ApiError(detail, { status: response.status });
+    throw new ApiError(message, response.status);
   }
-
   return response.json() as Promise<T>;
 }
 
-export function apiGet<T>(path: string) {
-  return request<T>(path);
+export function formatStars(value: number) {
+  return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k` : String(value ?? 0);
 }
 
-export function apiPost<T>(path: string) {
-  return request<T>(path, { method: "POST" });
-}
-
-export function apiErrorMessage(error: unknown) {
-  if (error instanceof ApiError && error.unreachable) {
-    return {
-      title: "Can't reach the API",
-      message: `Nothing is answering at ${API_BASE}. Start the backend and reload.`,
-      detail: "cd backend && .venv/bin/uvicorn app.main:app --reload",
-    };
+export function timeAgo(iso: string | null) {
+  if (!iso) return "";
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const units: Array<[string, number]> = [
+    ["y", 31536000], ["mo", 2592000], ["d", 86400], ["h", 3600], ["m", 60],
+  ];
+  for (const [suffix, size] of units) {
+    const amount = Math.floor(seconds / size);
+    if (amount >= 1) return `${amount}${suffix} ago`;
   }
-  return {
-    title: "Something went wrong",
-    message: error instanceof Error ? error.message : "An unexpected error occurred.",
-    detail: null,
-  };
+  return "just now";
 }
-
-export { API_BASE };
