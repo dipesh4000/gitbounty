@@ -55,7 +55,7 @@ The simple version — one recommended choice per piece, not a comparison of alt
 | Backend | FastAPI (Python) | Aastha's strongest language and framework |
 | Auth | GitHub OAuth, via Authlib | Drops straight into FastAPI, no separate auth service needed |
 | Database | Postgres, on Nishika's Supabase project | Already decided — schema changes are hand-written SQL files in `migrations/`, no ORM auto-migration |
-| Frontend | Next.js (React, TypeScript) | Changed from plain HTML/CSS/JS by Aastha. The landing page is ported in `frontend/web-next`; the rest of the site has not moved yet. **Nishika has not been told** — her Issue Browsing page is affected |
+| Frontend | Next.js (React, TypeScript) | The landing page, leaderboard and personal points history now live in `frontend/web`. **Nishika has not been told** about the stack change — her Issue Browsing page is affected |
 | Extension | Chrome Manifest V3, vanilla JS | Matches the sketch in `frontend/extension/README.md`; too small to need a framework |
 | Hosting | Backend on Render or Railway, website on Vercel or Netlify | Backend needs a long-running process, so a plain static host (like GitHub Pages) won't run FastAPI; the website is static, so any of these work |
 

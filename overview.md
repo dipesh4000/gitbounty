@@ -110,13 +110,10 @@ gitbounty/
 └── CLAUDE.md / AGENTS.md   short files that just tell specific tools ("Claude Code", "Codex") to go read agent.md and rules.md
 ```
 
-- **`frontend/web/`** — This is a working demo, built first, before any backend existed, just to nail down what the
-  site should look and feel like. It's a normal website (an HTML file, a CSS file for styling, a JS file for
-  behaviour) with made-up sample bounties typed directly into the code. Nothing on it is real yet: search and
-  filters work, but there's no server behind it and no real data. (It follows the operating system's light or dark
-  setting; there is no theme switcher, despite what earlier notes claimed.) **Treat it as a mockup,
-  not as a foundation to build the real product on top of** — it was made to answer "how should this feel", not
-  "how should this be built".
+- **`frontend/web/`** — The Next.js website. It has the points-product landing page, the filterable leaderboard,
+  and a personal points history with sync feedback. It calls the FastAPI endpoints but still uses a clearly
+  labelled browser-only test session because real GitHub OAuth is not built. The Graphite Lime identity and
+  responsive behavior from the original static prototype are preserved.
 
 - **`frontend/extension/`** — Empty except for a README explaining what a browser extension even is (it's more than
   a small website — it has to inject itself into GitHub's own pages, which is a different kind of programming). Not
@@ -143,9 +140,9 @@ gitbounty/
 
 ## What's actually built right now
 
-Only one thing is real: the website demo mockup in `frontend/web/`. Everything else described above — the real
-backend, the database tables, the extension, the escrow contract, the login flow, the points system — is design and
-conversation, not code.
+The Next.js website, FastAPI points endpoints, merged-PR sync logic and database migrations exist. Real GitHub OAuth,
+the issue browser, the extension and every money/escrow feature are still unfinished or deferred; the website's test
+login is not authentication.
 
 ## A note on where this repo stands with the teammate's copy
 

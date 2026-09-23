@@ -24,28 +24,28 @@ The first two, read the git history and commit every small step, apply to every 
 
 ## What exists today
 
-Only the static website demo. Everything else is planned.
+The points API and the Next.js website are implemented; GitHub OAuth and the issue browser remain planned.
 
 | Area | Folder | State |
 |---|---|---|
-| Website | `frontend/web/` | Demo: plain HTML/CSS/JS with sample data, no API calls |
+| Website | `frontend/web/` | Next.js app: landing page, leaderboard and personal points history |
 | Extension | `frontend/extension/` | Not started |
-| Backend | `backend/` | Not started. Stack chosen: FastAPI (Python) |
-| Database | `migrations/` | Postgres on a teammate's Supabase. No migrations written yet |
+| Backend | `backend/` | FastAPI points, leaderboard and development identity endpoints |
+| Database | `migrations/` | Hand-written Postgres migrations for the points data |
 | Escrow contract | `contracts/` | Deferred with the money version. Don't build it |
 
 Do not describe planned things as if they work. Check the code before claiming a feature exists.
 
-## The website demo, as it is now
+## The website, as it is now
 
-- `frontend/web/index.html` has these sections, each with an `id` used by the nav: `top` (hero), `bounties`,
-  `how-it-works`, `why`, `audience`, `security`, `pricing`, plus a facts strip, a CTA band and the footer.
-- `frontend/web/script.js` holds the behaviour. Places where the real backend plugs in:
-  - the `BOUNTIES` array at the top is sample data. Replace it with an API call.
-  - `AUTH_URL` inside `initCTAButtons()` is `"#"`. Point it at the GitHub login endpoint.
-- The bounty board (search, label pills, sort) works client-side over `BOUNTIES`.
-- There is no theme switcher and no `localStorage`. Light mode comes from a single
-  `@media (prefers-color-scheme: light)` block that redefines the variables, so it follows the operating system.
+- `frontend/web/app/page.tsx` is the landing route; `/leaderboard` and `/points` are separate App Router pages.
+- Client components call the FastAPI points endpoints through `app/lib/api.ts`.
+- GitHub sign-in is still an explicitly labelled browser-only test session. It authenticates nobody and must be
+  replaced by Nishika's OAuth work.
+- Leaderboard filters, loading/error/empty states, sync feedback, category totals and recent merges are implemented.
+- There is no theme switcher. Light mode comes from a single `@media (prefers-color-scheme: light)` block that
+  redefines the variables, so it follows the operating system. `localStorage` is used only for the labelled test
+  login flag.
 - `frontend/web/styles.css` defines colours, fonts and spacing as CSS variables in `:root`: the "Graphite Lime"
   palette, a near-black background with a lime accent (`--accent: #C5F53A`), Space Grotesk / Inter / JetBrains
   Mono. Use the variables and don't hard-code colours.
@@ -69,7 +69,7 @@ For the points version. Not a fixed schema — the schema itself is Nishika's fe
 ## Decided
 
 - Backend: FastAPI (Python). Auth: GitHub OAuth via Authlib. Database: Postgres on Nishika's Supabase.
-- Website: stays plain HTML/CSS/JS. Extension: Chrome Manifest V3, vanilla JS.
+- Website: Next.js with React and TypeScript. Extension: Chrome Manifest V3, vanilla JS.
 - See the tech stack table in [plan.md](plan.md).
 
 ## Undecided (ask, don't assume)
