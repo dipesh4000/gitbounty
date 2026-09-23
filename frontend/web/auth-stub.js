@@ -18,7 +18,7 @@
 
 (function () {
   const SESSION_KEY = "gitbounty-dev-session";
-  const HOME = "home.html";
+  const HOME = "index.html";
   const AFTER_SIGN_IN = "points.html";
 
   /* localStorage throws in a private window or with site data blocked, and the site should still work, so
