@@ -15,6 +15,28 @@ and are the only record of what the database looks like (see [`../rules.md`](../
 Points and leaderboards, merged-pull-request detection, the escrow contract and anything that
 moves funds. See [`../overview.md`](../overview.md) for the build order.
 
+## Layout
+
+```
+app/
+├── main.py            assembly only — settings, middleware, router
+├── config.py          environment, read once, fails loudly on a missing value
+├── models.py          Pydantic response shapes + the column lists SQL selects
+├── dependencies.py    current_user, current_user_token
+├── db.py              connection pool and query helpers
+├── crypto.py          token encryption
+├── github.py          GitHub API client
+├── categories.py      how an issue gets its category
+├── routes/            one file per area: meta, auth, issues
+└── services/          logic that is not a route — issue_sync
+```
+
+`models.py` holds Pydantic models, **not** ORM models. `../migrations/` is the
+record of the schema (`rules.md` section 4) and nothing in the app reflects or
+alters a table. Declaring response models means FastAPI drops any field a model
+does not list, which is what keeps the encrypted token out of API responses —
+`UserPublic` simply has no such field.
+
 ## Running it
 
 ```bash
