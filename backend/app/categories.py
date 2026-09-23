@@ -22,12 +22,23 @@ BACKEND_LANGUAGES = frozenset(
 # Lower-cased label names that mean "this is a documentation task".
 DOC_LABELS = frozenset({"documentation", "docs", "doc", "good first doc"})
 
+# Labels that state the area outright. A maintainer tagging an issue "backend"
+# knows more than the repository's headline language does — a JavaScript repo
+# still has backend issues.
+FRONTEND_LABELS = frozenset({"frontend", "front-end", "ui", "ux", "css", "styling", "design"})
+BACKEND_LABELS = frozenset({"backend", "back-end", "api", "server", "database", "db"})
+
 
 def classify(language: str | None, labels: list[str] | None = None) -> str:
     """Return one of CATEGORIES for an issue."""
     names = {label.lower() for label in (labels or [])}
     if names & DOC_LABELS:
         return "docs"
+    # An explicit area label outranks the repository's language.
+    if names & BACKEND_LABELS:
+        return "backend"
+    if names & FRONTEND_LABELS:
+        return "frontend"
 
     lang = (language or "").lower()
     if lang in FRONTEND_LANGUAGES:
