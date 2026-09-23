@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -23,17 +24,36 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600"],
 });
 
-export const metadata: Metadata = {
-  title: "GitBounty",
-  description:
-    "Maintainers attach a bounty to any GitHub issue. Contributors merge a fix and get paid straight to their wallet.",
-  icons: { icon: "/assets/logo_mark.svg" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const baseUrl = new URL(`${protocol}://${host}`);
+  const title = "GitBounty — Code that ships should count";
+  const description = "Open-source work, made visible through verified merges and points with provenance.";
+
+  return {
+    metadataBase: baseUrl,
+    title,
+    description: "Discover open-source issues matched to your skills, ship through GitHub, and build a visible contribution record from merged work.",
+    icons: { icon: "/assets/logo_mark.svg" },
+    openGraph: { title, description, type: "website", images: [new URL("/og.png", baseUrl)] },
+    twitter: { card: "summary_large_image", title, description, images: [new URL("/og.png", baseUrl)] },
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <span
+          hidden
+          dangerouslySetInnerHTML={{
+            __html: "<!-- open-source-ledger / pinned-brief / unreviewed-and-undocumented-is-unfinished -->",
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
