@@ -1,0 +1,21 @@
+@import "../styles.css";
+@import "../app.css";
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+html {
+  scrollbar-color: var(--border) var(--bg);
+}
+
+button,
+input,
+select {
+  caret-color: var(--accent);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}

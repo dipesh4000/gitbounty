@@ -18,9 +18,9 @@
   --accent-line:   rgba(20,26,10,.3);
   --accent-line-soft: rgba(20,26,10,.18);
 
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body:    'Inter', sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-body:    var(--font-inter), sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), monospace;
 
   --radius-sm: 4px;
   --radius-md: 8px;
