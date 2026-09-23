@@ -16,6 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .auth import router as auth_router
 from .config import get_settings
 from .db import close_pool, fetch_one, open_pool
+from .issues import router as issues_router
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "database": database}
 
     app.include_router(auth_router)
+    app.include_router(issues_router)
 
     return app
 
