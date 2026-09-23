@@ -26,7 +26,7 @@ People sign in with GitHub, browse categorized issues, complete work through Git
 ## Capabilities and Constraints
 
 - Current frontend behavior is demonstrated with local sample data and an authentication stub; planned backend behavior must not be described as live.
-- The website includes a landing page, leaderboard, and personal points history.
+- The current website is the exact single-page landing design with an API-backed issue board.
 - GitHub OAuth, persisted users, merged-PR synchronization, and real issue data belong to later backend integration.
 - The backend stack is FastAPI with Postgres, but this frontend rebuild must not invent API contracts.
 - No wallet, blockchain, escrow, webhook, or funds-moving behavior belongs to the points version.
@@ -41,8 +41,7 @@ People sign in with GitHub, browse categorized issues, complete work through Git
 ## Evidence on Hand
 
 - `overview.md`, `agent.md`, `plan.md`, and `feature-split.md` define the current points product and ownership boundaries.
-- `frontend/web/` contains the working static reference implementation and sample interactions.
-- `frontend/web/demo.html` preserves the deferred money-era marketing demo and is not the current product specification.
+- The vanilla HTML, CSS, and JavaScript page on the teammate branch is the visual and interaction specification for `frontend/web/`.
 - There are no production usage metrics, customer claims, or testimonials to present as evidence.
 
 ## Product Principles

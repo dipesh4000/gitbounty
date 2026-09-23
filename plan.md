@@ -30,11 +30,8 @@ Two things worth saying up front, so it gets built right the first time:
 - Don't award points for a PR someone merged into their own repo — that's the easy way to fake points.
 
 ### 3. Frontend — the website
-The actual site: a login button, a page to browse open issues by category, a personal page showing points, and a
-leaderboard.
-**Tell Claude Code:** "Build the website: login, browse issues by category, my points page, leaderboard." The
-colours and fonts from the current demo ([`frontend/web/styles.css`](frontend/web/styles.css)) can be reused — the
-layout and copy should be new, since the whole point of the app changed.
+The current site is an exact Next.js port of the original landing page, including GitHub login controls and an
+API-backed issue browser with category filters. Personal points and leaderboards remain later product work.
 
 ### 4. Extension — the Chrome badge
 A small badge on GitHub's own issue pages, so people don't need to visit the website to see what's worth points. No
@@ -55,7 +52,7 @@ The simple version — one recommended choice per piece, not a comparison of alt
 | Backend | FastAPI (Python) | Aastha's strongest language and framework |
 | Auth | GitHub OAuth, via Authlib | Drops straight into FastAPI, no separate auth service needed |
 | Database | Postgres, on Nishika's Supabase project | Already decided — schema changes are hand-written SQL files in `migrations/`, no ORM auto-migration |
-| Frontend | Next.js (React, TypeScript) | The landing page, leaderboard and personal points history now live in `frontend/web`. **Nishika has not been told** about the stack change — her Issue Browsing page is affected |
+| Frontend | Next.js (React, TypeScript) | The exact landing-page port and issue browser live in `frontend/web`. Personal points and leaderboards are not current routes |
 | Extension | Chrome Manifest V3, vanilla JS | Matches the sketch in `frontend/extension/README.md`; too small to need a framework |
 | Hosting | Backend on Render or Railway, website on Vercel or Netlify | Backend needs a long-running process, so a plain static host (like GitHub Pages) won't run FastAPI; the website is static, so any of these work |
 

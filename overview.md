@@ -110,10 +110,9 @@ gitbounty/
 └── CLAUDE.md / AGENTS.md   short files that just tell specific tools ("Claude Code", "Codex") to go read agent.md and rules.md
 ```
 
-- **`frontend/web/`** — The Next.js website. It has the points-product landing page, the filterable leaderboard,
-  and a personal points history with sync feedback. It calls the FastAPI endpoints but still uses a clearly
-  labelled browser-only test session because real GitHub OAuth is not built. The Graphite Lime identity and
-  responsive behavior from the original static prototype are preserved.
+- **`frontend/web/`** — The original single-page landing site ported exactly to Next.js. Its live issue board calls
+  the FastAPI issue endpoints and its sign-in controls use the GitHub OAuth endpoints. The Graphite Lime identity,
+  copy, responsive behavior, interactions, stylesheet values, and image assets are preserved from the vanilla page.
 
 - **`frontend/extension/`** — Empty except for a README explaining what a browser extension even is (it's more than
   a small website — it has to inject itself into GitHub's own pages, which is a different kind of programming). Not
@@ -140,9 +139,8 @@ gitbounty/
 
 ## What's actually built right now
 
-The Next.js website, FastAPI points endpoints, merged-PR sync logic and database migrations exist. Real GitHub OAuth,
-the issue browser, the extension and every money/escrow feature are still unfinished or deferred; the website's test
-login is not authentication.
+The Next.js landing page, its API-backed issue-browser client, FastAPI points endpoints, merged-PR sync logic, and
+database migrations exist. The extension and every money/escrow implementation remain unfinished or deferred.
 
 ## A note on where this repo stands with the teammate's copy
 

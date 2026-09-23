@@ -24,11 +24,11 @@ The first two, read the git history and commit every small step, apply to every 
 
 ## What exists today
 
-The points API and the Next.js website are implemented; GitHub OAuth and the issue browser remain planned.
+The points API exists. The website is an exact Next.js port of the original landing page and its API-backed issue browser.
 
 | Area | Folder | State |
 |---|---|---|
-| Website | `frontend/web/` | Next.js app: landing page, leaderboard and personal points history |
+| Website | `frontend/web/` | Next.js app: single-page landing site and API-backed issue browser |
 | Extension | `frontend/extension/` | Not started |
 | Backend | `backend/` | FastAPI points, leaderboard and development identity endpoints |
 | Database | `migrations/` | Hand-written Postgres migrations for the points data |
@@ -38,15 +38,13 @@ Do not describe planned things as if they work. Check the code before claiming a
 
 ## The website, as it is now
 
-- `frontend/web/app/page.tsx` is the landing route; `/leaderboard` and `/points` are separate App Router pages.
-- Client components call the FastAPI points endpoints through `app/lib/api.ts`.
-- GitHub sign-in is still an explicitly labelled browser-only test session. It authenticates nobody and must be
-  replaced by Nishika's OAuth work.
-- Leaderboard filters, loading/error/empty states, sync feedback, category totals and recent merges are implemented.
+- `frontend/web/app/page.tsx` is the single landing route.
+- Client components call the FastAPI issue and GitHub OAuth endpoints through `app/lib/api.ts`.
+- The issue board includes category filters, server-side search, sorting, pagination, and loading/error/empty states.
 - There is no theme switcher. Light mode comes from a single `@media (prefers-color-scheme: light)` block that
   redefines the variables, so it follows the operating system. `localStorage` is used only for the labelled test
   login flag.
-- `frontend/web/styles.css` defines colours, fonts and spacing as CSS variables in `:root`: the "Graphite Lime"
+- `frontend/web/app/globals.css` defines colours, fonts and spacing as CSS variables in `:root`: the "Graphite Lime"
   palette, a near-black background with a lime accent (`--accent: #C5F53A`), Space Grotesk / Inter / JetBrains
   Mono. Use the variables and don't hard-code colours.
 
