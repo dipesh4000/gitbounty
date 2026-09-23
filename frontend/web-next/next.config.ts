@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
      Opening the site on 127.0.0.1 (or over the network) without this leaves the page rendered but never
      hydrated: it looks right and nothing works. Development only; it has no effect on a production build. */
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+
+  /* Hide Next's floating development badge. It only ever appears in `next dev`, never in a build, but it sits
+     on top of the page and is the one thing that makes the development view differ from the deployed design. */
+  devIndicators: false,
 };
 
 export default nextConfig;
