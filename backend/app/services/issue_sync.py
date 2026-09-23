@@ -1,13 +1,12 @@
-"""Browsing open GitHub issues.
+"""Refreshing the issue board from GitHub.
 
-Two halves:
+This is the only thing in the backend that talks to GitHub's search API. The
+board itself reads Postgres, because search allows roughly 30 requests a minute
+and a live call per page load would rate-limit the site as soon as two people
+opened it at once.
 
-  POST /api/issues/sync  — pulls fresh issues from GitHub into our tables
-  GET  /api/issues       — what the website reads, straight from our tables
-
-The split matters. GitHub's search API allows roughly 30 requests per minute, so
-calling it on a page load would rate-limit the site the moment more than a couple
-of people opened the board. Everything the browser sees comes from Postgres.
+run_sync takes a token and an actor name rather than reading the session, so a
+scheduled job can keep the board fresh with nobody signed in.
 """
 
 from __future__ import annotations
@@ -15,14 +14,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-
-from . import github
-from .auth import current_user, current_user_token
-from .categories import CATEGORIES, classify, sync_queries
-from .db import execute_many, fetch_all, fetch_one
-
-router = APIRouter()
+from .. import github
+from ..categories import classify, sync_queries
+from ..db import execute_many, fetch_all, fetch_one
 
 # How many previously unseen repositories one sync will look up. Each one is a
 # separate GitHub call, so this caps how long a sync runs and how much of the
@@ -223,87 +217,3 @@ async def run_sync(token: str, actor: str) -> dict:
         "repositories_known": len(repos),
         "errors": errors,
     }
-
-
-@router.post("/api/issues/sync", tags=["issues"])
-async def sync_issues(
-    user: dict = Depends(current_user),
-    token: str = Depends(current_user_token),
-) -> dict:
-    """Refresh the board, running as the signed-in user's own rate limit."""
-    return await run_sync(token, user["github_login"])
-
-
-@router.get("/api/issues", tags=["issues"])
-async def browse_issues(
-    category: str | None = Query(default=None, description="frontend, backend, fullstack or docs"),
-    language: str | None = Query(default=None),
-    q: str | None = Query(default=None, description="search the issue title"),
-    sort: str = Query(default="updated", description="updated or stars"),
-    page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=25, ge=1, le=100),
-) -> dict:
-    """The issue board. Reads our own tables, never GitHub."""
-    if category is not None and category not in CATEGORIES:
-        raise HTTPException(
-            status_code=400, detail=f"category must be one of {', '.join(CATEGORIES)}"
-        )
-    # Whitelisted, because this goes into an order-by clause.
-    order_by = {
-        "updated": "i.issue_updated_at desc nulls last",
-        "stars": "r.stargazers_count desc, i.issue_updated_at desc",
-    }.get(sort)
-    if order_by is None:
-        raise HTTPException(status_code=400, detail="sort must be updated or stars")
-
-    # Fetch one extra row to find out whether another page exists, without
-    # paying for a second count query.
-    rows = await fetch_all(
-        f"""
-        select
-            i.id, i.number, i.title, i.html_url, i.category, i.language,
-            i.labels, i.comments_count, i.issue_created_at, i.issue_updated_at,
-            r.full_name        as repository,
-            r.description      as repository_description,
-            r.stargazers_count as stars
-        from issues i
-        join repositories r on r.id = i.repository_id
-        where i.state = 'open'
-          and (%(category)s::text is null or i.category = %(category)s)
-          and (%(language)s::text is null or lower(i.language) = lower(%(language)s))
-          and (%(q)s::text is null or i.title ilike '%%' || %(q)s || '%%')
-        order by {order_by}
-        limit %(limit)s offset %(offset)s
-        """,
-        {
-            "category": category,
-            "language": language,
-            "q": q,
-            "limit": per_page + 1,
-            "offset": (page - 1) * per_page,
-        },
-    )
-
-    has_more = len(rows) > per_page
-    return {
-        "items": rows[:per_page],
-        "page": page,
-        "per_page": per_page,
-        "sort": sort,
-        "has_more": has_more,
-    }
-
-
-@router.get("/api/issues/categories", tags=["issues"])
-async def category_counts() -> dict:
-    """How many open issues sit in each category. Drives the filter chips."""
-    rows = await fetch_all(
-        """
-        select category, count(*) as count
-        from issues
-        where state = 'open'
-        group by category
-        """
-    )
-    counts = {row["category"]: row["count"] for row in rows}
-    return {category: counts.get(category, 0) for category in CATEGORIES}

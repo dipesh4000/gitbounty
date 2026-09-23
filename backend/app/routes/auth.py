@@ -7,42 +7,36 @@ The flow, end to end:
   3. GitHub sends the user back to GET /auth/github/callback with a code
   4. We check `state` matches, swap the code for a token, read the profile,
      store the user, and put only their row id in the session cookie
-  5. The user lands back on the site, logged in
+  5. The user lands back on the site, signed in
 
-The access token is encrypted before it is stored and is never returned by the
-API.
+The access token is encrypted before it is stored, and UserPublic does not
+declare it, so it cannot leave through this API.
 """
 
 from __future__ import annotations
 
 import secrets
-from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from . import github
-from .config import GITHUB_OAUTH_AUTHORIZE_URL, GITHUB_OAUTH_SCOPE, get_settings
-from .crypto import decrypt, encrypt
-from .db import fetch_one
+from .. import github
+from ..config import GITHUB_OAUTH_AUTHORIZE_URL, GITHUB_OAUTH_SCOPE, get_settings
+from ..crypto import encrypt
+from ..db import fetch_one
+from ..dependencies import SESSION_STATE_KEY, SESSION_USER_KEY, current_user
+from ..models import USER_PUBLIC_COLUMNS, Message, UserPublic
 
-router = APIRouter()
-
-_STATE_KEY = "oauth_state"
-_USER_KEY = "user_id"
-
-# The columns that are safe to send to a browser. The token column is not here
-# and must never be added to it.
-_PUBLIC_USER_COLUMNS = "id, github_id, github_login, name, avatar_url, created_at, last_login_at"
+router = APIRouter(tags=["auth"])
 
 
-@router.get("/auth/github", tags=["auth"])
+@router.get("/auth/github")
 async def github_login(request: Request) -> RedirectResponse:
     """Start the OAuth flow."""
     settings = get_settings()
     state = secrets.token_urlsafe(32)
-    request.session[_STATE_KEY] = state
+    request.session[SESSION_STATE_KEY] = state
 
     query = urlencode(
         {
@@ -55,14 +49,14 @@ async def github_login(request: Request) -> RedirectResponse:
     return RedirectResponse(f"{GITHUB_OAUTH_AUTHORIZE_URL}?{query}", status_code=302)
 
 
-@router.get("/auth/github/callback", tags=["auth"])
+@router.get("/auth/github/callback")
 async def github_callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
     """Finish the OAuth flow and start a session."""
     settings = get_settings()
-    expected_state = request.session.pop(_STATE_KEY, None)
+    expected_state = request.session.pop(SESSION_STATE_KEY, None)
 
-    # A mismatched or missing state means this callback did not come from a
-    # flow we started, so it is rejected before the code is used for anything.
+    # A mismatched or missing state means this callback did not come from a flow
+    # we started, so it is rejected before the code is used for anything.
     if not state or not expected_state or not secrets.compare_digest(state, expected_state):
         raise HTTPException(status_code=400, detail="Invalid OAuth state. Start the login again.")
     if not code:
@@ -85,7 +79,7 @@ async def github_callback(request: Request, code: str = "", state: str = "") -> 
             github_access_token = excluded.github_access_token,
             updated_at          = now(),
             last_login_at       = now()
-        returning {_PUBLIC_USER_COLUMNS}
+        returning {USER_PUBLIC_COLUMNS}
         """,
         (
             profile["id"],
@@ -98,52 +92,18 @@ async def github_callback(request: Request, code: str = "", state: str = "") -> 
     if row is None:
         raise HTTPException(status_code=500, detail="Could not save the signed-in user.")
 
-    request.session[_USER_KEY] = row["id"]
+    request.session[SESSION_USER_KEY] = row["id"]
     return RedirectResponse(settings.frontend_url, status_code=302)
 
 
-@router.post("/auth/logout", tags=["auth"])
-async def logout(request: Request) -> dict:
+@router.post("/auth/logout", response_model=Message)
+async def logout(request: Request) -> Message:
     """Clear the session. The stored token is kept so a re-login is one click."""
     request.session.clear()
-    return {"status": "logged out"}
+    return Message(status="logged out")
 
 
-async def current_user(request: Request) -> dict[str, Any]:
-    """Dependency: the signed-in user, or 401."""
-    user_id = request.session.get(_USER_KEY)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not signed in.")
-
-    row = await fetch_one(
-        f"select {_PUBLIC_USER_COLUMNS} from users where id = %s", (user_id,)
-    )
-    if row is None:
-        # The row was removed while the cookie was still valid.
-        request.session.clear()
-        raise HTTPException(status_code=401, detail="Not signed in.")
-    return row
-
-
-async def current_user_token(request: Request) -> str:
-    """Dependency: the signed-in user's GitHub token, decrypted.
-
-    Used by anything that has to call GitHub as the user. A token that cannot be
-    decrypted means the encryption key changed, so the user signs in again.
-    """
-    user_id = request.session.get(_USER_KEY)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not signed in.")
-
-    row = await fetch_one("select github_access_token from users where id = %s", (user_id,))
-    token = decrypt(row["github_access_token"]) if row else None
-    if not token:
-        request.session.clear()
-        raise HTTPException(status_code=401, detail="Sign in with GitHub again.")
-    return token
-
-
-@router.get("/api/me", tags=["auth"])
-async def me(user: dict = Depends(current_user)) -> dict:
+@router.get("/api/me", response_model=UserPublic)
+async def me(user: UserPublic = Depends(current_user)) -> UserPublic:
     """The signed-in user's public profile."""
     return user

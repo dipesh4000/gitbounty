@@ -1,5 +1,8 @@
 """The GitBounty API.
 
+Assembly only: settings, middleware, and the router. The routes themselves live
+in routes/, the logic behind them in services/.
+
 Run locally from the backend/ folder:
 
     uvicorn app.main:app --reload --port 8001
@@ -13,10 +16,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import router as auth_router
 from .config import get_settings
-from .db import close_pool, fetch_one, open_pool
-from .issues import router as issues_router
+from .db import close_pool, open_pool
+from .routes import api_router
 
 
 @asynccontextmanager
@@ -52,19 +54,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/health", tags=["meta"])
-    async def health() -> dict:
-        """Liveness check that also proves the database is reachable."""
-        try:
-            await fetch_one("select 1 as ok")
-            database = "ok"
-        except Exception as exc:  # surfaced, not swallowed
-            database = f"error: {exc.__class__.__name__}"
-        return {"status": "ok", "database": database}
-
-    app.include_router(auth_router)
-    app.include_router(issues_router)
-
+    app.include_router(api_router)
     return app
 
 
