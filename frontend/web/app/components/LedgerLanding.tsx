@@ -106,7 +106,7 @@ export function LedgerLanding() {
       OWN-WORLD: near-black editorial bands, hairline rules, off-white type, disciplined graphite artifacts, and lime used only for action and verified state.
       STORY: find relevant work, ship through GitHub, see every point traced to a merge, then explore open issues.
       FIRST VIEWPORT: a two-column manifesto and live issue-to-merge ledger share the screen; the primary action sits beneath the headline while the next ruled strip peeks below.
-      FORM: neo-minimalist typographic brutalism with cinematic editorial pacing, pinned by the user brief.
+      FORM: neo-minimalist typographic brutalism with cinematic editorial pacing; brief-pinned evidence key 23d5f985, so the concept roll was skipped by rule.
       FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
       */}
       <a className="skip-link" href="#content">Skip to content</a>
