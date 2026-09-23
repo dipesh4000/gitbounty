@@ -1,154 +1,159 @@
 ---
-name: GitBounty Graphite Lime
-description: A dark-first, OS-aware landing system for browsing and funding GitHub work.
+name: GitBounty Open-Source Ledger
+description: A near-black editorial ledger that turns merged GitHub work into inspectable contribution history.
 colors:
-  graphite-canvas: "#101211"
-  graphite-surface: "#191C19"
-  graphite-raised: "#242923"
-  graphite-border: "#384039"
-  graphite-divider: "#292F2A"
-  chalk-text: "#F1F4EC"
-  sage-text: "#B2BBAE"
-  muted-sage: "#788276"
-  signal-lime: "#C5F53A"
-  pressed-lime: "#9FC72E"
-  lime-ink: "#141A0A"
-  success-mint: "#7EF29B"
-  paper-canvas: "#F4F7F0"
-  paper-surface: "#FFFFFF"
-  paper-raised: "#E9EFE3"
-  paper-border: "#C7D0C2"
-  paper-divider: "#DCE4D7"
-  forest-text: "#172018"
-  forest-secondary: "#4D5A4B"
-  forest-muted: "#71806F"
-  leaf-accent: "#6FAE13"
-  leaf-accent-pressed: "#5D8310"
-  leaf-accent-ink: "#F7FBEF"
-  success-leaf: "#248044"
+  canvas: "#080b09"
+  canvas-raised: "#0d110e"
+  surface: "#111713"
+  surface-raised: "#172019"
+  surface-active: "#1d2a20"
+  line-soft: "#202923"
+  line: "#303c33"
+  line-strong: "#465449"
+  text: "#f2f6ef"
+  text-secondary: "#aab5ab"
+  text-muted: "#89968b"
+  signal: "#b7f34a"
+  signal-hover: "#9ddd32"
+  signal-dark: "#172b12"
+  status: "#3ddb82"
+  focus: "#d7ff8f"
+  danger: "#f08b73"
+  signal-ink: "#0a0d0a"
 typography:
   display:
     fontFamily: "Space Grotesk, sans-serif"
-    fontSize: "clamp(2.1rem, 1.5rem + 2.6vw, 3.2rem)"
+    fontSize: "clamp(70px, 6.2vw, 94px)"
     fontWeight: 600
-    lineHeight: 1.15
-    letterSpacing: "-0.01em"
+    lineHeight: 0.96
+    letterSpacing: "-0.035em"
   headline:
     fontFamily: "Space Grotesk, sans-serif"
-    fontSize: "clamp(1.6rem, 1.2rem + 1.6vw, 2.1rem)"
+    fontSize: "clamp(49px, 5.2vw, 68px)"
     fontWeight: 600
-    lineHeight: 1.15
-    letterSpacing: "-0.01em"
+    lineHeight: 1
+    letterSpacing: "-0.035em"
   title:
     fontFamily: "Space Grotesk, sans-serif"
-    fontSize: "1.05rem"
+    fontSize: "18px"
     fontWeight: 600
-    lineHeight: 1.15
+    lineHeight: 1.28
     letterSpacing: "-0.01em"
   body:
     fontFamily: "Inter, sans-serif"
-    fontSize: "1rem"
+    fontSize: "17px"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: 1.6
   label:
     fontFamily: "Inter, sans-serif"
-    fontSize: "0.9rem"
-    fontWeight: 600
+    fontSize: "14px"
+    fontWeight: 700
+    lineHeight: 1
   mono:
     fontFamily: "JetBrains Mono, monospace"
-    fontSize: "0.82rem"
-    fontWeight: 600
+    fontSize: "10px"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "0.06em"
 rounded:
-  compact: "4px"
-  surface: "8px"
+  control: "3px"
   pill: "999px"
 spacing:
-  xs: "8px"
-  sm: "12px"
+  xs: "6px"
+  sm: "10px"
   md: "16px"
   lg: "24px"
+  desktop-gutter: "32px"
+  section: "144px"
 components:
   button-primary:
-    backgroundColor: "{colors.signal-lime}"
-    textColor: "{colors.lime-ink}"
+    backgroundColor: "{colors.signal}"
+    textColor: "{colors.signal-ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.compact}"
-    padding: "10px 18px"
+    rounded: "{rounded.control}"
+    padding: "0 18px"
+    height: "44px"
   button-primary-hover:
-    backgroundColor: "{colors.pressed-lime}"
-    textColor: "{colors.lime-ink}"
-  button-outline:
+    backgroundColor: "{colors.signal-hover}"
+    textColor: "{colors.signal-ink}"
+  button-secondary:
     backgroundColor: "transparent"
-    textColor: "{colors.chalk-text}"
+    textColor: "{colors.text}"
     typography: "{typography.label}"
-    rounded: "{rounded.compact}"
-    padding: "10px 18px"
-  filter-pill:
-    backgroundColor: "transparent"
-    textColor: "{colors.sage-text}"
+    rounded: "{rounded.control}"
+    padding: "0 18px"
+    height: "44px"
+  filter-active:
+    backgroundColor: "{colors.signal}"
+    textColor: "{colors.signal-ink}"
     rounded: "{rounded.pill}"
-    padding: "7px 14px"
-  filter-pill-active:
-    backgroundColor: "{colors.signal-lime}"
-    textColor: "{colors.lime-ink}"
-    rounded: "{rounded.pill}"
-    padding: "7px 14px"
-  issue-card:
-    backgroundColor: "{colors.graphite-surface}"
-    textColor: "{colors.chalk-text}"
-    rounded: "{rounded.surface}"
-    padding: "18px"
+    padding: "0 13px"
+    height: "34px"
+  artifact:
+    backgroundColor: "{colors.canvas-raised}"
+    textColor: "{colors.text}"
+    rounded: "0"
 ---
 
-# Design System: GitBounty Graphite Lime
+# Design System: GitBounty Open-Source Ledger
 
 ## Overview
 
-**Creative North Star: "The Open-Source Ledger"**
+**Creative North Star: "The Living Contribution Ledger"**
 
-GitBounty's shipped landing page pairs the density of a technical issue tracker with the clarity of a financial ledger. Graphite surfaces, hairline separators, compact controls, and mono-formatted values make repositories and rewards easy to scan. Lime identifies action, value, selection, progress, and live state.
+GitBounty ships as a dark editorial record of open-source work, not a centered SaaS pitch. Large, tightly set statements share the page with dense graphite artifacts: issue rows, code diffs, system traces, receipts, policy logs, and rankings. The visual story follows work from an open issue to a verified merge and makes the evidence feel inspectable at every step.
 
-The page is dark-first and switches the same semantic roles to a pale green-cast theme through the operating system's light-mode preference. The structure stays deliberately flat: broad full-width bands, bordered grids, and tonal surface changes organize a long single-page narrative from hero through issue board, process, audiences, security, pricing, and final action.
+The world is near-black, square-edged, and ruled by fine lines. Off-white type provides the reading layer; lime is deliberately scarce and marks actions, selected states, points, and moments of verification. Broad alternating bands create cinematic pacing while the artifacts stay disciplined and technical.
 
 **Key Characteristics:**
 
-- OS-driven Graphite Lime dark and paper-and-leaf light themes.
-- Full-width section bands with 24px horizontal gutters and responsive internal grids.
-- Compact square controls, 8px containers, and pills for filters or short tags.
-- Space Grotesk headings, Inter body and controls, JetBrains Mono repositories and values.
-- Lime emphasis for primary actions, stars, live status, selected filters, rules, and focus.
-- Restrained fade-and-rise reveals that disappear under reduced-motion preferences.
+- Dark-only graphite bands separated by one-pixel rules.
+- Oversized Space Grotesk statements paired with compact JetBrains Mono evidence.
+- Lime reserved for action, points, selection, progress, and verified state.
+- Square artifacts and controls, with pills used only for compact taxonomy.
+- Full-width editorial pacing around a centered 1320px content shell.
+- Evidence-first signature surfaces: the contribution ledger, issue explorer, system trace, receipt, audit log, and leaderboard.
+
+### Raster Inventory
+
+- `public/og.png` — 1731 × 909 social card. Its exact ImageGen edit prompt is embedded in the PNG's `impeccable:prompt` text metadata, so future edits retain the shipped asset's provenance.
 
 ## Colors
 
-The palette uses one shared set of semantic roles whose values swap under `prefers-color-scheme: light`.
+The palette is a narrow graphite ramp with off-white reading tones, one high-energy lime signal, green verification, and coral reserved for unresolved or failed states.
 
 ### Primary
 
-- **Signal Lime / Leaf Accent:** Filled actions, selected filters, star values, links, top rules, progress marks, and focus outlines.
-- **Pressed Lime / Pressed Leaf:** Hover treatment for filled actions and accent links.
-- **Lime Ink / Leaf Accent Ink:** High-contrast text placed directly on accent fills.
+- **Signal Lime** (`signal`): Primary buttons, selected controls, point values, progress rails, and the final conversion band.
+- **Pressed Lime** (`signal-hover`): Hover treatment for lime actions.
+- **Ledger Green** (`signal-dark`): Low-contrast selected rows and verified-state fields.
 
 ### Secondary
 
-- **Success Mint / Success Leaf:** The live dot in the hero's open-issue preview.
+- **Verification Mint** (`status`): Merged, approved, passed, and live indicators.
+- **Focus Lime** (`focus`): The global keyboard focus outline.
+- **Exception Coral** (`danger`): Offline, unresolved, and removal states only.
 
 ### Neutral
 
-- **Graphite Canvas / Paper Canvas:** Page background and alternating card background.
-- **Graphite Surface / Paper Surface:** Issue cards, preview board, flow nodes, and dark-band card inversions.
-- **Graphite Raised / Paper Raised:** Search, sort, and other nested control surfaces.
-- **Graphite Border / Paper Border:** Interactive outlines and emphasized container strokes.
-- **Graphite Divider / Paper Divider:** Header, footer, row, and section separators.
-- **Chalk / Forest Text:** Primary headings and content.
-- **Sage / Forest Secondary:** Paragraphs, navigation, control text, and supporting information.
-- **Muted Sage / Forest Muted:** Repository names, timestamps, counts, footnotes, and low-priority labels.
+- **Ledger Black** (`canvas`): Page ground and dominant editorial bands.
+- **Raised Graphite** (`canvas-raised`): Artifact bodies and alternating bands.
+- **Graphite Surface** (`surface`): Hovered rows, process bands, and inset totals.
+- **Raised Surface** (`surface-raised`): Skeleton lines, field fills, and compact control surfaces.
+- **Active Graphite** (`surface-active`): Strong active-state plane.
+- **Hairline Graphite** (`line-soft`): Quiet section and row separation.
+- **Rule Graphite** (`line`): Default artifact, control, and table borders.
+- **Strong Rule** (`line-strong`): Structural boundaries and secondary buttons.
+- **Chalk Text** (`text`): Headlines and primary information.
+- **Cool Gray Text** (`text-secondary`): Body copy and secondary values.
+- **Muted Ledger Text** (`text-muted`): Metadata, labels, and captions.
+- **Signal Ink** (`signal-ink`): Dark text placed on lime.
 
 ### Named Rules
 
-**The Lime Signal Rule.** Lime marks action, value, selection, progress, or live state; neutral surfaces carry the content.
+**The Signal Has Meaning Rule.** Lime marks action, selection, points, progress, or verification; it is not decorative fill for ordinary content.
 
-**The Semantic Theme Rule.** Components consume the shared color roles so the OS light-mode override preserves hierarchy without component-specific theme branches.
+**The Dark Ledger Rule.** New surfaces remain inside the shipped near-black graphite world; there is no light-mode counterpart in this build.
 
 ## Typography
 
@@ -156,111 +161,118 @@ The palette uses one shared set of semantic roles whose values swap under `prefe
 **Body Font:** Inter (with sans-serif fallback)  
 **Label/Mono Font:** JetBrains Mono (with monospace fallback)
 
-**Character:** Space Grotesk gives the long-form landing page a compact technical voice, Inter keeps explanations and controls readable, and JetBrains Mono makes repositories, star counts, prices, indices, and facts scan like structured data.
+**Character:** Space Grotesk gives the page blunt editorial authority, Inter keeps longer explanations readable, and JetBrains Mono makes repository names, states, values, identifiers, and evidence read like a technical record.
 
 ### Hierarchy
 
-- **Display** (600, fluid 2.1–3.2rem, 1.15): The two-line hero statement.
-- **Headline** (600, fluid 1.6–2.1rem, 1.15): Major section headings and the final CTA heading.
-- **Title** (600, 1–1.2rem, 1.15): Cards, features, trust statements, and flow nodes.
-- **Body** (400, 1rem, 1.55): Explanatory copy, capped at 62ch; the hero summary narrows to 46ch.
-- **Label** (500–600, 0.72–0.95rem): Buttons, navigation, tags, field labels, and metadata.
-- **Mono** (400–600, 0.72–2rem): Repository names, star amounts, fact figures, step indices, and prices.
+- **Display** (600, fluid 70–94px, 0.96): The two-line hero manifesto; it contracts to 45–54px on small screens.
+- **Headline** (600, fluid 49–68px, 1): Major section statements, usually broken into two deliberate lines.
+- **Title** (600, 18px, 1.28): Issue names and compact artifact titles.
+- **Body** (400, 17px, 1.6): Explanatory copy, constrained to 65 characters where the global paragraph rule applies.
+- **Label** (700, 14px): Buttons and direct actions.
+- **Mono** (400–600, generally 8–12px): Repository paths, point values, timestamps, system state, rankings, and audit evidence; uppercase labels often use restrained tracking.
 
 ### Named Rules
 
-**The Structured Value Rule.** Repository identifiers and compact numeric or monetary values use JetBrains Mono; actions and explanatory copy remain in Inter.
+**The Evidence Typeface Rule.** Use JetBrains Mono for machine-like evidence and compact system state; use Inter for explanation and Space Grotesk for assertions.
+
+**The Statement Break Rule.** Major headings use intentional line breaks and tight leading to create editorial rhythm, not generic centered marketing copy.
 
 ## Layout
 
-The page uses full-width section bands. A shared wrapper fills available width and supplies 24px horizontal padding rather than a global maximum width. The sticky header is 68px tall. The hero is a 1.05/0.95 two-column grid with a 56px gap and 68px/56px vertical padding; later sections use 84px vertical padding.
+Content sits in a centered shell capped at 1320px. The desktop shell leaves 32px per side, tightening to 20px below 1100px, 16px below 820px, and 14px below 520px. Primary sections use 144px vertical spacing, reduced to 100px and then 82px as the viewport narrows.
 
-The issue grid moves from three columns to two at 980px and one at 660px. Four-column steps and features become two columns at 900px and one at 560px. Facts change from four columns to two at 780px; audience and pricing pairs stack at 780px; trust cards stack at 700px. At 880px the desktop navigation and actions give way to the compact menu button and stacked mobile navigation.
+The first viewport is a two-column manifesto and contribution ledger, followed immediately by a ruled manifesto strip. Subsequent sections alternate reading copy with structured artifacts using asymmetric columns. The issue explorer and leaderboard expand horizontally because scanability matters more than card-like packaging.
 
-Spacing is dense inside working UI—6–16px for tags, controls, rows, and cards—and broader between narrative groups, usually 20–60px. Text columns remain bounded even when the section itself spans the viewport.
+At 1100px the full desktop navigation disappears. At 820px, paired grids stack, the mobile menu becomes available, the sticky trace returns to document flow, and wide tabular content becomes horizontally scrollable. At 520px, actions stack, issue rows become single-column records, low-priority technical fields disappear, and six-stage diagrams collapse to two columns.
 
-**The Full-Band Rule.** Section color and borders run edge to edge; content alignment comes from the shared 24px gutter and each component's grid.
+**The Full-Band Rule.** Background changes and rules run edge to edge; alignment comes from the shared shell rather than boxed page containers.
+
+**The Artifact Follows Copy Rule.** On narrow screens, the claim leads and its proof artifact follows directly beneath it.
 
 ## Elevation & Depth
 
-The interface is flat by default. Three tonal planes and one-pixel borders establish hierarchy; cards do not carry ambient shadows. The sticky header adds a 10px backdrop blur over a 90% canvas mix. The live issue dot has a small halo, while the accent CTA uses concentric outlined rings and a repeating diagonal line pattern as a section-specific graphic layer.
+The system is flat by default. Depth comes from alternating graphite planes, borders, inset bands, and sticky positioning. The hero contribution ledger alone uses a deep ambient shadow (`0 24px 60px rgba(0,0,0,.22)`) to establish it as the first proof object; live dots may carry a three-pixel translucent status halo.
 
 ### Shadow Vocabulary
 
-- **Live-status halo** (`0 0 0 3px rgba(61,220,132,0.15)`): Supports the hero board's 7px success dot.
-- **CTA orbit rings** (`0 0 0 34px var(--accent-line-soft), 0 0 0 70px var(--accent-line-soft)`): Extends the large circular motif inside the final accent band only.
+- **Hero Ledger Lift** (`0 24px 60px rgba(0,0,0,.22)`): Only the first-viewport contribution ledger.
+- **Live Status Halo** (`0 0 0 3px rgba(61,219,130,.12)`): Tiny live or verified dots.
 
 ### Named Rules
 
-**The Bordered Plane Rule.** Structure comes from surface tone, one-pixel borders, and section bands; ordinary cards remain shadowless.
+**The Ruled Plane Rule.** Ordinary surfaces use tone and one-pixel borders, never ambient card shadows.
 
 ## Shapes
 
-Controls use compact 4px corners. Cards, issue boards, empty states, flow nodes, trust panels, and pricing panels use 8px corners. Full pills are reserved for category filters, issue tags, audience tags, and circular status geometry. Most structure uses solid one-pixel borders; empty issue states use a dashed border.
+The dominant form is rectilinear: sections, artifacts, tables, rows, and receipts have square corners. Interactive controls use a restrained 3px radius. Fully rounded geometry is reserved for filters, issue labels, compact future-status labels, avatars, and status dots.
+
+**The Taxonomy Pill Rule.** A pill must contain a short category, label, or status; it is not a general container shape.
 
 ## Components
 
 ### Buttons
 
-- **Shape:** 4px radius, 10px × 18px padding, 8px internal gap; large hero and CTA buttons use 13px × 24px.
-- **Primary:** Accent background with accent-ink text at Inter 600; hover uses the darker accent.
-- **Hover / Focus:** Color and border transitions run at 150ms ease, active state moves down 1px over 100ms, and focus uses a 2px accent outline with 2px offset.
-- **Outline / Ghost:** Outline buttons are transparent with the strong neutral border; ghost buttons remove the border and strengthen text on hover.
+- **Shape:** Compact rectangular controls with a restrained 3px radius and a 44px minimum height; large actions rise to 52px.
+- **Primary:** Signal lime with signal ink, bold Inter, and 18px horizontal padding.
+- **Secondary:** Transparent graphite field, strong rule border, and chalk text.
+- **Hover / Focus:** Buttons lift by 1px on hover; colors or borders strengthen over 160ms. Every focus-visible state uses the global focus outline.
+- **Reversed CTA:** The final lime band uses a dark button with lime text and a transparent dark-outline companion.
 
 ### Chips
 
-- **Style:** Category filters use 999px corners, 7px × 14px padding, a neutral border, and secondary text. Issue tags use 3px × 9px padding.
-- **State:** Hover strengthens border and text; the selected filter fills with the accent and switches to accent-ink text.
+- **Style:** Filter and taxonomy pills use a one-pixel rule, 999px radius, compact 9–12px type, and short horizontal padding.
+- **State:** Selected filters fill with signal lime and switch to signal ink; unselected pills remain transparent.
 
 ### Cards / Containers
 
-- **Corner Style:** 8px.
-- **Background:** Issue and preview cards use the first surface; feature cards reverse to the canvas inside a surfaced section.
-- **Shadow Strategy:** No ambient card shadows.
-- **Border:** One-pixel strong borders for issue and audience cards; quieter dividers inside the hero preview.
-- **Internal Padding:** 18px for issue cards, 22–30px for narrative and pricing cards.
+- **Corner Style:** Square.
+- **Background:** Raised graphite or ledger black, selected according to the containing band.
+- **Shadow Strategy:** Flat and bordered; only the hero ledger receives ambient lift.
+- **Border:** One-pixel graphite rule, with stronger graphite for primary structural bounds.
+- **Internal Padding:** Dense 15–22px artifact padding; larger 42px breathing room inside the system trace.
 
 ### Inputs / Fields
 
-- **Style:** Search and sort controls use the raised surface, 4px corners, a strong one-pixel border, and compact Inter text. The search wrapper uses 9px × 12px padding and an inline 16px SVG magnifier.
-- **Focus:** All keyboard focus inherits the 2px accent outline; the input itself removes its native inner outline so the shared control surface remains visually coherent.
+- **Style:** Search is an integrated 62px ruled toolbar row; selects use raised graphite, a one-pixel rule, and 3px corners.
+- **Focus:** The global two-pixel focus-lime outline sits 3px outside the control. The search input itself removes the browser outline because its containing control supplies structure.
+- **States:** Loading, empty, and offline occupy the same explorer frame so the layout does not jump.
 
 ### Navigation
 
-- The sticky header combines a 28px logo mark, Space Grotesk wordmark, two anchor links, a ghost sign-in action, and a primary GitHub connection action.
-- Navigation text begins in secondary color, becomes primary on hover, and the active section is set to primary by the intersection observer.
-- Below 880px, a 34px square three-line menu control reveals full-width anchor rows and the primary connection action.
+The fixed 70px header begins transparent and gains a translucent near-black fill, bottom rule, and 12px blur after scrolling. Links use compact Inter and brighten on hover. At 1100px the link row is removed; at 820px the action cluster becomes a bordered menu button and an in-flow ruled menu.
 
-### Issue Board
+### Contribution Ledger
 
-- Controls wrap across search, category pills, and a right-aligned sort select.
-- Issue cards form a responsive 3/2/1-column grid. Repository and star count are mono; title is compact Inter; category and GitHub labels are pills; update age and the accent link close the card.
-- Loading, API error, and no-match states share a full-grid dashed container. Additional pages load through a centered outline button, and a muted italic footnote reports synced issue counts or backend availability.
+The signature first-viewport artifact is a square ruled stack: contribution caption, issue-to-points path, issue record, diff, merge evidence, and earned total. Mono labels, sequential reveals, verification mint, and the final lime value make provenance visible without illustration.
 
-### Hero Preview Board
+### Issue Explorer
 
-- The hero's right column uses an 8px bordered panel with a compact header, live success dot, mono issue count, and divided rows.
-- Each row truncates long titles, keeps the repository visible in mono, and right-aligns the accent star value.
+Search, sort, filter, state controls, and issue records share one bounded artifact. Rows prioritize repository and title, then technical metadata, then points and the outbound action. Hover changes only the row plane; mobile reflows metadata and actions instead of turning every issue into a floating card.
 
-### Accent CTA Band
+### Provenance Receipt
 
-- The band reverses the palette to an accent background with accent-ink heading and dark action button.
-- A diagonal 28–29px line repeat and two clipped circular orbits sit behind content at reduced opacity.
+The receipt is a two-column evidence list followed by a darker total band. Its final earned value is the only oversized colored number, preserving a clear audit hierarchy.
+
+### Motion
+
+Path drawing and ledger rows enter sequentially with 520–560ms eased motion; point confirmation uses a short scale settle. Routine hover transitions last 150–180ms. All animation and smooth scrolling collapse to effectively zero under `prefers-reduced-motion: reduce`.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** bind every new component to the existing semantic roles so both OS themes remain equivalent.
-- **Do** use full-width section bands with the shared 24px horizontal gutter.
-- **Do** preserve the 3/2/1 issue-grid collapse and the component-specific responsive breakpoints already in the stylesheet.
-- **Do** keep repositories, star values, facts, step indices, and prices in JetBrains Mono.
-- **Do** preserve the existing loading, error, empty, hover, focus, active, and reduced-motion states.
+- **Do** reserve lime for actions, selected controls, points, progress, and verified moments.
+- **Do** build new sections as full-width ruled bands aligned to the shared shell.
+- **Do** pair assertions with inspectable graphite artifacts such as rows, traces, receipts, or logs.
+- **Do** preserve the display/body/mono division between statements, explanations, and evidence.
+- **Do** keep responsive reflow and reduced-motion behavior alongside every new interactive pattern.
 
 ### Don't:
 
-- **Don't** add ambient shadows or large soft radii to ordinary cards.
-- **Don't** use the accent as a general content-surface color outside the shipped CTA band.
-- **Don't** replace the OS preference with a component-by-component theme implementation.
-- **Don't** add a page-wide maximum width that collapses the shipped full-width section bands.
-- **Don't** generalize the existing audience-tag label or text-arrow glyphs into new reusable kicker or icon patterns.
+- **Don't** introduce a centered generic SaaS hero, floating gradient cards, glow, or decorative glass.
+- **Don't** add rounded corners or ambient shadows to ordinary artifacts.
+- **Don't** spend lime on large decorative areas outside the shipped final CTA band.
+- **Don't** turn compact uppercase metadata into a reusable eyebrow above every section; the few live labels belong to specific artifacts and audiences.
+- **Don't** use glyphs as general-purpose icons; keep interface symbols structural, minimal, and accessible.
+- **Don't** treat the generated social card's visible composition as editable without preserving the prompt embedded in its PNG metadata.
