@@ -125,7 +125,7 @@ async def sync_issues(
     for query in sync_queries():
         try:
             items = await github.search_issues(token, query, per_page=30)
-        except github.GitHubError as exc:
+        except github.GitHubError:
             # One failing query should not throw away the ones that worked.
             continue
         for item in items:
@@ -137,6 +137,15 @@ async def sync_issues(
                 continue
             seen_issues[item["id"]] = item
             repo_names.add(full_name)
+
+    if not repo_names:
+        return {
+            "synced_by": user["github_login"],
+            "issues_found": 0,
+            "issues_stored": 0,
+            "repositories_known": 0,
+            "repositories_skipped": 0,
+        }
 
     # Look up repository metadata for anything we do not already have.
     known = await fetch_all(
