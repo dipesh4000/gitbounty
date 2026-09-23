@@ -1,8 +1,7 @@
 # What GitBounty actually is
 
 Read this file before anything else in the repo. `readme.md` is the polished, public-facing pitch. This file is the
-plain-language version, and it also says the parts the polished pitch leaves out: what's actually built, and a real
-disagreement about what the product even is that isn't settled yet.
+plain-language version: what the product is, what is actually built, and what to build next.
 
 ## The problem, in plain words
 
@@ -12,54 +11,111 @@ nothing back except a green square on their GitHub profile. Two groups feel this
 - People who **want** to contribute to open source but can't find an issue that matches what they know how to do.
 - People who **already** contribute but have no reason to keep doing it beyond the green chart.
 
-GitBounty is trying to fix that. Exactly how is where things get interesting — see the next section.
+## The product: one system, two reward rails
 
-## Two different ideas for how this works (not yet settled)
+An earlier version of this file described two competing products — a money/escrow version and a points/leaderboard
+version — and told you not to build either until it was settled. **That is settled now: it is both, built as one
+system.** They are not two products. One is a subset of the other plus a leaderboard.
 
-There are currently two versions of "what GitBounty does" floating around, and they are genuinely different
-products. Whoever reads this repo next needs to know both exist, because the committed docs (`readme.md`, `agent.md`)
-describe one of them and haven't caught up to the other.
+### Rail 1 — Points, on every repo
 
-### Version A — real money (what `readme.md`, the pitch deck and the demo site describe)
+A user signs in with GitHub and browses open issues sorted by category (frontend, backend, full-stack, docs), so
+someone who only knows CSS isn't shown a database migration. When their pull request gets merged anywhere on GitHub,
+they earn **points** — an internal score, not a currency. Points feed leaderboards ("most points this week", "top
+backend contributor").
 
-A maintainer puts a real dollar amount on a GitHub issue, like "$100 bounty". That money gets locked up ("escrow" —
-think of it like a security deposit nobody can touch yet) in a small piece of blockchain code. When someone's fix
-gets merged, the money is automatically released to their crypto wallet, the same day. No PayPal, no invoice, no
-maintainer manually sending money.
+Points work on **any** repository, because earning them only needs the contributor's own GitHub login. We never need
+the maintainer's permission, which matters: we don't own the repos whose issues we list, so we can't ask every
+maintainer to install a webhook.
 
-This is a **Web3** product: it needs a wallet, a blockchain, and a stablecoin (a cryptocurrency built to hold
-steady value, like USDC, so contributors aren't paid in something that swings wildly in price).
+### Rail 2 — Bounties, where someone funded the work
 
-### Version B — points and leaderboards (what the project's builder described in conversation, still rough)
+A maintainer puts a real dollar amount on one of their own issues, like "$100 bounty". That money is locked up
+("escrow" — think of a security deposit nobody can touch yet) in a small piece of blockchain code. When the fix is
+merged, the money is released to the contributor's wallet the same day. No invoice, no maintainer manually sending
+anything.
 
-No real money changes hands. Instead:
+This rail is **opt-in**: it only works on repos whose owner installs the app and funds an issue. That is fine,
+because the person paying is the person installing.
 
-- A user signs in with their GitHub account.
-- They browse open issues from across GitHub, sorted into categories like frontend, backend, full-stack, or
-  documentation — so someone who only knows CSS isn't shown a database migration issue.
-- When their pull request gets merged, they earn **points** (an internal score, not a currency).
-- Points feed into **leaderboards** — for example, "most points this week", or a separate leaderboard just for
-  backend contributions. This is the "gamification": the reward is competition and recognition, not cash.
+### The one sentence that ties them together
 
-This is a much simpler product to build: no wallet, no blockchain, no escrow contract. Just GitHub login, a way to
-read what pull requests someone has merged, and a running scoreboard.
+> **Points are what you earn everywhere. Money is what you earn where someone funded it.**
 
-### Why this matters for anyone working here
+## Why both, and not just one
 
-These two ideas need almost entirely different backends (one needs a blockchain contract and a wallet provider, the
-other just needs a database and GitHub's API). **Don't build either one further without checking which one is
-current** — ask, don't assume from the README. Until it's settled, treat `readme.md`'s money/escrow design as
-"the original plan, maybe still true, maybe not."
+Each rail alone has a hole. Together they fill each other's.
 
-## The two "surfaces" people will actually use
+- **Bounties alone start empty.** On day one nobody has funded anything, so there is nothing to browse and nothing to
+  demo. Points run across all of GitHub, so the site has real content from the first minute and funded bounties sit
+  on top as the premium layer.
+- **Points alone are just another green chart.** The problem above is that contributors have no reason to continue
+  beyond the green chart. A second chart does not fix a problem caused by no money. Points that build toward real
+  paid work do.
+- **Together they make a reputation layer.** A contributor's points history is the evidence for who should be trusted
+  with a large bounty, and the defence against someone farming payouts with fresh throwaway accounts. Bounty
+  platforms that only do money have no such signal.
 
-Whichever version wins, the plan has always had two front doors:
+## Rules that hold this together
 
-- **The website** — where you browse bounties/issues, see your own stats, and (for maintainers, in Version A) manage
-  bounties on your repos.
+These are product rules, not coding rules (those live in `rules.md`). Breaking any of them breaks the design.
+
+1. **Points never convert to money.** The moment they are exchangeable we have created a currency, with all the fraud
+   and legal surface that brings. Points are reputation. Money is money. They never trade.
+2. **Points can't be farmed.** No points for merging your own pull request, or for a pull request into a repo you or
+   your organisation owns. Repositories below a minimum age and popularity don't count either — otherwise the
+   leaderboard is won by whoever creates the most fake repos.
+3. **A merge is not a payout by itself.** A merged pull request has to be linked to the funded issue (the pull request
+   body says `Fixes #123`) and merged into the default branch before any money moves.
+4. **Funding your own issue and paying your own second account is the obvious attack.** Anything that moves funds has
+   to assume it will be tried.
+5. **Merge detection is written once.** Polling each user's own merged pull requests works on every repo and is the
+   base. Webhooks are a faster path for repos that installed the app. Same handler, one code path, not two.
+
+## What's actually built right now
+
+One thing is real: the website demo in `frontend/web/`. It is a normal website (an HTML file, a CSS file, a JS file)
+with made-up sample bounties typed directly into the code. Search, filters and the colour-theme switcher work, but
+there is no server behind it and no real data. **Treat it as a mockup, not as a foundation** — it was made to answer
+"how should this feel", not "how should this be built". The look and colours are worth keeping; the layout and copy
+need to change, because the product now has two rails instead of one.
+
+Everything else — the backend, the database tables, the extension, the escrow contract, the login flow, the points
+system — is design and conversation, not code.
+
+## Build order
+
+The two rails share most of their plumbing, so the order below means there is always something that works. Build the
+shared core first, then the cheap rail, then the expensive one.
+
+1. **Shared core** — GitHub login, the database, issue browsing by category, and detecting a merged pull request.
+   Both rails need every piece of this.
+2. **Points and leaderboards** — a small addition on top of the core.
+3. **Wallets, escrow and payout** — the money rail. This is the part that makes the Web3 track apply.
+4. **The Chrome extension** — optional, and the website must work without it.
+
+If time runs out after step 2, there is still a complete, working product. If the escrow contract is built first and
+time runs out, there is nothing to show.
+
+[`plan.md`](plan.md) is a chunk-by-chunk build plan that covers the points rail (steps 1, 2 and 4) in more detail. It was
+written when the points version was the whole product, so it does not cover step 3 yet.
+
+## Still undecided
+
+Per [`rules.md`](rules.md) section 7, these are open and should be proposed rather than decided by scaffolding:
+
+- The backend language and framework. `plan.md` proposes FastAPI (Python).
+- The wallet provider. `readme.md` proposes the Dynamic SDK, for non-custodial wallets from a GitHub login.
+- The chain and the stablecoin. `readme.md` assumes an EVM chain and USDC, testnet first.
+- What a point is actually worth — whether every merged pull request is worth the same, or whether size and repo
+  significance weight it.
+
+## Two surfaces people will actually use
+
+- **The website** — browse issues and bounties, see your own points, the leaderboards, and (for maintainers) manage
+  the bounties on your repos.
 - **A Chrome extension** — optional, so the website has to work without it. It would show a small badge directly on
-  GitHub's own issue list pages, without the user needing to visit the GitBounty website at all. Nothing about the
-  extension is built yet.
+  GitHub's own issue pages, so a user doesn't need to visit the GitBounty site at all. Nothing about it is built yet.
 
 ## Folder-by-folder, in plain language
 
@@ -70,67 +126,40 @@ gitbounty/
 │   └── extension/    the Chrome extension
 ├── backend/          the server that ties everything together
 ├── migrations/       the database's history, as plain text files
+├── contracts/        the escrow contract (planned, folder not created yet)
 ├── overview.md        <- you are here
-├── readme.md          the public pitch (Version A, money/escrow)
-├── agent.md            how an AI coding assistant should behave here
-├── rules.md            the actual rules agent.md points to
-└── CLAUDE.md / AGENTS.md   short files that just tell specific tools ("Claude Code", "Codex") to go read agent.md and rules.md
+├── readme.md          the public pitch
+├── plan.md            the build plan for the points rail
+├── agent.md           how an AI coding assistant should behave here
+├── rules.md           the actual rules agent.md points to
+└── CLAUDE.md / AGENTS.md   short files telling specific tools to read agent.md and rules.md
 ```
 
-- **`frontend/web/`** — This is a working demo, built first, before any backend existed, just to nail down what the
-  site should look and feel like. It's a normal website (an HTML file, a CSS file for styling, a JS file for
-  behaviour) with made-up sample bounties typed directly into the code. Nothing on it is real yet: search, filters
-  and the colour-theme switcher all work, but there's no server behind it and no real data. **Treat it as a mockup,
-  not as a foundation to build the real product on top of** — it was made to answer "how should this feel", not
-  "how should this be built".
+- **`frontend/web/`** — the demo mockup described above.
+- **`frontend/extension/`** — empty except for a README explaining what a browser extension even is (it has to inject
+  itself into GitHub's own pages, which is a different kind of programming). Not started.
+- **`backend/`** — empty except for a README listing what it will need to do: check who is logged in, answer requests
+  from the website, poll GitHub for merged pull requests, receive webhooks from repos that installed the app, and
+  call the escrow contract. No language chosen yet.
+- **`migrations/`** — the database lives on a teammate's Supabase account, not on this machine, so every change to its
+  structure is written here as a small numbered file (`0001_init.sql`, `0002_...`) and applied by hand, in order.
+  Currently empty.
+- **`contracts/`** — planned, not created. Holds the escrow contract for rail 2.
+- **`readme.md`** — the public-facing pitch. It currently describes only the bounty rail, and hasn't caught up to the
+  points rail yet.
+- **`agent.md`, `rules.md`, `CLAUDE.md`, `AGENTS.md`** — not about the product; about how to work in this repo.
 
-- **`frontend/extension/`** — Empty except for a README explaining what a browser extension even is (it's more than
-  a small website — it has to inject itself into GitHub's own pages, which is a different kind of programming). Not
-  started, and works with either Version A or B.
+## Docs that still need updating
 
-- **`backend/`** — Empty except for a README listing what it will eventually need to do: check who's logged in,
-  answer requests from the website, and listen for events from GitHub (like "a pull request was merged"). No
-  programming language has been chosen for it yet, and that choice depends on which version (A or B) is being built.
+Now that the product is both rails, two files are out of date. Whoever picks this up next should fix them:
 
-- **`migrations/`** — The database itself doesn't live on this computer; it lives on a teammate's Supabase account
-  (Supabase is a hosted Postgres database with some extra tools). Because nobody else can just log in and change it
-  directly, every change to the database's structure is written down here as a small, numbered text file
-  (`0001_something.sql`, `0002_something_else.sql`...), and the teammate copies each one into the database by hand,
-  in order. This folder is currently empty because no version of the product has a real database table yet.
-
-- **`readme.md`** — The public-facing pitch: the problem, the (Version A, money) architecture diagram, the roadmap,
-  and how to run things. Written to look good on GitHub and to a hackathon judge.
-
-- **`agent.md`, `rules.md`, `CLAUDE.md`, `AGENTS.md`** — Not about the product at all; they're about *how to work in
-  this repo*. `rules.md` has the actual hard rules (read git history first, commit in small steps, keep secrets out
-  of the code, etc). `agent.md` explains the project to any AI coding tool. `CLAUDE.md` and `AGENTS.md` are just
-  thin files so that Claude Code and Codex specifically know to go read `agent.md` and `rules.md` — they hold no
-  independent instructions.
-
-## What's actually built right now
-
-Only one thing is real: the website demo mockup in `frontend/web/`. Everything else described above — the real
-backend, the database tables, the extension, the escrow contract, the login flow, the points system — is design and
-conversation, not code.
-
-## A note on where this repo stands with the teammate's copy
-
-This repo has a `origin` remote pointing at a teammate's GitHub repository. As of the last check, this local copy has
-commits the teammate's copy doesn't have yet (this whole restructuring and these docs), and the teammate's copy has
-at least one commit this local copy doesn't have yet (a small visual tweak to the demo site's colour theme). Neither
-side has been pushed or pulled to match the other. Whoever picks this up should reconcile that before touching
-`frontend/web/` again, so the teammate's latest visual tweaks aren't accidentally lost or overwritten.
-
-## A build plan exists for Version B
-
-[`plan.md`](plan.md) is a full chunk-by-chunk build plan for the points/leaderboard version (Version B), written from
-the project owner's side. **It does not mean the conflict above is settled with the teammate** — chunk 0 of that
-plan is telling them about the pivot and updating this file, `readme.md` and `agent.md` once they've agreed. Until
-that happens, treat `plan.md` as a candidate plan, not a confirmed direction.
+- **[`readme.md`](readme.md)** — describes the bounty rail only. Needs the points rail, and the shared architecture.
+- **[`plan.md`](plan.md)** — its first step is a conversation about dropping the money version. That conversation happened and
+  the answer was to keep both, so that step is done and the plan needs a section for rail 2.
 
 ## Where to go from here
 
 - Read [`rules.md`](rules.md) for the hard rules.
 - Read [`agent.md`](agent.md) if you're an AI coding assistant.
-- Read [`plan.md`](plan.md) for the build plan, if Version B is confirmed.
-- Read [`readme.md`](readme.md) for the polished pitch (remember: it currently only describes Version A).
+- Read [`plan.md`](plan.md) for the build plan for the points rail.
+- Read [`readme.md`](readme.md) for the public pitch of the bounty rail.

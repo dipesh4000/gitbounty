@@ -1,129 +1,273 @@
 /* =========================================================
    GitBounty — main script
+
+   Talks to the backend API. Set window.GITBOUNTY_API before this
+   file loads to point it somewhere other than the local backend.
    ========================================================= */
 
-/* ---- sample bounty data (replace with API calls) ---- */
-const BOUNTIES = [
-  { id:1,  repo:"awslabs/cli-agent-orchestrator", title:"Threat model for agent manipulation (prompt injection) in a shared deployment", amount:100, currency:"USDC", label:"enhancement", age:"1d ago" },
-  { id:2,  repo:"awslabs/cli-agent-orchestrator", title:"Tenant-scoped audit trail for security-relevant events", amount:55, currency:"USDC", label:"enhancement", age:"1d ago" },
-  { id:3,  repo:"vercel/next.js", title:"App router: RSC hydration mismatch on nested layouts", amount:250, currency:"USDC", label:"bug", age:"3d ago" },
-  { id:4,  repo:"facebook/react", title:"Document useId hook edge cases in concurrent mode", amount:75, currency:"USDC", label:"docs", age:"5d ago" },
-  { id:5,  repo:"microsoft/TypeScript", title:"Type narrowing breaks with generic constraints in union types", amount:400, currency:"USDC", label:"bug", age:"2d ago" },
-  { id:6,  repo:"open-telemetry/opentelemetry-js", title:"Add OTLP/gRPC exporter streaming support", amount:180, currency:"USDC", label:"enhancement", age:"6d ago" },
-  { id:7,  repo:"supabase/supabase", title:"Write migration guide for RLS with multi-tenant schemas", amount:60, currency:"USDC", label:"docs", age:"4d ago" },
-  { id:8,  repo:"prettier/prettier", title:"Support formatting MDX 3 expression blocks", amount:120, currency:"USDC", label:"enhancement", age:"2d ago" },
-  { id:9,  repo:"vitejs/vite", title:"Fix SASS preprocessor crashing on circular imports in monorepo", amount:90, currency:"USDC", label:"bug", age:"8h ago" },
-  { id:10, repo:"prisma/prisma", title:"Add first-class support for Postgres array columns in client", amount:300, currency:"USDC", label:"enhancement", age:"1d ago" },
-  { id:11, repo:"tiangolo/fastapi", title:"Correct middleware ordering docs for ASGI lifespan events", amount:45, currency:"USDC", label:"docs", age:"3d ago" },
-  { id:12, repo:"astro-build/astro", title:"Content collection schema validation throws unhelpful errors", amount:150, currency:"USDC", label:"good-first-issue", age:"2d ago" },
-];
+const API_BASE = (window.GITBOUNTY_API || "http://localhost:8001").replace(/\/+$/, "");
 
-/* ---- hero board mini-preview (5 entries) ---- */
-function buildHeroBoard() {
-  const rows  = document.getElementById("hero-board-rows");
+/* ---- helpers ---- */
+
+/* Issue titles come from strangers on GitHub, so nothing goes into
+   innerHTML without passing through here first. */
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
+function timeAgo(iso) {
+  if (!iso) return "";
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const units = [["y", 31536000], ["mo", 2592000], ["d", 86400], ["h", 3600], ["m", 60]];
+  for (const [suffix, size] of units) {
+    const n = Math.floor(seconds / size);
+    if (n >= 1) return `${n}${suffix} ago`;
+  }
+  return "just now";
+}
+
+function formatStars(n) {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n ?? 0);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    const error = new Error(detail.detail || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+}
+
+/* ---- board state ---- */
+const board = {
+  category: null,      // null = all
+  q: "",
+  sort: "updated",
+  page: 1,
+  perPage: 24,
+  items: [],
+  hasMore: false,
+  loading: false,
+};
+
+/* ---- hero mini-board: the five most-starred repos with open issues ---- */
+async function buildHeroBoard() {
+  const rows = document.getElementById("hero-board-rows");
   const count = document.getElementById("hero-board-count");
   if (!rows || !count) return;
 
-  const top5 = [...BOUNTIES].sort((a,b) => b.amount - a.amount).slice(0,5);
-  count.textContent = `${BOUNTIES.length} open`;
+  try {
+    const [top, counts] = await Promise.all([
+      api("/api/issues?sort=stars&per_page=5"),
+      api("/api/issues/categories"),
+    ]);
 
-  top5.forEach(b => {
-    const li = document.createElement("li");
-    li.className = "board-row";
-    li.innerHTML = `
-      <div style="min-width:0;flex:1;">
-        <span class="row-repo">${b.repo}</span>
-        <span class="row-title">${b.title}</span>
-      </div>
-      <span class="row-amount">$${b.amount} ${b.currency}</span>`;
-    rows.appendChild(li);
-  });
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    count.textContent = `${total} open`;
+
+    rows.innerHTML = top.items.map(issue => `
+      <li class="board-row">
+        <div style="min-width:0;flex:1;">
+          <span class="row-repo">${esc(issue.repository)}</span>
+          <span class="row-title">${esc(issue.title)}</span>
+        </div>
+        <span class="row-amount">★ ${formatStars(issue.stars)}</span>
+      </li>`).join("");
+
+    if (!top.items.length) {
+      rows.innerHTML = `<li class="board-row"><span class="row-title">No issues synced yet.</span></li>`;
+    }
+  } catch {
+    count.textContent = "offline";
+    rows.innerHTML = `<li class="board-row"><span class="row-title">Backend unavailable.</span></li>`;
+  }
 }
 
-/* ---- full bounty grid ---- */
-let activeFilter = "all";
-let searchQuery  = "";
-let sortOrder    = "amount-desc";
-
-function renderBounties() {
-  const grid = document.getElementById("bounty-grid");
-  if (!grid) return;
-
-  let list = BOUNTIES.filter(b => {
-    const matchFilter = activeFilter === "all" || b.label === activeFilter;
-    const q = searchQuery.toLowerCase();
-    const matchSearch = !q || b.title.toLowerCase().includes(q) || b.repo.toLowerCase().includes(q);
-    return matchFilter && matchSearch;
-  });
-
-  if (sortOrder === "amount-desc") list.sort((a,b) => b.amount - a.amount);
-  else if (sortOrder === "amount-asc") list.sort((a,b) => a.amount - b.amount);
-  else if (sortOrder === "newest")     list.sort((a,b) => a.id - b.id);
-
-  grid.innerHTML = "";
-
-  if (list.length === 0) {
-    grid.innerHTML = `<li class="empty-state"><p>No bounties match your filters.</p></li>`;
-    return;
-  }
-
-  list.forEach(b => {
-    const li = document.createElement("li");
-    li.className = "bounty-card";
-    li.innerHTML = `
+/* ---- the issue board ---- */
+function issueCard(issue) {
+  const labels = (issue.labels || []).slice(0, 3);
+  return `
+    <li class="bounty-card">
       <div class="bounty-top">
-        <span class="bounty-repo">${b.repo}</span>
-        <span class="bounty-amount">$${b.amount} ${b.currency}</span>
+        <span class="bounty-repo">${esc(issue.repository)}</span>
+        <span class="bounty-amount">★ ${formatStars(issue.stars)}</span>
       </div>
-      <p class="bounty-title">${b.title}</p>
+      <p class="bounty-title">${esc(issue.title)}</p>
       <div class="bounty-labels">
-        <span class="tag">${labelDisplay(b.label)}</span>
+        <span class="tag">${esc(issue.category)}</span>
+        ${labels.map(l => `<span class="tag">${esc(l)}</span>`).join("")}
       </div>
       <div class="bounty-bottom">
-        <span class="bounty-age">${b.age}</span>
-        <a href="https://github.com/${b.repo}/issues" target="_blank" rel="noopener" class="bounty-link">View issue →</a>
-      </div>`;
-    grid.appendChild(li);
+        <span class="bounty-age">${esc(timeAgo(issue.issue_updated_at))}</span>
+        <a href="${esc(issue.html_url)}" target="_blank" rel="noopener" class="bounty-link">View issue →</a>
+      </div>
+    </li>`;
+}
+
+function boardQuery() {
+  const params = new URLSearchParams({
+    sort: board.sort,
+    page: String(board.page),
+    per_page: String(board.perPage),
   });
+  if (board.category) params.set("category", board.category);
+  if (board.q.trim()) params.set("q", board.q.trim());
+  return params.toString();
 }
 
-function labelDisplay(l) {
-  const map = {
-    "enhancement": "enhancement",
-    "bug": "bug",
-    "docs": "docs",
-    "good-first-issue": "good first issue",
-  };
-  return map[l] || l;
+async function loadIssues({ append = false } = {}) {
+  const grid = document.getElementById("bounty-grid");
+  if (!grid || board.loading) return;
+  board.loading = true;
+
+  if (!append) {
+    board.page = 1;
+    grid.innerHTML = `<li class="empty-state"><p>Loading issues…</p></li>`;
+  }
+
+  try {
+    const data = await api(`/api/issues?${boardQuery()}`);
+    board.items = append ? board.items.concat(data.items) : data.items;
+    board.hasMore = data.has_more;
+
+    grid.innerHTML = board.items.length
+      ? board.items.map(issueCard).join("")
+      : `<li class="empty-state"><p>No issues match your filters.</p></li>`;
+  } catch (error) {
+    grid.innerHTML = `<li class="empty-state"><p>${esc(
+      error.status ? error.message : "Can't reach the backend. Is it running on " + API_BASE + "?"
+    )}</p></li>`;
+    board.hasMore = false;
+  } finally {
+    board.loading = false;
+    renderLoadMore();
+    renderFootnote();
+  }
 }
 
-/* ---- filter pills ---- */
+function renderLoadMore() {
+  const grid = document.getElementById("bounty-grid");
+  let btn = document.getElementById("load-more");
+
+  if (!board.hasMore) {
+    if (btn) btn.remove();
+    return;
+  }
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "load-more";
+    btn.type = "button";
+    btn.className = "btn btn-outline";
+    btn.style.cssText = "display:block;margin:24px auto 0;";
+    btn.addEventListener("click", () => {
+      board.page += 1;
+      btn.textContent = "Loading…";
+      loadIssues({ append: true });
+    });
+    grid.insertAdjacentElement("afterend", btn);
+  }
+  btn.textContent = "Load more";
+}
+
+async function renderFootnote() {
+  const note = document.querySelector(".board-footnote");
+  if (!note) return;
+  try {
+    const counts = await api("/api/issues/categories");
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    note.textContent = `${total} open issues synced from GitHub · ${
+      Object.entries(counts).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(" · ")
+    }`;
+  } catch {
+    note.textContent = "Backend unavailable — start the API to load issues.";
+  }
+}
+
+/* ---- filters, search, sort ---- */
 function initFilters() {
   const pills = document.querySelectorAll("#filter-pills .pill");
-  pills.forEach(p => {
-    p.addEventListener("click", () => {
-      pills.forEach(x => x.classList.remove("is-active"));
-      p.classList.add("is-active");
-      activeFilter = p.dataset.filter;
-      renderBounties();
+  pills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      pills.forEach(other => other.classList.remove("is-active"));
+      pill.classList.add("is-active");
+      const value = pill.dataset.filter;
+      board.category = value === "all" ? null : value;
+      loadIssues();
     });
   });
 
   const search = document.getElementById("bounty-search");
   if (search) {
+    let timer;
     search.addEventListener("input", () => {
-      searchQuery = search.value;
-      renderBounties();
+      // Search runs on the server so it covers every page, not just what is
+      // already on screen. Debounced so typing is not one request per key.
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        board.q = search.value;
+        loadIssues();
+      }, 300);
     });
   }
 
   const sort = document.getElementById("bounty-sort");
   if (sort) {
     sort.addEventListener("change", () => {
-      sortOrder = sort.value;
-      renderBounties();
+      board.sort = sort.value;
+      loadIssues();
     });
   }
+}
+
+/* ---- sign in with GitHub ---- */
+const CONNECT_BUTTON_IDS = ["nav-connect", "nav-signin", "hero-connect", "cta-connect", "mobile-connect"];
+
+async function initAuth() {
+  const buttons = CONNECT_BUTTON_IDS
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+
+  let user = null;
+  try {
+    user = await api("/api/me");
+  } catch {
+    user = null;   // 401 when signed out, which is the normal case
+  }
+
+  if (!user) {
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        window.location.href = `${API_BASE}/auth/github`;
+      });
+    });
+    return;
+  }
+
+  buttons.forEach(btn => {
+    if (btn.id === "nav-signin") {
+      btn.hidden = true;           // the handle button below replaces it
+      return;
+    }
+    const isNav = ["nav-connect", "mobile-connect"].includes(btn.id);
+    if (isNav) {
+      btn.textContent = `@${user.github_login}`;
+      btn.title = "Sign out";
+      btn.addEventListener("click", async () => {
+        await api("/auth/logout", { method: "POST" }).catch(() => {});
+        window.location.reload();
+      });
+    } else {
+      btn.textContent = "Browse issues";
+      btn.addEventListener("click", () => {
+        document.getElementById("bounties")?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  });
 }
 
 /* ---- sticky header scroll state ---- */
@@ -149,7 +293,6 @@ function initMobileNav() {
     toggle.setAttribute("aria-expanded", isOpen);
   });
 
-  // close on link click
   document.querySelectorAll(".mobile-nav a").forEach(a => {
     a.addEventListener("click", () => {
       header.classList.remove("is-open");
@@ -162,7 +305,6 @@ function initMobileNav() {
 function initNavHighlight() {
   const sections = document.querySelectorAll("section[id]");
   const navLinks = document.querySelectorAll(".main-nav a");
-
   if (!sections.length || !navLinks.length) return;
 
   const observer = new IntersectionObserver(entries => {
@@ -180,36 +322,26 @@ function initNavHighlight() {
   sections.forEach(s => observer.observe(s));
 }
 
-/* ---- GitHub connect button (stub — wire to your OAuth flow) ---- */
-function initCTAButtons() {
-  const AUTH_URL = "#"; // replace with /api/auth/github
-
-  ["nav-connect", "hero-connect", "cta-connect", "mobile-connect"].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) btn.addEventListener("click", () => { window.location.href = AUTH_URL; });
-  });
-}
-
 /* ---- scroll-reveal for section headings ---- */
 function initReveal() {
   if (!window.IntersectionObserver) return;
 
   const targets = document.querySelectorAll(
-    ".section-head, .step, .feature, .audience-card, .price-card, .bounty-card, .trust-card"
+    ".section-head, .step, .feature, .audience-card, .price-card, .trust-card"
   );
 
   const io = new IntersectionObserver((entries, obs) => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
-      entry.target.style.opacity  = "1";
+      entry.target.style.opacity = "1";
       entry.target.style.transform = "translateY(0)";
       obs.unobserve(entry.target);
     });
   }, { threshold: 0.12 });
 
   targets.forEach(el => {
-    el.style.opacity    = "0";
-    el.style.transform  = "translateY(18px)";
+    el.style.opacity = "0";
+    el.style.transform = "translateY(18px)";
     el.style.transition = "opacity .5s ease, transform .5s ease";
     io.observe(el);
   });
@@ -224,14 +356,13 @@ function setYear() {
 /* ---- boot ---- */
 document.addEventListener("DOMContentLoaded", () => {
   buildHeroBoard();
-  renderBounties();
+  loadIssues();
   initFilters();
+  initAuth();
   initHeaderScroll();
   initMobileNav();
   initNavHighlight();
-  initCTAButtons();
   setYear();
 
-  // slight delay so CSS paint is done before reveal kicks in
   requestAnimationFrame(() => requestAnimationFrame(initReveal));
 });

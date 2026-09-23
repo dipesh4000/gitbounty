@@ -63,7 +63,7 @@
         <div class="board-card">
           <div class="board-card-head">
             <span class="board-dot" aria-hidden="true"></span>
-            <span>Open bounties</span>
+            <span>Open issues</span>
             <span class="board-count" id="hero-board-count">—</span>
           </div>
           <ul class="board-rows" id="hero-board-rows"></ul>
@@ -98,8 +98,8 @@
   <section class="section" id="bounties">
     <div class="wrap">
       <div class="section-head">
-        <h2>Open bounties</h2>
-        <p>A live board of funded issues across every connected repo.</p>
+        <h2>Open issues</h2>
+        <p>Unassigned "good first issue" tickets from across GitHub, sorted by the area you work in. Solve one and earn points; where a maintainer has funded the issue, earn the bounty too.</p>
       </div>
 
       <div class="board-controls">
@@ -108,27 +108,26 @@
           <input type="text" id="bounty-search" placeholder="Search by repo or title" aria-label="Search bounties">
         </div>
 
-        <div class="filter-pills" id="filter-pills" role="group" aria-label="Filter by label">
+        <div class="filter-pills" id="filter-pills" role="group" aria-label="Filter by category">
           <button class="pill is-active" data-filter="all" type="button">All</button>
-          <button class="pill" data-filter="enhancement" type="button">Enhancement</button>
-          <button class="pill" data-filter="bug" type="button">Bug</button>
+          <button class="pill" data-filter="frontend" type="button">Frontend</button>
+          <button class="pill" data-filter="backend" type="button">Backend</button>
+          <button class="pill" data-filter="fullstack" type="button">Full-stack</button>
           <button class="pill" data-filter="docs" type="button">Docs</button>
-          <button class="pill" data-filter="good-first-issue" type="button">Good first issue</button>
         </div>
 
         <label class="sort-field">
           <span>Sort</span>
           <select id="bounty-sort">
-            <option value="amount-desc">Highest bounty</option>
-            <option value="amount-asc">Lowest bounty</option>
-            <option value="newest">Newest</option>
+            <option value="updated">Recently updated</option>
+            <option value="stars">Most stars</option>
           </select>
         </label>
       </div>
 
       <ul class="bounty-grid" id="bounty-grid" aria-live="polite"></ul>
 
-      <p class="board-footnote">Showing sample bounties for demonstration. Connect a repo to list real ones.</p>
+      <p class="board-footnote">Loading issues…</p>
     </div>
   </section>
 
