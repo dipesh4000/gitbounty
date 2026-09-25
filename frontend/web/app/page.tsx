@@ -1,5 +1,5 @@
-import { LedgerLanding } from "./components/LedgerLanding";
+import BroadsheetLanding from "./components/BroadsheetLanding";
 
 export default function Home() {
-  return <LedgerLanding />;
+  return <BroadsheetLanding />;
 }
