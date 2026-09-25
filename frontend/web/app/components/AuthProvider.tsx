@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { API_BASE, api, type User } from "../lib/api";
+import { DEMO_CONNECT, DEMO_USER, demoSessionStarted, endDemoSession, setDemoActive, startDemoSession } from "../lib/demoSession";
 
 type AuthContextValue = {
   user: User | null;
@@ -17,8 +18,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     api<User>("/api/me")
-      .then(setUser)
-      .catch(() => setUser(null))
+      .then((me) => { setDemoActive(false); setUser(me); })
+      .catch(() => {
+        // No real session. Hard-coded sign-in (lib/demoSession.ts): once "Connect GitHub" was clicked,
+        // the visitor stays connected as the demo user until they sign out.
+        if (demoSessionStarted()) { setDemoActive(true); setUser(DEMO_USER); } else setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -27,11 +32,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     connect: (placement) => {
       if (!user) {
+        if (DEMO_CONNECT) {
+          startDemoSession();
+          window.location.assign("/explore");
+          return;
+        }
         window.location.assign(`${API_BASE}/auth/github`);
         return;
       }
       if (placement === "page") {
         window.location.assign("/explore");
+        return;
+      }
+      const demoUser = user.id === DEMO_USER.id && user.github_login === DEMO_USER.github_login;
+      endDemoSession();
+      if (demoUser) {
+        window.location.assign("/");
         return;
       }
       api("/auth/logout", { method: "POST" }).catch(() => undefined).finally(() => window.location.reload());
