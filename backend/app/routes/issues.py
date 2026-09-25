@@ -61,6 +61,8 @@ async def browse_issues(
         select {ISSUE_LIST_COLUMNS}
         from issues i
         join repositories r on r.id = i.repository_id
+        join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+        left join users u on u.id = ip.set_by_user_id
         where i.state = 'open'
           and ($1::text is null or i.category = $1)
           and ($2::text is null or lower(i.language) = lower($2))
@@ -90,8 +92,10 @@ async def category_counts() -> CategoryCounts:
     rows = await fetch_all(
         """
         select category, count(*) as count
-        from issues
-        where state = 'open'
+        from issues i
+        join repositories r on r.id = i.repository_id
+        join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+        where i.state = 'open'
         group by category
         """
     )

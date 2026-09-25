@@ -93,3 +93,24 @@ async def get_repo(token: str, full_name: str) -> dict[str, Any] | None:
     if response.status_code != 200:
         raise GitHubError(f"GET /repos/{full_name} returned {response.status_code}")
     return response.json()
+
+
+async def list_repo_issues(token: str, full_name: str, *, max_pages: int = 5) -> list[dict[str, Any]]:
+    """Return up to 500 open issues from one repository, excluding pull requests."""
+    found: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        for page in range(1, max_pages + 1):
+            response = await client.get(
+                f"{GITHUB_API_URL}/repos/{full_name}/issues",
+                headers=_headers(token),
+                params={"state": "open", "per_page": 100, "page": page, "sort": "created"},
+            )
+            if response.status_code in (403, 429):
+                raise RateLimited(_retry_after_seconds(response))
+            if response.status_code != 200:
+                raise GitHubError(f"GET /repos/{full_name}/issues returned {response.status_code}")
+            page_items = response.json()
+            found.extend(item for item in page_items if "pull_request" not in item)
+            if len(page_items) < 100:
+                break
+    return found
