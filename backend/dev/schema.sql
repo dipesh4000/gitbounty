@@ -77,13 +77,16 @@ create table if not exists issue_points (
     id             bigserial primary key,
     repo_full_name text        not null,
     issue_number   integer     not null,
-    points         integer     not null check (points >= 0),
-    set_by_user_id bigint      references users (id) on delete set null,
+    points         integer     not null check (points > 0),
+    set_by_user_id bigint      not null references users (id) on delete cascade,
     created_at     timestamptz not null default now(),
     updated_at     timestamptz not null default now(),
 
     unique (repo_full_name, issue_number)
 );
+
+create index if not exists issue_points_set_by_user_idx
+    on issue_points (set_by_user_id, updated_at desc);
 
 -- A user's total is summed from merged_prs rather than stored on users. Summing cannot drift out of step with
 -- the rows it comes from, and at this size it is fast. If it ever stops being fast, a stored total is the fix.
