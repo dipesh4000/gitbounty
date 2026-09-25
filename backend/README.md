@@ -1,18 +1,19 @@
 # Backend
 
-**Status: not started.** Stack chosen: **FastAPI** (Python), per the tech stack table in [`../plan.md`](../plan.md).
+**Status: active development.** The backend uses FastAPI, Postgres through `asyncpg`, and hand-written SQL
+migrations. GitHub OAuth, issue browsing/sync, merged-PR detection, points, and leaderboards are implemented.
 
 One FastAPI app serves both halves of the split in [`../feature-split.md`](../feature-split.md) — Nishika's login
 and issue browsing, Aastha's merged-PR detection and points. Keep each feature in its own module so the two don't
 collide.
 
-## What it has to do
+## What is built
 
-- **Log a user in with GitHub** (Nishika) — OAuth via Authlib, and a session the website can carry.
-- **Serve open GitHub issues by category** (Nishika) — the API behind the issue browser.
-- **Sync a user's merged PRs** (Aastha) — ask GitHub, *as that user*, which of their pull requests have been merged,
+- **Log a user in with GitHub** — OAuth with a signed session cookie and encrypted stored access token.
+- **Serve open GitHub issues by category** — the board reads cached Postgres rows; an authenticated sync refreshes them.
+- **Sync a user's merged PRs** — ask GitHub, *as that user*, which of their pull requests have been merged,
   and work out the category of each.
-- **Award and serve points** (Aastha) — turn those merges into points, and answer the leaderboard queries.
+- **Award and serve points** — turn those merges into points, and answer the leaderboard queries.
 - Read and write the database (Postgres on Supabase). Schema changes come from [`../migrations/`](../migrations),
   not from this folder, and Nishika applies them by hand.
 

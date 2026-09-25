@@ -42,3 +42,24 @@ def pool() -> asyncpg.Pool:
             "No database connection. Set DATABASE_URL in backend/.env (see backend/dev/README.md)."
         )
     return _pool
+
+
+async def fetch_all(sql: str, *args: object) -> list[asyncpg.Record]:
+    """Run a read query through the shared asyncpg pool."""
+    async with pool().acquire() as connection:
+        return await connection.fetch(sql, *args)
+
+
+async def fetch_one(sql: str, *args: object) -> asyncpg.Record | None:
+    """Return one row through the shared asyncpg pool."""
+    async with pool().acquire() as connection:
+        return await connection.fetchrow(sql, *args)
+
+
+async def execute_many(sql: str, rows: list[tuple[object, ...]]) -> int:
+    """Execute the same statement for a batch, using one acquired connection."""
+    if not rows:
+        return 0
+    async with pool().acquire() as connection:
+        await connection.executemany(sql, rows)
+    return len(rows)

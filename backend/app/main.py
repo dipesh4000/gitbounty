@@ -19,6 +19,7 @@ from .config import settings
 from .db import connect, disconnect, is_configured
 from .features.merged_prs.router import router as merged_prs_router
 from .features.points.router import router as points_router
+from .routes.issues import router as issues_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -61,6 +62,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(merged_prs_router)
 app.include_router(points_router)
+app.include_router(issues_router)
 
 
 @app.get("/health")
