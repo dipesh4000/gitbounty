@@ -8,6 +8,7 @@
  * See DESIGN_SYSTEM.md for tokens, type, components, and motion rules.
  */
 import React, { useEffect, useReducer, useRef } from 'react';
+import { useAuth } from './AuthProvider';
 
 /* ---------- data + behavior ---------- */
 const G = '#B7F34A';
@@ -144,6 +145,7 @@ const CSS = "@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk
 
 /* ---------- component ---------- */
 export default function GitBountyLanding() {
+  const { user, loading: authLoading, connect } = useAuth();
   const [, force] = useReducer(x => x + 1, 0);
   const c = useRef(null);
   if (!c.current) { c.current = { forceUpdate: () => {} }; init(c.current); }
@@ -171,8 +173,8 @@ export default function GitBountyLanding() {
               <a href="#explore" style={{ color: "#AAB5AB" }}>Explore Issues</a><a href="#how" style={{ color: "#AAB5AB" }}>How It Works</a><a href="#leaderboard" style={{ color: "#AAB5AB" }}>Leaderboard</a><a href="#maintainers" style={{ color: "#AAB5AB" }}>For Maintainers</a><a href="https://github.com" style={{ color: "#AAB5AB" }}>GitHub ↗</a>
               </nav>
             <span aria-hidden="true" style={{ width: "1px", height: "20px", background: "#303C33" }}></span>
-            <a href="#signin" style={{ whiteSpace: "nowrap", color: "#F2F6EF" }}>Sign in</a>
-            <a href="#connect" style={{ whiteSpace: "nowrap", fontFamily: "Inter,sans-serif", fontSize: "14px", fontWeight: "600", background: "#B7F34A", color: "#080B09", padding: "8px 14px", borderRadius: "2px" }} className="gbh0">Connect GitHub</a>
+            {!user && <button type="button" disabled={authLoading} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", color: "#F2F6EF", background: "transparent", border: "0", padding: "8px 0", font: "inherit", cursor: "pointer" }}>Sign in</button>}
+            <button type="button" disabled={authLoading} title={user ? 'Sign out' : undefined} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", fontFamily: "Inter,sans-serif", fontSize: "14px", fontWeight: "600", background: "#B7F34A", color: "#080B09", padding: "8px 14px", border: "0", borderRadius: "2px", cursor: "pointer" }} className="gbh0">{user ? '@' + user.github_login : 'Connect GitHub'}</button>
             </>)}
           {v.navNarrow && (<>
             <button type="button" aria-expanded={v.menuExp} aria-controls="mnav" onClick={v.toggleMenu} style={{ marginLeft: "auto", minHeight: "44px", padding: "0 14px", background: "transparent", border: "1px solid #303C33", borderRadius: "2px", color: "#F2F6EF", font: "500 13px 'JetBrains Mono',monospace", cursor: "pointer" }}>{v.menuLabel}</button>
@@ -180,8 +182,8 @@ export default function GitBountyLanding() {
           </div>
         {v.menu && (<>
           <nav id="mnav" aria-label="Mobile" style={{ borderTop: "1px solid #202923", padding: "8px clamp(20px,4vw,56px) 20px", display: "flex", flexDirection: "column", fontSize: "17px" }}>
-            <a href="#explore" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Explore Issues</a><a href="#how" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>How It Works</a><a href="#leaderboard" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Leaderboard</a><a href="#maintainers" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>For Maintainers</a><a href="#signin" style={{ whiteSpace: "nowrap", padding: "14px 0", borderBottom: "1px solid #202923" }}>Sign in</a>
-            <a href="#connect" style={{ whiteSpace: "nowrap", marginTop: "16px", textAlign: "center", padding: "14px", background: "#B7F34A", color: "#080B09", fontWeight: "600", borderRadius: "2px" }}>Connect GitHub</a>
+            <a href="#explore" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Explore Issues</a><a href="#how" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>How It Works</a><a href="#leaderboard" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Leaderboard</a><a href="#maintainers" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>For Maintainers</a>
+            <button type="button" disabled={authLoading} title={user ? 'Sign out' : undefined} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", marginTop: "16px", textAlign: "center", padding: "14px", background: "#B7F34A", color: "#080B09", fontWeight: "600", border: "0", borderRadius: "2px", cursor: "pointer" }}>{user ? '@' + user.github_login : 'Connect GitHub'}</button>
             </nav>
           </>)}
         </header>
@@ -440,7 +442,7 @@ export default function GitBountyLanding() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: "24px 40px", alignItems: "center", borderTop: "3px solid #B7F34A", paddingTop: "28px" }}>
               <p style={{ fontSize: "19px", lineHeight: "1.5", margin: "0", color: "#AAB5AB", flex: "1 1 280px", maxWidth: "26em" }}>Find an issue that matches your skills and make the work count.</p>
               <a href="#explore" style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 24px", background: "#B7F34A", color: "#080B09", fontWeight: "600", fontSize: "16px", borderRadius: "2px" }} className="gbh7">Explore open issues →</a>
-              <a href="#connect" style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 4px", color: "#F2F6EF", fontWeight: "500", fontSize: "16px", borderBottom: "1px solid #465449" }} className="gbh8">Connect GitHub</a>
+              <button type="button" disabled={authLoading} onClick={() => connect(user ? 'page' : 'nav')} style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 4px", color: "#F2F6EF", background: "transparent", border: "0", borderBottom: "1px solid #465449", fontWeight: "500", fontSize: "16px", cursor: "pointer" }} className="gbh8">{user ? 'Browse issues' : 'Connect GitHub'}</button>
               </div>
             </div>
           </section>

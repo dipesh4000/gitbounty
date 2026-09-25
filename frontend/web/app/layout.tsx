@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "./components/AuthProvider";
 
 /* The same three families the static site loaded from Google Fonts, but self-hosted by next/font so there is no
    render-blocking request and no flash of fallback text. globals.css points --font-display / --font-body /
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             __html: "<!-- open-source-ledger / pinned-brief / unreviewed-and-undocumented-is-unfinished -->",
           }}
         />
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

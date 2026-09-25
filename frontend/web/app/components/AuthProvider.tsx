@@ -5,6 +5,7 @@ import { API_BASE, api, type User } from "../lib/api";
 
 type AuthContextValue = {
   user: User | null;
+  loading: boolean;
   connect: (placement: "nav" | "page") => void;
 };
 
@@ -12,13 +13,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api<User>("/api/me").then(setUser).catch(() => setUser(null));
+    api<User>("/api/me")
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
+    loading,
     connect: (placement) => {
       if (!user) {
         // The OAuth route belongs to the separately hosted API, not this Next.js app.
@@ -27,14 +33,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       if (placement === "page") {
-        document.getElementById("bounties")?.scrollIntoView({ behavior: "smooth" });
+        document.getElementById("explore")?.scrollIntoView({ behavior: "smooth" });
         return;
       }
       api("/auth/logout", { method: "POST" })
         .catch(() => undefined)
         .finally(() => window.location.reload());
     },
-  }), [user]);
+  }), [loading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
