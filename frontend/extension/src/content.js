@@ -9,11 +9,12 @@
   if (!issueLocation && !pullLocation) return;
 
   const BADGE_ATTRIBUTE = "data-gitbounty-points-badge";
+  const BADGE_ISSUE_ATTRIBUTE = "data-gitbounty-issue-number";
   const PROCESSED_ATTRIBUTE = "data-gitbounty-points-processed";
   const PR_BANNER_ATTRIBUTE = "data-gitbounty-pr-award";
-  const ROW_BADGE_ATTRIBUTE = "data-gitbounty-row-badge";
   const LABEL_SELECTOR = 'a[href*="/labels/"], [data-testid="issue-label"], [data-name]';
-  const CATEGORIES = new Set(["frontend", "backend", "fullstack", "full-stack", "docs"]);
+  const CATEGORIES = new Set(["frontend", "backend", "fullstack", "full-stack", "docs", "testing", "devops", "design", "mobile", "other"]);
+  const bountyRequests = new Map();
   let scanTimer = null;
   let decoratingPull = false;
 
@@ -33,90 +34,127 @@
     );
   }
 
+  function normalizeCategory(value) {
+    const normalized = String(value || "other").toLowerCase().replace(/\s+/g, "-");
+    return normalized === "full-stack" ? "fullstack" : CATEGORIES.has(normalized) ? normalized : "other";
+  }
+
+  function categoryLabel(value) {
+    const normalized = normalizeCategory(value);
+    if (normalized === "fullstack") return "Full-stack";
+    if (normalized === "devops") return "DevOps";
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
   function categoryNear(label) {
     const row = label.closest('[data-testid="issue-row"], .js-issue-row, article, li') || document;
     for (const candidate of allLabels(row)) {
-      const normalized = labelName(candidate).toLowerCase().replace(/\s+/g, "-");
-      if (CATEGORIES.has(normalized)) return normalized.replace("full-stack", "fullstack");
+      const raw = labelName(candidate);
+      const normalized = normalizeCategory(raw);
+      if (normalized !== "other" || /^other$/i.test(raw)) return normalized;
     }
-    return "tracked";
+    return "other";
   }
 
-  function removeStaleBadge(label) {
-    const sibling = label.previousElementSibling;
-    if (sibling?.hasAttribute(BADGE_ATTRIBUTE)) sibling.remove();
-    label.classList.remove("gitbounty-source-label");
-    label.removeAttribute(PROCESSED_ATTRIBUTE);
+  function issueAnchor(repository, number, root = document) {
+    return [...root.querySelectorAll('a[href*="/issues/"]')].find((anchor) => {
+      try {
+        const parsed = helpers.parseIssueLocation(new URL(anchor.href, window.location.origin).pathname);
+        return parsed?.repository.toLowerCase() === repository.toLowerCase() && parsed.number === Number(number);
+      } catch {
+        return false;
+      }
+    }) || null;
+  }
+
+  function badgeContainer(anchor) {
+    return anchor.closest('[data-testid="issue-row"], .js-issue-row, article, li') || anchor.parentElement || document;
+  }
+
+  function upsertBadge(anchor, number, points, category) {
+    const container = badgeContainer(anchor);
+    const visibleCategory = categoryLabel(category);
+    let badge = container.querySelector(`[${BADGE_ISSUE_ATTRIBUTE}="${number}"]`);
+    if (
+      badge?.getAttribute(BADGE_ATTRIBUTE) === String(points) &&
+      badge.getAttribute("data-gitbounty-category") === visibleCategory
+    ) return;
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "gitbounty-points-badge";
+      badge.setAttribute(BADGE_ISSUE_ATTRIBUTE, String(number));
+      badge.setAttribute("role", "note");
+      anchor.insertAdjacentElement("afterend", badge);
+    }
+    badge.setAttribute(BADGE_ATTRIBUTE, String(points));
+    badge.setAttribute("data-gitbounty-category", visibleCategory);
+    badge.setAttribute("aria-label", `${helpers.formatPoints(points)} GitBounty points, ${visibleCategory} category`);
+    badge.title = `GitBounty · ${helpers.formatPoints(points)} points · ${visibleCategory}`;
+    badge.replaceChildren();
+
+    const amount = document.createElement("strong");
+    amount.textContent = helpers.formatPoints(points);
+    const brand = document.createElement("span");
+    brand.textContent = "GitBounty";
+    const workCategory = document.createElement("span");
+    workCategory.className = "gitbounty-points-badge__category";
+    workCategory.textContent = visibleCategory;
+    badge.append(amount, brand, workCategory);
   }
 
   function decorateLabel(label) {
     const points = helpers.parsePointsLabel(labelName(label));
-    if (points === null) {
-      if (label.hasAttribute(PROCESSED_ATTRIBUTE)) removeStaleBadge(label);
-      return;
-    }
-
-    const value = String(points);
-    if (
-      label.getAttribute(PROCESSED_ATTRIBUTE) === value &&
-      label.previousElementSibling?.getAttribute(BADGE_ATTRIBUTE) === value
-    ) return;
-
-    removeStaleBadge(label);
-    const category = categoryNear(label);
-    const badge = document.createElement("span");
-    badge.className = "gitbounty-points-badge";
-    badge.setAttribute(BADGE_ATTRIBUTE, value);
-    badge.setAttribute("role", "note");
-    badge.setAttribute("aria-label", `GitBounty: ${helpers.formatPoints(points)} issue points`);
-    badge.title = `GitBounty · ${helpers.formatPoints(points)} issue points`;
-
-    const dot = document.createElement("span");
-    dot.className = "gitbounty-points-badge__dot";
-    dot.setAttribute("aria-hidden", "true");
-    const amount = document.createElement("span");
-    amount.setAttribute("aria-hidden", "true");
-    amount.textContent = `+${helpers.formatPoints(points)} · ${category.toUpperCase()}`;
-
-    badge.append(dot, amount);
+    if (points === null) return;
+    const pageLocation = helpers.parseIssueLocation(window.location.pathname);
+    const row = label.closest('[data-testid="issue-row"], .js-issue-row, article, li');
+    const anchor = row
+      ? [...row.querySelectorAll('a[href*="/issues/"]')].find((candidate) => helpers.parseIssueLocation(new URL(candidate.href, window.location.origin).pathname)?.number)
+      : document.querySelector('[data-testid="issue-title"] bdi, .js-issue-title, h1 bdi, h1');
+    const parsed = anchor?.href ? helpers.parseIssueLocation(new URL(anchor.href, window.location.origin).pathname) : pageLocation;
+    if (!anchor || !parsed?.number) return;
+    upsertBadge(anchor, parsed.number, points, categoryNear(label));
     label.classList.add("gitbounty-source-label");
-    label.insertAdjacentElement("beforebegin", badge);
-    label.setAttribute(PROCESSED_ATTRIBUTE, value);
+    label.setAttribute(PROCESSED_ATTRIBUTE, String(points));
   }
 
-  function makeRowBadge(kind) {
-    const badge = document.createElement("span");
-    badge.className = `gitbounty-row-badge gitbounty-row-badge--${kind}`;
-    badge.setAttribute(ROW_BADGE_ATTRIBUTE, kind);
-    badge.setAttribute("role", "note");
-    badge.textContent = kind === "base" ? "+5 base" : "not tracked";
-    badge.setAttribute(
-      "aria-label",
-      kind === "base" ? "GitBounty: 5 baseline points on merge" : "Not tracked by GitBounty",
-    );
-    return badge;
-  }
-
-  function decorateIssueRows() {
-    const rows = document.querySelectorAll('[data-testid="issue-row"], .js-issue-row');
-    rows.forEach((row) => {
-      if (row.querySelector(`[${BADGE_ATTRIBUTE}], [${ROW_BADGE_ATTRIBUTE}]`)) return;
-      const labels = allLabels(row);
-      if (labels.some((label) => helpers.parsePointsLabel(labelName(label)) !== null)) return;
-      const categoryLabel = labels.find((label) => {
-        const normalized = labelName(label).toLowerCase().replace(/\s+/g, "-");
-        return CATEGORIES.has(normalized);
+  function repositoryBounties(repository) {
+    const key = repository.toLowerCase();
+    if (!bountyRequests.has(key)) {
+      const request = new Promise((resolve) => {
+        if (!globalThis.chrome?.runtime?.sendMessage) {
+          resolve([]);
+          return;
+        }
+        chrome.runtime.sendMessage(
+          { type: "gitbounty:get-repository-bounties", repository },
+          (response) => {
+            if (chrome.runtime.lastError || !response?.ok) resolve([]);
+            else resolve(Array.isArray(response.items) ? response.items : []);
+          },
+        );
       });
-      const anchor = labels.at(-1) || row.querySelector('a[href*="/issues/"]');
-      if (anchor) anchor.insertAdjacentElement("afterend", makeRowBadge(categoryLabel ? "base" : "untracked"));
-    });
+      bountyRequests.set(key, request);
+    }
+    return bountyRequests.get(key);
   }
 
-  function currentIssueContext() {
+  async function decoratePublishedBounties(location) {
+    const items = await repositoryBounties(location.repository);
+    for (const item of items) {
+      const bounty = helpers.findPublishedBounty(items, location.repository, item.number);
+      const anchor = bounty && issueAnchor(location.repository, item.number);
+      if (anchor) upsertBadge(anchor, item.number, bounty.points, bounty.category);
+    }
+  }
+
+  async function currentIssueContext() {
     const location = helpers.parseIssueLocation(window.location.pathname);
     if (!location?.number) return null;
+    const items = await repositoryBounties(location.repository);
+    const published = helpers.findPublishedBounty(items, location.repository, location.number);
     const pointsLabel = allLabels().find((label) => helpers.parsePointsLabel(labelName(label)) !== null);
-    if (!pointsLabel) return null;
+    const points = published?.points ?? (pointsLabel ? helpers.parsePointsLabel(labelName(pointsLabel)) : null);
+    if (points === null) return null;
     const titleNode = document.querySelector('[data-testid="issue-title"] bdi, .js-issue-title, h1 bdi, h1');
     const statusText = document.querySelector('[data-testid="issue-state"], .State')?.textContent || "Open";
     const assigneeNode = document.querySelector(
@@ -126,9 +164,9 @@
       issue: {
         repository: location.repository,
         number: location.number,
-        title: (titleNode?.textContent || document.title.split(" · ")[0] || "Tracked issue").trim(),
-        points: helpers.parsePointsLabel(labelName(pointsLabel)),
-        category: categoryNear(pointsLabel),
+        title: (published?.title || titleNode?.textContent || document.title.split(" · ")[0] || "Tracked issue").trim(),
+        points,
+        category: published?.category || (pointsLabel ? categoryNear(pointsLabel) : "other"),
         status: /closed|completed/i.test(statusText) ? "closed" : "open",
         assignee: assigneeNode?.textContent?.trim().replace(/^@/, "") || "unassigned",
       },
@@ -136,6 +174,8 @@
   }
 
   async function issuePoints(repository, number) {
+    const published = helpers.findPublishedBounty(await repositoryBounties(repository), repository, number);
+    if (published) return published.points;
     try {
       const response = await fetch(`/${repository}/issues/${number}`, { credentials: "same-origin" });
       if (!response.ok) return null;
@@ -183,7 +223,7 @@
     const location = helpers.parseIssueLocation(window.location.pathname);
     if (location) {
       allLabels().forEach(decorateLabel);
-      if (location.number === null) decorateIssueRows();
+      void decoratePublishedBounties(location);
     }
     void decoratePullRequest();
   }
@@ -201,8 +241,8 @@
   if (globalThis.chrome?.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type !== "gitbounty:get-page-context") return false;
-      sendResponse(currentIssueContext());
-      return false;
+      currentIssueContext().then(sendResponse);
+      return true;
     });
   }
 

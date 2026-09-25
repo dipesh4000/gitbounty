@@ -2,32 +2,35 @@
   all: initial;
   box-sizing: border-box;
   display: inline-flex;
-  min-height: 24px;
+  min-height: 22px;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   margin-inline-start: 7px;
-  padding: 0 8px;
-  border: 1px solid #9ee328;
-  border-radius: 2px;
-  background: #10200b;
-  color: #b7f34a;
+  padding: 0 7px;
+  border: 1px solid #7fb51f;
+  border-radius: 999px;
+  background: #273a16;
+  color: #d7ff8f;
   vertical-align: middle;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 10px;
   font-weight: 650;
-  line-height: 22px;
+  line-height: 20px;
   letter-spacing: 0.025em;
   font-variant-numeric: tabular-nums;
   cursor: default;
 }
 
-.gitbounty-points-badge__dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #b7f34a;
+.gitbounty-points-badge strong {
+  color: #f0ffcf;
+  font-weight: 750;
+}
+
+.gitbounty-points-badge__category::before {
+  content: "·";
+  margin-inline-end: 5px;
+  color: #8ead52;
 }
 
 .gitbounty-points-badge:hover {
@@ -37,31 +40,6 @@
 
 .gitbounty-source-label {
   display: none !important;
-}
-
-.gitbounty-row-badge {
-  all: initial;
-  box-sizing: border-box;
-  display: inline-flex;
-  min-height: 24px;
-  align-items: center;
-  margin-inline-start: 7px;
-  padding: 0 10px;
-  border: 1px solid #39463c;
-  border-radius: 2px;
-  background: #0d110e;
-  color: #9eaea1;
-  vertical-align: middle;
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
-  line-height: 22px;
-  letter-spacing: 0.025em;
-}
-
-.gitbounty-row-badge--untracked {
-  border-color: #28332a;
-  color: #718075;
 }
 
 .gitbounty-pr-award {
@@ -100,11 +78,6 @@
 
 @media (max-width: 680px) {
   .gitbounty-points-badge {
-    margin-block-start: 5px;
-    margin-inline-start: 0;
-  }
-
-  .gitbounty-row-badge {
     margin-block-start: 5px;
     margin-inline-start: 0;
   }

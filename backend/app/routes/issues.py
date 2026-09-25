@@ -42,6 +42,7 @@ async def browse_issues(
     category: str | None = Query(default=None, description="frontend, backend, fullstack or docs"),
     language: str | None = Query(default=None),
     q: str | None = Query(default=None, description="search the issue title"),
+    repository: str | None = Query(default=None, description="exact owner/repository name"),
     sort: str = Query(default="updated", description="updated or stars"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=25, ge=1, le=100),
@@ -69,12 +70,14 @@ async def browse_issues(
               and ($1::text is null or i.category = $1)
               and ($2::text is null or lower(i.language) = lower($2))
               and ($3::text is null or i.title ilike '%' || $3 || '%')
+              and ($4::text is null or lower(r.full_name) = lower($4))
             order by {order_by}
-            limit $4 offset $5
+            limit $5 offset $6
             """,
             category,
             language,
             q,
+            repository,
             per_page + 1,
             (page - 1) * per_page,
         )

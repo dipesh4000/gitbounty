@@ -1,9 +1,9 @@
 {
   "name": "gitbounty-extension",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/points.js && node --check src/content.js && node --check popup/data.js && node --check popup/popup.js && node --test tests/*.test.js"
+    "check": "node --check src/points.js && node --check src/background.js && node --check src/content.js && node --check popup/data.js && node --check popup/popup.js && node --test tests/*.test.js"
   }
 }

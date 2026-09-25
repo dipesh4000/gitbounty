@@ -13,8 +13,7 @@ brings its own problems:
 - **It's built from several parts**, not one page:
   - `manifest.json` declares the name, the permissions and which pages the extension runs on.
   - A **content script** is JS injected into github.com pages. It finds each issue in the list and adds the badge.
-  - A **service worker** can run in the background. A later slice will use one to ask the GitBounty backend for
-    stored point overrides and cache them.
+  - A **service worker** runs in the background and asks the GitBounty backend for published bounties.
     The content script hands it the request, because a content script is held to the page's cross-origin rules.
   - The **popup** is the small window behind the toolbar icon. It shows GitHub connection state, total points,
     recent counted merges, and the active issue's value when the page carries a `gitbounty:N` label.
@@ -30,8 +29,8 @@ brings its own problems:
 Dependency-free and read-only on GitHub. It never changes issues or pull requests:
 
 1. The content script runs only on GitHub issue-list and issue-detail URLs.
-2. It recognises the shared `gitbounty:<points>` label format and draws the Graphite Lime points badge beside it.
-   Categorized issues without a value show the 5-point merge baseline; uncategorized rows say `not tracked`.
+2. It loads website-published bounties for the current repository and draws a compact `40 GitBounty · Frontend`
+   badge beside matching GitHub issue titles. The shared `gitbounty:<points>` label remains a fallback.
 3. On a pull request whose description closes an issue, it previews the merge award (issue points plus the 5-point
    baseline) directly below the pull-request header.
 4. The toolbar popup mirrors the supplied signed-out, default, and tracked-issue UI states using real backend data.
@@ -42,12 +41,17 @@ environment values. While those credentials are pending, **Connect GitHub** crea
 `@aasha-malik`; it does not call GitHub and can be signed out from the popup menu. Remove the demo-session branch when
 the real OAuth configuration is ready.
 
+Website-published badges require migration `0004_published_bounties.sql` to be applied to the configured database and
+the backend to be running on port `8001`. Without that database table, the extension still supports GitHub's
+`gitbounty:<points>` label as a fallback.
+
 ## Run it locally
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode**.
 3. Choose **Load unpacked** and select this `frontend/extension` folder.
-4. Open a GitHub issue with a label such as `gitbounty:40`, then click the GitBounty toolbar icon.
+4. Publish a bounty for one of the repository's issues in GitBounty, open that repository's GitHub issues page,
+   then click the GitBounty toolbar icon. A `gitbounty:40` GitHub label can still be used as a fallback.
 5. After editing the extension, click its reload button on the extensions page before testing again.
 
 Run `npm test` in this folder for the label/path contract tests. No install step is required.
