@@ -1,9 +1,9 @@
 # Chrome extension
 
-An optional add-on that shows GitBounty bounty badges directly on GitHub issue lists and issue pages. The website
+An optional add-on that shows GitBounty point badges directly on GitHub issue lists and issue pages. The website
 must keep working without it.
 
-**Status: not started.**
+**Status: first read-only slice implemented.**
 
 ## Why it's more than "just a front end"
 
@@ -13,7 +13,8 @@ brings its own problems:
 - **It's built from several parts**, not one page:
   - `manifest.json` declares the name, the permissions and which pages the extension runs on.
   - A **content script** is JS injected into github.com pages. It finds each issue in the list and adds the badge.
-  - A **service worker** runs in the background. It asks the GitBounty backend for bounty amounts and caches them.
+  - A **service worker** can run in the background. A later slice will use one to ask the GitBounty backend for
+    stored point overrides and cache them.
     The content script hands it the request, because a content script is held to the page's cross-origin rules.
   - A **popup** (optional) is the small window behind the toolbar icon, for sign-in and status.
 - **GitHub is a moving target.** We depend on GitHub's HTML, which can change, and GitHub swaps pages without a full
@@ -23,16 +24,26 @@ brings its own problems:
 - **Everything in it is public.** It can't hold secrets, so all sensitive work stays in the backend.
 - **Sign-in is different.** It can't just reuse the website's session.
 
-## Suggested first version
+## Current first version
 
-Read-only. It needs no sign-in, because bounties on public issues are public data:
+Read-only and dependency-free. It needs no sign-in because GitHub issue labels are public:
 
-1. Content script finds the issue links on a GitHub issue list.
-2. It asks the service worker for the bounties of those issues.
-3. The service worker calls a public backend endpoint and returns the amounts.
-4. The content script draws a badge next to each issue that has a bounty.
+1. The content script runs only on GitHub issue-list and issue-detail URLs.
+2. It recognises the shared `gitbounty:<points>` label format.
+3. It draws a `GB +40 PTS` badge beside the label.
+4. A mutation observer restores badges after GitHub's client-side navigation and live updates.
 
-Sign-in, funding a bounty from inside GitHub and the popup can come later.
+The next slice is a small public backend lookup plus a service worker, so a value set on the GitBounty website can
+override a repository label. Sign-in and the toolbar popup can come later.
+
+## Run it locally
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Choose **Load unpacked** and select this `frontend/extension` folder.
+4. Open a GitHub issue with a label such as `gitbounty:40`.
+
+Run `npm test` in this folder for the label/path contract tests. No install step is required.
 
 ## Rules that apply here
 

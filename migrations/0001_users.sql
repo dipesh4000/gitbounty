@@ -1,10 +1,6 @@
 -- 0001_users.sql
--- Creates: users — one row per person who has signed in with GitHub.
--- Depends on: nothing. This is the first migration in the project.
---
--- Note on github_access_token: the backend stores this ENCRYPTED, never in plain
--- text (see backend/app/crypto.py). Nothing in this column should ever be usable
--- if the database is dumped. It is also never sent to the frontend.
+-- Nishika's GitHub-login schema, brought across from origin/main.
+-- GitHub access tokens are encrypted before storage and never returned by the API.
 
 create table if not exists users (
     id                  bigserial primary key,
@@ -18,6 +14,5 @@ create table if not exists users (
     last_login_at       timestamptz
 );
 
--- Lookups by handle are case-insensitive; GitHub logins are not case-sensitive.
 create unique index if not exists users_github_login_lower_idx
     on users (lower(github_login));

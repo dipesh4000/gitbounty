@@ -9,10 +9,15 @@
   Maintainers attach a dollar amount to any GitHub issue. Contributors merge a fix and get paid straight to their wallet — no invoices, no 20% cut, no five-day wait.
 </p>
 
-<p align="center">
-  📖 New here? Read <a href="overview.md"><strong>overview.md</strong></a> first — the plain-language explanation of
-  what this project actually is, including an open question about the product that this README hasn't caught up to yet.
-</p>
+<blockquote align="center">
+  <strong>⚠️ This README describes a later phase, not what's being built right now.</strong><br/>
+  GitBounty is currently being built as a <strong>points / XP</strong> app: sign in with GitHub, earn points when
+  your PRs are merged, climb the leaderboards. No wallet, no escrow, no crypto. The money design below — bounties,
+  escrow, on-chain payouts — is deferred, and when money does arrive it will most likely be
+  <em>redeeming points</em> rather than the maintainer-funded escrow flow described here.<br/>
+  📖 Start with <a href="overview.md"><strong>overview.md</strong></a>, then
+  <a href="plan.md"><strong>plan.md</strong></a> for the build plan.
+</blockquote>
 
 <p align="center">
   <a href="#-the-problem">Problem</a> ·
@@ -162,9 +167,9 @@ Only the website demo exists in this repo today. Everything else is design.
 |---|---|---|
 | Website | [`frontend/web/`](frontend/web) | **Demo built.** Plain HTML/CSS/JS with sample data, no API calls |
 | Chrome extension | [`frontend/extension/`](frontend/extension) | Not started. Optional add-on |
-| Backend | [`backend/`](backend) | Not started, stack not chosen |
+| Backend | [`backend/`](backend) | Not started. Stack chosen: FastAPI (Python) |
 | Database | [`migrations/`](migrations) | Postgres on a teammate's Supabase. No migrations written yet |
-| Escrow contract | `contracts/` | Not started, folder not created |
+| Escrow contract | `contracts/` | Deferred with the money phase. Not being built |
 
 ### What the website demo shows
 
@@ -179,16 +184,16 @@ The site does not depend on the extension.
 
 ## 🛠️ Tech stack
 
-Some choices are made and some are open. The original plan (Next.js, Node, Prisma, Dynamic SDK, Hardhat) was a proposal and is being re-evaluated.
+The stack for the points build is settled — see the table in [`plan.md`](plan.md). The original Web3 plan (Next.js, Node, Prisma, Dynamic SDK, Hardhat) is not being used.
 
 | Layer | State | Notes |
 |---|---|---|
-| **Website** | Demo in plain HTML/CSS/JS | Framework for the real app not chosen |
+| **Website** | Plain HTML/CSS/JS | Staying that way for the real app too — no build tooling |
 | **Extension** | Chrome Manifest V3 | Not started. See [`frontend/extension/`](frontend/extension/README.md) |
-| **Backend** | Not chosen | Must verify login, serve a REST API, receive GitHub webhooks and call the escrow contract |
+| **Backend** | FastAPI (Python) | Verifies GitHub login (Authlib), serves the REST API, syncs each user's merged PRs |
 | **Database** | Postgres on Supabase | Hosted in a teammate's account. Schema changes are plain SQL files in [`migrations/`](migrations) |
-| **Wallets** | Planned: Dynamic SDK | Non-custodial embedded wallets from a GitHub login, no seed phrases. Not confirmed |
-| **Smart contract** | Planned: Solidity on an EVM chain | Four-function escrow holding ERC-20 stablecoins (USDC), testnet first. Chain not chosen |
+| **Wallets** | Deferred | Belongs to the money phase. Nothing chosen, nothing being built |
+| **Smart contract** | Deferred | Belongs to the money phase. Nothing chosen, nothing being built |
 
 ### Webhook security (illustration)
 

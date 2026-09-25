@@ -1,68 +1,37 @@
-"""Configuration, read once from the environment.
+"""Configuration, read from the environment only — never hard-coded (rules.md section 5)."""
 
-Every value comes from an environment variable. Nothing here has a default that
-would silently work in production, so a missing variable fails loudly at startup
-rather than halfway through a request.
-"""
-
-from __future__ import annotations
-
-import os
-from dataclasses import dataclass
-
-from dotenv import load_dotenv
-
-# Loads backend/.env when running locally. In production the host supplies the
-# environment directly and there is no file to load.
-load_dotenv()
-
-GITHUB_API_URL = "https://api.github.com"
-GITHUB_OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-GITHUB_OAUTH_TOKEN_URL = "https://github.com/login/oauth/access_token"
-
-# The only scope we ask for. Reading public issues and a user's public merged
-# pull requests needs nothing more (rules.md section 5: fewest permissions).
-GITHUB_OAUTH_SCOPE = "read:user"
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class ConfigError(RuntimeError):
-    """Raised when a required environment variable is missing."""
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_callback_url: str = "http://localhost:8001/auth/github/callback"
+    frontend_url: str = "http://localhost:3000"
+    session_secret: str = ""
+    token_encryption_key: str = ""
+    database_url: str = ""
+
+    # Browser origins allowed to call this API. The website is served separately (a static file server in
+    # development, a static host in production), so it is always a different origin from this API.
+    # Comma-separated. Set it explicitly in a deployed build; never widen it to "*".
+    allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080,http://127.0.0.1:8080"
 
 
-def _required(name: str) -> str:
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise ConfigError(
-            f"{name} is not set. Copy backend/.env.example to backend/.env and fill it in."
-        )
-    return value
+    # Explicitly gated local fallback for backend work without OAuth.
+    dev_login_stub_enabled: bool = False
+    dev_github_login: str = ""
+    dev_github_token: str = ""
+    # The stub's stand-in for GitHub's numeric user id. Set it to the real one when working against seeded data,
+    # otherwise every sync lands on a separate placeholder user.
+    dev_github_id: int = 0
 
 
-@dataclass(frozen=True)
-class Settings:
-    database_url: str
-    github_client_id: str
-    github_client_secret: str
-    github_callback_url: str
-    frontend_url: str
-    session_secret: str
-    token_encryption_key: str
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
 
-_settings: Settings | None = None
-
-
-def get_settings() -> Settings:
-    """Return the settings, reading the environment the first time it is called."""
-    global _settings
-    if _settings is None:
-        _settings = Settings(
-            database_url=_required("DATABASE_URL"),
-            github_client_id=_required("GITHUB_CLIENT_ID"),
-            github_client_secret=_required("GITHUB_CLIENT_SECRET"),
-            github_callback_url=_required("GITHUB_CALLBACK_URL"),
-            frontend_url=os.environ.get("FRONTEND_URL", "http://localhost:8000").rstrip("/"),
-            session_secret=_required("SESSION_SECRET"),
-            token_encryption_key=_required("TOKEN_ENCRYPTION_KEY"),
-        )
-    return _settings
+settings = Settings()

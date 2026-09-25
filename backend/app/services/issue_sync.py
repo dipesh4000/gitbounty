@@ -53,7 +53,7 @@ async def _upsert_repository(repo: dict[str, Any]) -> int:
             github_id, full_name, owner_login, owner_type,
             primary_language, description, stargazers_count, repo_created_at, fetched_at
         )
-        values (%s, %s, %s, %s, %s, %s, %s, %s, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, now())
         on conflict (github_id) do update set
             full_name        = excluded.full_name,
             owner_login      = excluded.owner_login,
@@ -65,16 +65,14 @@ async def _upsert_repository(repo: dict[str, Any]) -> int:
             fetched_at       = now()
         returning id
         """,
-        (
-            repo["id"],
-            repo["full_name"],
-            repo["owner"]["login"],
-            repo["owner"].get("type"),
-            repo.get("language"),
-            repo.get("description"),
-            repo.get("stargazers_count", 0),
-            repo.get("created_at"),
-        ),
+        repo["id"],
+        repo["full_name"],
+        repo["owner"]["login"],
+        repo["owner"].get("type"),
+        repo.get("language"),
+        repo.get("description"),
+        repo.get("stargazers_count", 0),
+        repo.get("created_at"),
     )
     return row["id"]
 
@@ -85,7 +83,7 @@ _ISSUE_UPSERT_SQL = """
         category, language, labels, comments_count,
         issue_created_at, issue_updated_at, fetched_at
     )
-    values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
     on conflict (github_id) do update set
         title            = excluded.title,
         state            = excluded.state,
@@ -174,8 +172,8 @@ async def run_sync(token: str, actor: str) -> dict:
 
     known = await fetch_all(
         "select id, full_name, primary_language, stargazers_count"
-        " from repositories where full_name = any(%s)",
-        (list(repo_names),),
+        " from repositories where full_name = any($1::text[])",
+        list(repo_names),
     )
     repos = {
         row["full_name"]: (row["id"], row["primary_language"], row["stargazers_count"])

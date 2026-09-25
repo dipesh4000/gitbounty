@@ -8,15 +8,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..auth import CurrentUser, get_current_user_with_token
 from ..categories import CATEGORIES
 from ..db import fetch_all
-from ..dependencies import current_user, current_user_token
 from ..models import (
     ISSUE_LIST_COLUMNS,
     CategoryCounts,
     IssueList,
     SyncResult,
-    UserPublic,
 )
 from ..services.issue_sync import run_sync
 
@@ -31,11 +30,10 @@ _ORDER_BY = {
 
 @router.post("/api/issues/sync", response_model=SyncResult)
 async def sync_issues(
-    user: UserPublic = Depends(current_user),
-    token: str = Depends(current_user_token),
+    user: CurrentUser = Depends(get_current_user_with_token),
 ) -> SyncResult:
     """Refresh the board, running against the signed-in user's own rate limit."""
-    return SyncResult(**await run_sync(token, user.github_login))
+    return SyncResult(**await run_sync(user.github_token, user.github_login))
 
 
 @router.get("/api/issues", response_model=IssueList)
@@ -64,19 +62,17 @@ async def browse_issues(
         from issues i
         join repositories r on r.id = i.repository_id
         where i.state = 'open'
-          and (%(category)s::text is null or i.category = %(category)s)
-          and (%(language)s::text is null or lower(i.language) = lower(%(language)s))
-          and (%(q)s::text is null or i.title ilike '%%' || %(q)s || '%%')
+          and ($1::text is null or i.category = $1)
+          and ($2::text is null or lower(i.language) = lower($2))
+          and ($3::text is null or i.title ilike '%' || $3 || '%')
         order by {order_by}
-        limit %(limit)s offset %(offset)s
+        limit $4 offset $5
         """,
-        {
-            "category": category,
-            "language": language,
-            "q": q,
-            "limit": per_page + 1,
-            "offset": (page - 1) * per_page,
-        },
+        category,
+        language,
+        q,
+        per_page + 1,
+        (page - 1) * per_page,
     )
 
     return IssueList(

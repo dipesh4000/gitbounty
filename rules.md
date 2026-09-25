@@ -32,9 +32,9 @@ Break the work into small steps. When a step is done and checked, make a git com
 
 | Folder | Holds |
 |---|---|
-| `frontend/web/` | The website |
+| `frontend/web/` | The Next.js port of the original single-page landing site and live issue board |
 | `frontend/extension/` | The Chrome extension (optional add-on, the site must work without it) |
-| `backend/` | The API and webhook receiver |
+| `backend/` | The FastAPI server for identity, points, leaderboards and GitHub polling |
 | `migrations/` | Every SQL change to the database, and nothing else |
 | `contracts/` | The escrow contract. Planned, not created yet |
 

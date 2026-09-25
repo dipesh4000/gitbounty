@@ -1,0 +1,6 @@
+# Development-only dependencies, not installed on the server.
+#   . .venv/bin/activate && pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==8.3.4        # so "it works" means "the tests pass", not "I ran it once" (rules.md section 8)
+pytest-asyncio==0.25.0  # the GitHub client is async, so its tests have to be too
+respx==0.22.0        # fakes httpx responses, so GitHub API code is tested without calling GitHub

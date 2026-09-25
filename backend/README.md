@@ -1,99 +1,35 @@
 # Backend
 
-FastAPI (Python), Postgres, no ORM. Schema changes live in [`../migrations/`](../migrations)
-and are the only record of what the database looks like (see [`../rules.md`](../rules.md) section 4).
+**Status: active development.** The backend uses FastAPI, Postgres through `asyncpg`, and hand-written SQL
+migrations. GitHub OAuth, issue browsing/sync, merged-PR detection, points, and leaderboards are implemented.
+
+One FastAPI app serves both halves of the split in [`../feature-split.md`](../feature-split.md) — Nishika's login
+and issue browsing, Aastha's merged-PR detection and points. Keep each feature in its own module so the two don't
+collide.
 
 ## What is built
 
-- **Sign in with GitHub** — OAuth with a one-time `state` check, a signed http-only session
-  cookie holding only the user's row id, and the access token encrypted before storage.
-- **Issue browsing** — a sync job pulls unassigned "good first issue" tickets from GitHub into
-  our tables; the board reads from those tables and never calls GitHub on a page load.
+- **Log a user in with GitHub** — OAuth with a signed session cookie and encrypted stored access token.
+- **Serve open GitHub issues by category** — the board reads cached Postgres rows; an authenticated sync refreshes them.
+- **Sync a user's merged PRs** — ask GitHub, *as that user*, which of their pull requests have been merged,
+  and work out the category of each.
+- **Award and serve points** — turn those merges into points, and answer the leaderboard queries.
+- Read and write the database (Postgres on Supabase). Schema changes come from [`../migrations/`](../migrations),
+  not from this folder, and Nishika applies them by hand.
 
-## What is not built yet
+## Two things that shape the design
 
-Points and leaderboards, merged-pull-request detection, the escrow contract and anything that
-moves funds. See [`../overview.md`](../overview.md) for the build order.
+- **No webhooks.** We don't own the repos whose issues we list, so we can't ask their maintainers to install one.
+  Everything is pulled per-user, with the user's own GitHub token.
+- **No points for self-merges.** A PR merged by its own author into their own repo is the obvious way to fake a
+  score, so it doesn't count.
 
-## Layout
+## Not in scope
 
-```
-app/
-├── main.py            assembly only — settings, middleware, router
-├── config.py          environment, read once, fails loudly on a missing value
-├── models.py          Pydantic response shapes + the column lists SQL selects
-├── dependencies.py    current_user, current_user_token
-├── db.py              connection pool and query helpers
-├── crypto.py          token encryption
-├── github.py          GitHub API client
-├── categories.py      how an issue gets its category
-├── routes/            one file per area: meta, auth, issues
-└── services/          logic that is not a route — issue_sync
-```
+Escrow, wallets, bounty funding and `release()` / `refund()` calls belong to the deferred money phase
+(see [`../overview.md`](../overview.md)). Don't build them.
 
-`models.py` holds Pydantic models, **not** ORM models. `../migrations/` is the
-record of the schema (`rules.md` section 4) and nothing in the app reflects or
-alters a table. Declaring response models means FastAPI drops any field a model
-does not list, which is what keeps the encrypted token out of API responses —
-`UserPublic` simply has no such field.
+## Rules that apply here
 
-## Running it
-
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env     # then fill it in, see below
-uvicorn app.main:app --reload --port 8001
-```
-
-Serve the website separately, on the port `FRONTEND_URL` names:
-
-```bash
-cd frontend/web && python3 -m http.server 8000
-```
-
-Check it came up: `curl localhost:8001/health` reports both the app and whether the database
-is reachable. Interactive API docs are at `http://localhost:8001/docs`.
-
-## What you need to fill in
-
-**A GitHub OAuth app** — <https://github.com/settings/developers> → New OAuth App.
-Homepage `http://localhost:8000`, callback `http://localhost:8001/auth/github/callback`.
-Copy the client id and generate a client secret.
-
-**A database URL** — the Supabase project, under Project Settings → Database → Connection string.
-
-**Two generated secrets:**
-
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"                      # SESSION_SECRET
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # TOKEN_ENCRYPTION_KEY
-```
-
-Apply the migrations in numeric order in the Supabase SQL editor before first run.
-
-## Endpoints
-
-| Method | Path | Notes |
-|---|---|---|
-| `GET` | `/health` | App and database liveness |
-| `GET` | `/auth/github` | Starts the OAuth flow |
-| `GET` | `/auth/github/callback` | GitHub returns here, then redirects to the site |
-| `POST` | `/auth/logout` | Clears the session |
-| `GET` | `/api/me` | The signed-in user's public profile |
-| `POST` | `/api/issues/sync` | Signed in. Refreshes the board from GitHub |
-| `GET` | `/api/issues` | The board. Filters: `category`, `language`, `q`, `page`, `per_page` |
-| `GET` | `/api/issues/categories` | Open issue count per category |
-
-## Things to know before changing this
-
-- **Never call GitHub's search API on a page load.** It allows about 30 requests per minute.
-  `/api/issues` reads Postgres; only `/api/issues/sync` talks to GitHub.
-- **The OAuth scope is `read:user` and should stay that way.** Reading public issues and public
-  merged pull requests needs nothing more (`rules.md` section 5).
-- **The access token column is never returned by the API.** The queries that read a user name
-  their columns explicitly so it cannot leak by accident. Keep it that way.
-- Sync runs as the signed-in user, against their own rate limit, and caps how many new
-  repositories one run will look up.
+See [`../rules.md`](../rules.md), in particular section 5 (never commit secrets — GitHub OAuth client secret, user
+access tokens, the database URL) and section 7 (don't decide an open question by scaffolding it).

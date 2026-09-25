@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-24T00:33:37+05:30",
+  "title": "Design System: GitBounty Open-Source Ledger",
+  "extensions": {
+    "colorMeta": {
+      "canvas": { "role": "neutral", "displayName": "Ledger Black", "canonical": "#080b09", "tonalRamp": ["oklch(15% 0.008 145)", "oklch(26% 0.008 145)", "oklch(38% 0.008 145)", "oklch(50% 0.008 145)", "oklch(62% 0.008 145)", "oklch(74% 0.008 145)", "oklch(86% 0.008 145)", "oklch(95% 0.008 145)"] },
+      "canvas-raised": { "role": "neutral", "displayName": "Raised Graphite", "canonical": "#0d110e", "tonalRamp": ["oklch(15% 0.01 145)", "oklch(26% 0.01 145)", "oklch(38% 0.01 145)", "oklch(50% 0.01 145)", "oklch(62% 0.01 145)", "oklch(74% 0.01 145)", "oklch(86% 0.01 145)", "oklch(95% 0.01 145)"] },
+      "surface": { "role": "neutral", "displayName": "Graphite Surface", "canonical": "#111713", "tonalRamp": ["oklch(15% 0.014 145)", "oklch(26% 0.014 145)", "oklch(38% 0.014 145)", "oklch(50% 0.014 145)", "oklch(62% 0.014 145)", "oklch(74% 0.014 145)", "oklch(86% 0.014 145)", "oklch(95% 0.014 145)"] },
+      "surface-raised": { "role": "neutral", "displayName": "Raised Surface", "canonical": "#172019", "tonalRamp": ["oklch(15% 0.02 145)", "oklch(26% 0.02 145)", "oklch(38% 0.02 145)", "oklch(50% 0.02 145)", "oklch(62% 0.02 145)", "oklch(74% 0.02 145)", "oklch(86% 0.02 145)", "oklch(95% 0.02 145)"] },
+      "surface-active": { "role": "neutral", "displayName": "Active Graphite", "canonical": "#1d2a20", "tonalRamp": ["oklch(15% 0.028 145)", "oklch(26% 0.028 145)", "oklch(38% 0.028 145)", "oklch(50% 0.028 145)", "oklch(62% 0.028 145)", "oklch(74% 0.028 145)", "oklch(86% 0.028 145)", "oklch(95% 0.028 145)"] },
+      "line-soft": { "role": "neutral", "displayName": "Hairline Graphite", "canonical": "#202923", "tonalRamp": ["oklch(15% 0.016 145)", "oklch(26% 0.016 145)", "oklch(38% 0.016 145)", "oklch(50% 0.016 145)", "oklch(62% 0.016 145)", "oklch(74% 0.016 145)", "oklch(86% 0.016 145)", "oklch(95% 0.016 145)"] },
+      "line": { "role": "neutral", "displayName": "Rule Graphite", "canonical": "#303c33", "tonalRamp": ["oklch(15% 0.02 145)", "oklch(26% 0.02 145)", "oklch(38% 0.02 145)", "oklch(50% 0.02 145)", "oklch(62% 0.02 145)", "oklch(74% 0.02 145)", "oklch(86% 0.02 145)", "oklch(95% 0.02 145)"] },
+      "line-strong": { "role": "neutral", "displayName": "Strong Rule", "canonical": "#465449", "tonalRamp": ["oklch(15% 0.025 145)", "oklch(26% 0.025 145)", "oklch(38% 0.025 145)", "oklch(50% 0.025 145)", "oklch(62% 0.025 145)", "oklch(74% 0.025 145)", "oklch(86% 0.025 145)", "oklch(95% 0.025 145)"] },
+      "text": { "role": "neutral", "displayName": "Chalk Text", "canonical": "#f2f6ef", "tonalRamp": ["oklch(15% 0.012 125)", "oklch(26% 0.012 125)", "oklch(38% 0.012 125)", "oklch(50% 0.012 125)", "oklch(62% 0.012 125)", "oklch(74% 0.012 125)", "oklch(86% 0.012 125)", "oklch(95% 0.012 125)"] },
+      "text-secondary": { "role": "neutral", "displayName": "Cool Gray Text", "canonical": "#aab5ab", "tonalRamp": ["oklch(15% 0.018 145)", "oklch(26% 0.018 145)", "oklch(38% 0.018 145)", "oklch(50% 0.018 145)", "oklch(62% 0.018 145)", "oklch(74% 0.018 145)", "oklch(86% 0.018 145)", "oklch(95% 0.018 145)"] },
+      "text-muted": { "role": "neutral", "displayName": "Muted Ledger Text", "canonical": "#89968b", "tonalRamp": ["oklch(15% 0.018 145)", "oklch(26% 0.018 145)", "oklch(38% 0.018 145)", "oklch(50% 0.018 145)", "oklch(62% 0.018 145)", "oklch(74% 0.018 145)", "oklch(86% 0.018 145)", "oklch(95% 0.018 145)"] },
+      "signal": { "role": "primary", "displayName": "Signal Lime", "canonical": "#b7f34a", "tonalRamp": ["oklch(15% 0.16 125)", "oklch(26% 0.16 125)", "oklch(38% 0.16 125)", "oklch(50% 0.16 125)", "oklch(62% 0.16 125)", "oklch(74% 0.16 125)", "oklch(86% 0.16 125)", "oklch(95% 0.16 125)"] },
+      "signal-hover": { "role": "primary", "displayName": "Pressed Lime", "canonical": "#9ddd32", "tonalRamp": ["oklch(15% 0.15 125)", "oklch(26% 0.15 125)", "oklch(38% 0.15 125)", "oklch(50% 0.15 125)", "oklch(62% 0.15 125)", "oklch(74% 0.15 125)", "oklch(86% 0.15 125)", "oklch(95% 0.15 125)"] },
+      "signal-dark": { "role": "primary", "displayName": "Ledger Green", "canonical": "#172b12", "tonalRamp": ["oklch(15% 0.06 135)", "oklch(26% 0.06 135)", "oklch(38% 0.06 135)", "oklch(50% 0.06 135)", "oklch(62% 0.06 135)", "oklch(74% 0.06 135)", "oklch(86% 0.06 135)", "oklch(95% 0.06 135)"] },
+      "status": { "role": "secondary", "displayName": "Verification Mint", "canonical": "#3ddb82", "tonalRamp": ["oklch(15% 0.13 150)", "oklch(26% 0.13 150)", "oklch(38% 0.13 150)", "oklch(50% 0.13 150)", "oklch(62% 0.13 150)", "oklch(74% 0.13 150)", "oklch(86% 0.13 150)", "oklch(95% 0.13 150)"] },
+      "focus": { "role": "primary", "displayName": "Focus Lime", "canonical": "#d7ff8f", "tonalRamp": ["oklch(15% 0.11 125)", "oklch(26% 0.11 125)", "oklch(38% 0.11 125)", "oklch(50% 0.11 125)", "oklch(62% 0.11 125)", "oklch(74% 0.11 125)", "oklch(86% 0.11 125)", "oklch(95% 0.11 125)"] },
+      "danger": { "role": "tertiary", "displayName": "Exception Coral", "canonical": "#f08b73", "tonalRamp": ["oklch(15% 0.12 30)", "oklch(26% 0.12 30)", "oklch(38% 0.12 30)", "oklch(50% 0.12 30)", "oklch(62% 0.12 30)", "oklch(74% 0.12 30)", "oklch(86% 0.12 30)", "oklch(95% 0.12 30)"] },
+      "signal-ink": { "role": "neutral", "displayName": "Signal Ink", "canonical": "#0a0d0a", "tonalRamp": ["oklch(15% 0.008 145)", "oklch(26% 0.008 145)", "oklch(38% 0.008 145)", "oklch(50% 0.008 145)", "oklch(62% 0.008 145)", "oklch(74% 0.008 145)", "oklch(86% 0.008 145)", "oklch(95% 0.008 145)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Manifesto Display", "purpose": "The first-viewport statement only." },
+      "headline": { "displayName": "Editorial Headline", "purpose": "Major section claims with intentional line breaks." },
+      "title": { "displayName": "Artifact Title", "purpose": "Issue names and compact evidence titles." },
+      "body": { "displayName": "Reading Body", "purpose": "Product explanation and supporting copy." },
+      "label": { "displayName": "Action Label", "purpose": "Buttons and direct actions." },
+      "mono": { "displayName": "Ledger Evidence", "purpose": "Repositories, identifiers, states, values, timestamps, and audit trails." }
+    },
+    "shadows": [
+      { "name": "hero-ledger-lift", "value": "0 24px 60px rgba(0,0,0,.22)", "purpose": "Establishes the contribution ledger as the first proof object." },
+      { "name": "live-status-halo", "value": "0 0 0 3px rgba(61,219,130,.12)", "purpose": "Supports tiny live and verified dots." }
+    ],
+    "motion": [
+      { "name": "state-change", "value": "150ms–180ms ease", "purpose": "Routine color, border, opacity, and one-pixel lift transitions." },
+      { "name": "ledger-reveal", "value": "560ms cubic-bezier(.16,1,.3,1)", "purpose": "Sequential first-viewport evidence reveal." },
+      { "name": "trace-progress", "value": "500ms cubic-bezier(.2,.8,.2,1)", "purpose": "Connects the active workflow stage to the trace artifact." },
+      { "name": "reduced-motion", "value": ".01ms", "purpose": "Effectively removes animation and smooth scrolling when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "navigation-condense", "value": "1100px" },
+      { "name": "paired-layout-stack", "value": "820px" },
+      { "name": "mobile-records", "value": "520px" }
+    ],
+    "rasterInventory": [
+      {
+        "path": "public/og.png",
+        "dimensions": "1731x909",
+        "provenance": "The exact ImageGen edit prompt is embedded in the PNG impeccable:prompt text metadata.",
+        "prompt": "Edit the generated GitBounty social card while preserving its exact wide composition, dark graphite palette, large left headline, and right-side contribution ledger. Remove every invented line of copy: delete \"OPEN SOURCE OPPORTUNITIES / REAL CONTRIBUTIONS\", \"FIND / CONTRIBUTE / EARN POINTS / BUILD TOGETHER\", both bottom taglines, and the left descriptive paragraph. Leave those areas as disciplined negative space with only thin graphite rules. Keep only these exact visible texts outside the small realistic ledger metadata: \"GitBounty\", \"Code that ships should count.\", \"ISSUE → CODE → PR → MERGE → POINTS\", and \"+45 POINTS\". Ensure the headline remains spelled exactly. No gradients, glow, or new decoration."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The compact lime action used for issue discovery, GitHub connection, and conversion.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Explore open issues</button>",
+      "css": ".ds-btn-primary { min-height:44px; display:inline-flex; align-items:center; justify-content:center; border:1px solid transparent; border-radius:3px; padding:0 18px; background:var(--signal); color:#0a0d0a; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; transition:background-color 160ms ease, transform 160ms ease; } .ds-btn-primary:hover { background:var(--signal-hover); transform:translateY(-1px); } .ds-btn-primary:active { transform:none; } .ds-btn-primary:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A transparent secondary action bounded by the strong graphite rule.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">How points work</button>",
+      "css": ".ds-btn-secondary { min-height:44px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line-strong); border-radius:3px; padding:0 18px; background:transparent; color:var(--text); font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; transition:background-color 160ms ease, border-color 160ms ease, transform 160ms ease; } .ds-btn-secondary:hover { background:var(--surface); border-color:var(--text-secondary); transform:translateY(-1px); } .ds-btn-secondary:active { transform:none; } .ds-btn-secondary:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Issue Search",
+      "kind": "input",
+      "description": "The integrated ruled search row at the head of the issue explorer.",
+      "html": "<label class=\"ds-search\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><circle cx=\"10.8\" cy=\"10.8\" r=\"6.3\"/><path d=\"m15.6 15.6 4.1 4.1\"/></svg><input placeholder=\"Search repository, label, stack…\" /></label>",
+      "css": ".ds-search { min-height:62px; display:flex; align-items:center; gap:13px; padding:0 18px; border:1px solid var(--line); background:var(--canvas-raised); color:var(--text-muted); } .ds-search svg { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; } .ds-search input { width:100%; border:0; outline:0; background:transparent; color:var(--text); font-family:var(--font-body); font-size:15px; } .ds-search input::placeholder { color:var(--text-muted); opacity:1; } .ds-search:focus-within { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Filter Pill",
+      "kind": "chip",
+      "refersTo": "filter-active",
+      "description": "Compact taxonomy control with a transparent rest state and lime selection.",
+      "html": "<div class=\"ds-filter-set\"><button class=\"ds-filter ds-filter-active\" type=\"button\">All</button><button class=\"ds-filter\" type=\"button\">Frontend</button></div>",
+      "css": ".ds-filter-set { display:flex; gap:7px; } .ds-filter { min-height:34px; border:1px solid var(--line); border-radius:999px; padding:0 13px; background:transparent; color:var(--text-secondary); font-family:var(--font-body); font-size:12px; cursor:pointer; transition:150ms ease; } .ds-filter:hover { border-color:var(--line-strong); color:var(--text); } .ds-filter-active { border-color:var(--signal); background:var(--signal); color:#0a0d0a; } .ds-filter:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Contribution Ledger",
+      "kind": "custom",
+      "refersTo": "artifact",
+      "description": "The signature issue-to-merge proof object from the first viewport.",
+      "html": "<article class=\"ds-ledger\"><header><span>CONTRIBUTION / 0045</span><strong>● VERIFIED</strong></header><div class=\"ds-ledger-path\">ISSUE <i></i> CODE <i></i> PR <i></i> MERGE <i></i> POINTS</div><section><small>openframe/core · #1842</small><h3>Improve keyboard navigation</h3><b>+40 POINTS</b></section><footer><span>TOTAL EARNED</span><strong>+45</strong></footer></article>",
+      "css": ".ds-ledger { overflow:hidden; border:1px solid var(--line); background:var(--canvas-raised); color:var(--text); box-shadow:0 24px 60px rgba(0,0,0,.22); font-family:var(--font-body); } .ds-ledger header,.ds-ledger footer { min-height:42px; display:flex; align-items:center; justify-content:space-between; padding:0 15px; border-bottom:1px solid var(--line-soft); font:500 10px/1 var(--font-mono); color:var(--text-muted); letter-spacing:.08em; } .ds-ledger header strong { color:var(--status); } .ds-ledger-path { height:54px; display:flex; align-items:center; padding:0 17px; border-bottom:1px solid var(--line-soft); color:var(--text-muted); font:500 10px/1 var(--font-mono); } .ds-ledger-path i { height:1px; flex:1; margin:0 8px; background:var(--line); } .ds-ledger section { position:relative; padding:22px 20px; border-bottom:1px solid var(--line-soft); } .ds-ledger small { color:var(--text-muted); font:500 10px/1 var(--font-mono); } .ds-ledger h3 { margin:9px 0 0; font-family:var(--font-display); font-size:23px; line-height:1.1; letter-spacing:-.025em; } .ds-ledger section b { position:absolute; right:20px; bottom:22px; color:var(--signal); font:600 11px/1 var(--font-mono); } .ds-ledger footer { border:0; padding:17px 20px; } .ds-ledger footer strong { color:var(--signal); font-size:24px; }"
+    },
+    {
+      "name": "Issue Record",
+      "kind": "card",
+      "description": "A flat scan row joining repository context, technical metadata, points, and an outbound action.",
+      "html": "<article class=\"ds-issue\"><div><small>openframe/core · #1842</small><h3>Improve keyboard navigation in the command palette</h3><span>FRONTEND</span></div><dl><div><dt>STACK</dt><dd>TypeScript</dd></div><div><dt>REPO</dt><dd>★ 12.8k</dd></div></dl><aside><strong>+40 PTS</strong><a href=\"#\">View issue ↗</a></aside></article>",
+      "css": ".ds-issue { min-height:146px; display:grid; grid-template-columns:minmax(0,1.45fr) minmax(220px,.85fr) 120px; gap:28px; align-items:center; padding:21px 20px; border:1px solid var(--line-soft); background:var(--canvas-raised); color:var(--text); font-family:var(--font-body); transition:background-color 160ms ease; } .ds-issue:hover { background:var(--surface); } .ds-issue small { color:var(--text-muted); font:500 10px/1 var(--font-mono); } .ds-issue h3 { margin:7px 0 13px; font-size:18px; line-height:1.28; letter-spacing:-.01em; } .ds-issue div>span { border:1px solid var(--line); border-radius:999px; padding:3px 8px; color:var(--text-secondary); font-size:9px; } .ds-issue dl { display:grid; grid-template-columns:1fr 1fr; gap:16px; } .ds-issue dt { color:var(--text-muted); font:500 8px/1 var(--font-mono); } .ds-issue dd { margin:6px 0 0; color:var(--text-secondary); font:500 10px/1.3 var(--font-mono); } .ds-issue aside { display:grid; justify-items:end; gap:18px; } .ds-issue aside strong { color:var(--signal); font:600 11px/1 var(--font-mono); } .ds-issue a { border-bottom:1px solid var(--line-strong); color:var(--text); font-size:12px; text-decoration:none; } .ds-issue a:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Contribution Receipt",
+      "kind": "custom",
+      "description": "A compact provenance document that ties points to contributor, repository, pull request, and merge evidence.",
+      "html": "<article class=\"ds-receipt\"><header><span>CONTRIBUTION RECEIPT</span><span>GB-0045</span></header><dl><div><dt>CONTRIBUTOR</dt><dd>@maya-dev</dd></div><div><dt>PULL REQUEST</dt><dd>#1910</dd></div><div><dt>MERGED AT</dt><dd>2026-09-21 14:32 UTC</dd></div></dl><footer><span>TOTAL EARNED</span><strong>+45</strong></footer></article>",
+      "css": ".ds-receipt { border:1px solid var(--line-strong); background:var(--canvas-raised); color:var(--text); font-family:var(--font-mono); } .ds-receipt header { min-height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid var(--line); color:var(--text-muted); font-size:10px; } .ds-receipt dl { margin:0; padding:10px 20px; } .ds-receipt dl div { min-height:43px; display:grid; grid-template-columns:1fr 1.5fr; align-items:center; border-bottom:1px solid var(--line-soft); } .ds-receipt dt { color:var(--text-muted); font-size:9px; } .ds-receipt dd { margin:0; text-align:right; color:var(--text-secondary); font-size:11px; } .ds-receipt footer { display:flex; justify-content:space-between; align-items:center; padding:25px 20px 18px; border-top:1px solid var(--line-strong); background:var(--surface); font-size:14px; } .ds-receipt footer strong { color:var(--signal); font-size:26px; }"
+    },
+    {
+      "name": "FAQ Row",
+      "kind": "custom",
+      "description": "A ruled disclosure row with a minimal lime plus-to-minus state.",
+      "html": "<details class=\"ds-faq\"><summary>Does GitBounty replace GitHub’s workflow?<i aria-hidden=\"true\"></i></summary><p>No. Issues, review, and merges stay on GitHub.</p></details>",
+      "css": ".ds-faq { border-top:1px solid var(--line-strong); border-bottom:1px solid var(--line); color:var(--text); font-family:var(--font-body); } .ds-faq summary { min-height:74px; display:flex; align-items:center; justify-content:space-between; gap:22px; cursor:pointer; font-size:15px; font-weight:600; list-style:none; } .ds-faq summary::-webkit-details-marker { display:none; } .ds-faq i { position:relative; width:14px; height:14px; flex:none; } .ds-faq i::before,.ds-faq i::after { content:''; position:absolute; background:var(--signal); } .ds-faq i::before { inset:6px 0 auto; height:1px; } .ds-faq i::after { inset:0 auto auto 6px; width:1px; height:14px; transition:transform 180ms ease; } .ds-faq[open] i::after { transform:rotate(90deg); } .ds-faq p { margin:0; padding:0 0 25px; color:var(--text-secondary); font-size:14px; line-height:1.6; } .ds-faq summary:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Living Contribution Ledger",
+    "overview": "GitBounty ships as a dark editorial record of open-source work, not a centered SaaS pitch. Large, tightly set statements share the page with dense graphite artifacts: issue rows, code diffs, system traces, receipts, policy logs, and rankings. The visual story follows work from an open issue to a verified merge and makes the evidence feel inspectable at every step.\n\nThe world is near-black, square-edged, and ruled by fine lines. Off-white type provides the reading layer; lime is deliberately scarce and marks actions, selected states, points, and moments of verification. Broad alternating bands create cinematic pacing while the artifacts stay disciplined and technical.",
+    "keyCharacteristics": [
+      "Dark-only graphite bands separated by one-pixel rules.",
+      "Oversized Space Grotesk statements paired with compact JetBrains Mono evidence.",
+      "Lime reserved for action, points, selection, progress, and verified state.",
+      "Square artifacts and controls, with pills used only for compact taxonomy.",
+      "Full-width editorial pacing around a centered 1320px content shell.",
+      "Evidence-first signature surfaces: the contribution ledger, issue explorer, system trace, receipt, audit log, and leaderboard."
+    ],
+    "rules": [
+      { "name": "The Signal Has Meaning Rule", "body": "Lime marks action, selection, points, progress, or verification; it is not decorative fill for ordinary content.", "section": "colors" },
+      { "name": "The Dark Ledger Rule", "body": "New surfaces remain inside the shipped near-black graphite world; there is no light-mode counterpart in this build.", "section": "colors" },
+      { "name": "The Evidence Typeface Rule", "body": "Use JetBrains Mono for machine-like evidence and compact system state; use Inter for explanation and Space Grotesk for assertions.", "section": "typography" },
+      { "name": "The Statement Break Rule", "body": "Major headings use intentional line breaks and tight leading to create editorial rhythm, not generic centered marketing copy.", "section": "typography" },
+      { "name": "The Full-Band Rule", "body": "Background changes and rules run edge to edge; alignment comes from the shared shell rather than boxed page containers.", "section": "layout" },
+      { "name": "The Artifact Follows Copy Rule", "body": "On narrow screens, the claim leads and its proof artifact follows directly beneath it.", "section": "layout" },
+      { "name": "The Ruled Plane Rule", "body": "Ordinary surfaces use tone and one-pixel borders, never ambient card shadows.", "section": "elevation" },
+      { "name": "The Taxonomy Pill Rule", "body": "A pill must contain a short category, label, or status; it is not a general container shape.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do reserve lime for actions, selected controls, points, progress, and verified moments.",
+      "Do build new sections as full-width ruled bands aligned to the shared shell.",
+      "Do pair assertions with inspectable graphite artifacts such as rows, traces, receipts, or logs.",
+      "Do preserve the display/body/mono division between statements, explanations, and evidence.",
+      "Do keep responsive reflow and reduced-motion behavior alongside every new interactive pattern."
+    ],
+    "donts": [
+      "Don't introduce a centered generic SaaS hero, floating gradient cards, glow, or decorative glass.",
+      "Don't add rounded corners or ambient shadows to ordinary artifacts.",
+      "Don't spend lime on large decorative areas outside the shipped final CTA band.",
+      "Don't turn compact uppercase metadata into a reusable eyebrow above every section; the few live labels belong to specific artifacts and audiences.",
+      "Don't use glyphs as general-purpose icons; keep interface symbols structural, minimal, and accessible.",
+      "Don't treat the generated social card's visible composition as editable without preserving the prompt embedded in its PNG metadata."
+    ]
+  }
+}

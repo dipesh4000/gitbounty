@@ -12,11 +12,7 @@ from typing import Any
 
 import httpx
 
-from .config import (
-    GITHUB_API_URL,
-    GITHUB_OAUTH_TOKEN_URL,
-    get_settings,
-)
+GITHUB_API_URL = "https://api.github.com"
 
 _TIMEOUT = httpx.Timeout(15.0)
 
@@ -58,40 +54,6 @@ def _headers(token: str | None = None) -> dict[str, str]:
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
-
-
-async def exchange_code_for_token(code: str) -> str:
-    """Swap the OAuth callback code for an access token."""
-    settings = get_settings()
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        response = await client.post(
-            GITHUB_OAUTH_TOKEN_URL,
-            headers={"Accept": "application/json", "User-Agent": "GitBounty"},
-            data={
-                "client_id": settings.github_client_id,
-                "client_secret": settings.github_client_secret,
-                "code": code,
-                "redirect_uri": settings.github_callback_url,
-            },
-        )
-    if response.status_code != 200:
-        raise GitHubError(f"token exchange returned {response.status_code}")
-
-    payload = response.json()
-    token = payload.get("access_token")
-    if not token:
-        # GitHub reports OAuth problems in the body with a 200 status.
-        raise GitHubError(f"token exchange failed: {payload.get('error', 'no access_token')}")
-    return token
-
-
-async def get_authenticated_user(token: str) -> dict[str, Any]:
-    """Return the profile of whoever owns this token."""
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        response = await client.get(f"{GITHUB_API_URL}/user", headers=_headers(token))
-    if response.status_code != 200:
-        raise GitHubError(f"GET /user returned {response.status_code}")
-    return response.json()
 
 
 async def search_issues(token: str, query: str, per_page: int = 50, page: int = 1) -> list[dict[str, Any]]:

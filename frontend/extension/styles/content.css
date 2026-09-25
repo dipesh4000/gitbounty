@@ -1,0 +1,60 @@
+.gitbounty-points-badge {
+  all: initial;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 22px;
+  margin-inline-start: 6px;
+  overflow: hidden;
+  border: 1px solid #465449;
+  border-radius: 3px;
+  background: #0d110e;
+  color: #f2f6ef;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.gitbounty-points-badge__brand,
+.gitbounty-points-badge__amount {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.gitbounty-points-badge__brand {
+  padding-inline: 5px;
+  border-inline-end: 1px solid #465449;
+  color: #aab5ab;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.gitbounty-points-badge__amount {
+  padding-inline: 6px;
+  background: #b7f34a;
+  color: #0a0d0a;
+}
+
+.gitbounty-points-badge:hover {
+  border-color: #aab5ab;
+}
+
+.gitbounty-points-badge::selection,
+.gitbounty-points-badge *::selection {
+  background: #d7ff8f;
+  color: #0a0d0a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gitbounty-points-badge {
+    transition: none;
+  }
+}
