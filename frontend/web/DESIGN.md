@@ -169,13 +169,13 @@ The world is near-black, square-edged, and ruled by fine lines. Off-white type p
 - Evidence-first signature surfaces: the contribution ledger, issue explorer, system trace, receipt, audit log, and leaderboard.
 - Maintainer selection stays inside the same flat Operate grammar as contributor records.
 - Authenticated Operate mode uses a compact 1180px shell and fixed sans/mono typography.
-- Issues, Manage bounties, My PRs, and Leaderboard share one task frame and appear one at a time.
+- Issues, Add issues, My PRs, and Leaderboard share one task frame and appear one at a time.
 
 ### Operate Mode: Authenticated Contributor Workspace
 
-The authenticated workspace is the product's compact operating surface, not a continuation of the landing-page narrative. It retains the same graphite ground, fine rules, lime semantics, and evidence typography while replacing oversized display statements with fixed, workmanlike Inter and mono sizes. A sticky horizontal header exposes Issues, Manage bounties, My PRs, Leaderboard, the signed-in username, and an explicit Sign out action; the main region shows one task surface at a time.
+The authenticated workspace is the product's compact operating surface, not a continuation of the landing-page narrative. It retains the same graphite ground, fine rules, lime semantics, and evidence typography while replacing oversized display statements with fixed, workmanlike Inter and mono sizes. A sticky horizontal header exposes Issues, My PRs, Leaderboard, the signed-in username, and an explicit Sign out action; Add issues is a contextual action inside Issues rather than a permanent navigation destination.
 
-Operate mode is intentionally dense and quiet. Search, filters, repository inspection, selection controls, summaries, tabs, and records join into ruled planes rather than floating cards. The maintainer path makes its publication boundary explicit: repository issues stay private to the selection surface until chosen, assigned a category and positive whole-number point value, and published. Sample content is disclosed once as “Demo data” in the page heading; that disclosure is product state, not a reusable badge or decorative label.
+Operate mode is intentionally dense and quiet. Search, filters, account-derived issue loading, selection controls, summaries, tabs, and records join into ruled planes rather than floating cards. The maintainer path makes its publication boundary explicit: issues from repositories personally owned by the signed-in GitHub user stay inside the selection surface until chosen, assigned a category and positive whole-number point value, and published. Sample content is disclosed once as “Demo data” in the page heading; that disclosure is product state, not a reusable badge or decorative label.
 
 ### Raster Inventory
 
@@ -265,15 +265,15 @@ At 1100px the full desktop navigation disappears. At 820px, paired grids stack, 
 
 The authenticated workspace uses a centered 1180px shell with 24px desktop gutters, a 64px sticky header, 48px top padding, and 88px bottom padding. The page heading reserves a compact 74px block before the active task surface. Desktop tables use explicit content-weighted grids and 24px column gaps; headers are 40px high and records are at least 78px high.
 
-The maintainer surface is a vertical sequence with 20px gaps: repository form, permission or result message when present, then one contiguous selection plane. On desktop, the URL field and load action share a row; the repository summary is 68px minimum, the publish bar is a three-column 58px minimum band, and 86px issue rows use Select / Issue / Category / Points columns. Summary, publish bar, and issue table touch edge-to-edge so they read as one operational object rather than separate cards.
+The maintainer surface opens from a compact Add issues action in the Issues heading and immediately loads open issues from public repositories personally owned by the signed-in GitHub user. It is a vertical sequence with 20px gaps: account source bar, result message when present, then one contiguous selection plane. On desktop, the publish bar is a three-column 58px minimum band, and 86px issue rows use Select / Issue / Repository / Category / Points columns. The publish bar and issue table touch edge-to-edge so they read as one operational object rather than separate cards.
 
-At 820px the shell gutter tightens to 16px, the header wraps its navigation into a full-width second row, the filter toolbar stacks, table headers disappear, and every record becomes a labeled two-column definition layout. The maintainer summary stacks its repository facts, the publish action moves beneath the count and explanation, and each bounty row becomes a checkbox beside the issue with full-width labeled Category and Points fields. At 480px the gutter tightens to 12px, headings reduce to 28px, repositories may wrap, the repository URL action stacks beneath the field, messages collapse to one column, the publish bar becomes one column with a full-width button, and the demo-data disclosure is hidden.
+At 820px the shell gutter tightens to 16px, the header wraps its navigation into a full-width second row, the filter toolbar stacks, table headers disappear, and every record becomes a labeled two-column definition layout. The publish action moves beneath the count and explanation, and each bounty row becomes a checkbox beside the issue with full-width labeled Repository, Category, and Points fields. At 480px the gutter tightens to 12px, headings reduce to 28px, repositories may wrap, the account source bar remains compact, messages collapse to one column, the publish bar becomes one column with a full-width button, and the demo-data disclosure is hidden.
 
-**The One Task Surface Rule.** Issues, Manage bounties, My PRs, and Leaderboard occupy the same workspace frame one at a time; do not assemble them into a dashboard of simultaneous cards or charts.
+**The One Task Surface Rule.** Issues, Add issues, My PRs, and Leaderboard occupy the same workspace frame one at a time; do not assemble them into a dashboard of simultaneous cards or charts.
 
 **The Dense Record Rule.** Preserve ruled rows and scan-friendly columns on desktop, then re-label fields in-place on narrow screens instead of converting records into decorative cards.
 
-**The Published Selection Rule.** Repository inspection may list every open issue in Manage bounties, but only selected issues cross into the public Issues surface after publication.
+**The Published Selection Rule.** Add issues may list every open issue from the signed-in user's public personal repositories, but only selected issues cross into the public Issues surface after publication.
 
 ## Elevation & Depth
 
@@ -288,7 +288,7 @@ The system is flat by default. Depth comes from alternating graphite planes, bor
 
 **The Ruled Plane Rule.** Ordinary surfaces use tone and one-pixel borders, never ambient card shadows.
 
-Operate mode uses no shadows or blur. Its sticky header, toolbar, repository form, messages, summaries, publish bar, tabs, and tables are separated only by graphite tone and one-pixel rules.
+Operate mode uses no shadows or blur. Its sticky header, toolbar, account source bar, messages, summaries, publish bar, tabs, and tables are separated only by graphite tone and one-pixel rules.
 
 ## Shapes
 
@@ -323,7 +323,7 @@ Operate-mode controls use the shared restrained 3px radius. Tables, toolbars, su
 
 ### Inputs / Fields
 
-- **Style:** Search is an integrated 62px ruled toolbar row; selects use raised graphite, a one-pixel rule, and 3px corners. The repository URL field is a 42px mono control paired with a lime load action. Selected issue rows enable compact 38px Category and Points fields; unselected rows keep those fields disabled and visibly muted.
+- **Style:** Search is an integrated 62px ruled toolbar row; selects use raised graphite, a one-pixel rule, and 3px corners. Add issues uses a compact lime action with guaranteed dark signal ink. Selected issue rows enable compact 38px Category and Points fields; unselected rows keep those fields disabled and visibly muted.
 - **Focus:** The global two-pixel focus-lime outline sits 3px outside the control. The search input itself removes the browser outline because its containing control supplies structure.
 - **States:** Loading, empty, and offline occupy the same explorer frame so the layout does not jump. Maintainer failures and permission denials use a flat 54px-minimum message row with an exception-coral border, while successful publication uses the same structure with a verification-mint border. Loading and publishing labels replace their action text in place; unavailable actions use the muted surface treatment and a not-allowed cursor.
 
@@ -333,7 +333,7 @@ The fixed 70px header begins transparent and gains a translucent near-black fill
 
 #### Operate Header
 
-The authenticated header is a solid 64px sticky bar. Brand, Issues, Manage bounties, My PRs, and Leaderboard stay visible; the account group joins the mono username to a separate Sign out button inside one 3px outlined control. The active destination uses chalk text and a two-pixel lime underline. Below 820px the brand and account remain on the first row while navigation spans a 44px second row and may scroll horizontally.
+The authenticated header is a solid 64px sticky bar. Brand, Issues, My PRs, and Leaderboard stay visible; the account group joins the mono username to a separate Sign out button inside one 3px outlined control. The active destination uses chalk text and a two-pixel lime underline. Below 820px the brand and account remain on the first row while navigation spans a 44px second row and may scroll horizontally.
 
 #### Operate Toolbar and Tabs
 
@@ -349,7 +349,7 @@ Empty results stay inside the table frame with a restrained underlined lime acti
 
 #### Maintainer Bounty Manager
 
-The maintainer flow begins with a bordered repository URL form and a plain-language note that public personal repositories and manageable organization repositories are supported. Inspection errors, including insufficient repository permission, remain adjacent to this form instead of moving into a modal. A successful inspection produces a flat repository summary with owner type and open-issue count, followed immediately by a darker publish bar showing selected count, the sentence “Only selected issues will appear on GitBounty,” and the publication action.
+The maintainer flow begins with Add issues in the Issues page heading. The destination automatically requests open issues from public repositories personally owned by the signed-in GitHub account; no repository URL or organization picker is shown. Loading and GitHub errors remain inline. A successful load produces a compact account source bar followed by a darker publish bar showing selected count, issue and repository totals, the selected-only publication rule, and the publication action.
 
 Issue candidates reuse the Operate table grammar at a slightly taller 86px minimum. A selected checkbox changes the row to the dark lime plane and enables its category selector and tabular mono points field; neither field is editable before selection. Each issue keeps its GitHub number, external title link, and up to three labels together in the primary cell. The publish action stays disabled until at least one issue is selected, and selected points must be positive whole numbers. Empty repositories and the 500-issue truncation notice remain in the same ruled context rather than spawning a separate surface.
 
@@ -379,7 +379,7 @@ Path drawing and ledger rows enter sequentially with 520–560ms eased motion; p
 - **Do** preserve the display/body/mono division between statements, explanations, and evidence.
 - **Do** keep responsive reflow and reduced-motion behavior alongside every new interactive pattern.
 - **Do** keep authenticated work inside the scoped Operate shell: compact header, one active task surface, and dense ruled records.
-- **Do** keep repository inspection, permission feedback, selection, category, points, and publication in one continuous maintainer flow.
+- **Do** keep account-derived issue loading, ownership feedback, selection, category, points, and publication in one continuous maintainer flow.
 - **Do** make selection the visible gate that enables category and point editing and determines what reaches Issues.
 - **Do** disclose sample data once at page-heading level while the workspace remains backed by demo content.
 
