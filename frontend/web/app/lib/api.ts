@@ -40,7 +40,9 @@ export type CategoryCounts = {
 
 export type BountyCategory = "frontend" | "backend" | "fullstack" | "docs" | "testing" | "devops" | "design" | "mobile" | "other";
 
-export type RepositoryIssue = {
+export type OwnedRepositoryIssue = {
+  repository: string;
+  repository_description: string | null;
   number: number;
   title: string;
   html_url: string;
@@ -48,17 +50,15 @@ export type RepositoryIssue = {
   suggested_category: BountyCategory;
 };
 
-export type RepositoryInspection = {
-  full_name: string;
-  owner_type: string;
-  description: string | null;
-  open_issues: RepositoryIssue[];
+export type OwnedIssuesResponse = {
+  items: OwnedRepositoryIssue[];
+  repository_count: number;
   truncated: boolean;
 };
 
 export type PublishBountiesResponse = {
-  repository: string;
   published: number;
+  repositories: number;
 };
 
 export type User = {

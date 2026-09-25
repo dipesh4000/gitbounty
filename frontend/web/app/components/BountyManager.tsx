@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { api, type BountyCategory, type PublishBountiesResponse, type RepositoryInspection } from "../lib/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { api, type BountyCategory, type OwnedIssuesResponse, type OwnedRepositoryIssue, type PublishBountiesResponse } from "../lib/api";
 
 const categories: Array<{ value: BountyCategory; label: string }> = [
   { value: "frontend", label: "Frontend" },
@@ -21,11 +21,14 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong. Try again.";
 }
 
+function issueKey(issue: Pick<OwnedRepositoryIssue, "repository" | "number">) {
+  return `${issue.repository}#${issue.number}`;
+}
+
 export function BountyManager({ onPublished }: { onPublished: () => void }) {
-  const [repository, setRepository] = useState("");
-  const [inspection, setInspection] = useState<RepositoryInspection | null>(null);
-  const [drafts, setDrafts] = useState<Record<number, IssueDraft>>({});
-  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<OwnedIssuesResponse | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, IssueDraft>>({});
+  const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -35,44 +38,61 @@ export function BountyManager({ onPublished }: { onPublished: () => void }) {
     [drafts],
   );
 
-  async function inspect(event: FormEvent) {
-    event.preventDefault();
+  const loadOwnedIssues = useCallback(async () => {
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const result = await api<RepositoryInspection>("/api/maintainer/repositories/inspect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repository }),
-      });
-      setInspection(result);
-      setRepository(result.full_name);
-      setDrafts(Object.fromEntries(result.open_issues.map((issue) => [
-        issue.number,
+      const next = await api<OwnedIssuesResponse>("/api/maintainer/issues");
+      setResult(next);
+      setDrafts(Object.fromEntries(next.items.map((issue) => [
+        issueKey(issue),
         { selected: false, points: "", category: issue.suggested_category },
       ])));
     } catch (caught) {
-      setInspection(null);
+      setResult(null);
       setDrafts({});
       setError(errorMessage(caught));
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  function updateDraft(number: number, patch: Partial<IssueDraft>) {
-    setDrafts((current) => ({ ...current, [number]: { ...current[number], ...patch } }));
+  useEffect(() => {
+    let active = true;
+    api<OwnedIssuesResponse>("/api/maintainer/issues")
+      .then((next) => {
+        if (!active) return;
+        setResult(next);
+        setDrafts(Object.fromEntries(next.items.map((issue) => [
+          issueKey(issue),
+          { selected: false, points: "", category: issue.suggested_category },
+        ])));
+      })
+      .catch((caught: unknown) => {
+        if (!active) return;
+        setResult(null);
+        setDrafts({});
+        setError(errorMessage(caught));
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  function updateDraft(issue: OwnedRepositoryIssue, patch: Partial<IssueDraft>) {
+    const key = issueKey(issue);
+    setDrafts((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
   }
 
   async function publish() {
-    if (!inspection) return;
-    const chosen = inspection.open_issues
-      .filter((issue) => drafts[issue.number]?.selected)
+    if (!result) return;
+    const chosen = result.items
+      .filter((issue) => drafts[issueKey(issue)]?.selected)
       .map((issue) => ({
+        repository: issue.repository,
         number: issue.number,
-        points: Number(drafts[issue.number].points),
-        category: drafts[issue.number].category,
+        points: Number(drafts[issueKey(issue)].points),
+        category: drafts[issueKey(issue)].category,
       }));
     if (chosen.some((issue) => !Number.isInteger(issue.points) || issue.points <= 0)) {
       setError("Every selected issue needs a positive whole-number bounty.");
@@ -82,13 +102,13 @@ export function BountyManager({ onPublished }: { onPublished: () => void }) {
     setError("");
     setSuccess("");
     try {
-      const result = await api<PublishBountiesResponse>("/api/maintainer/bounties", {
+      const published = await api<PublishBountiesResponse>("/api/maintainer/bounties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repository: inspection.full_name, issues: chosen }),
+        body: JSON.stringify({ issues: chosen }),
       });
-      setSuccess(`${result.published} ${result.published === 1 ? "issue is" : "issues are"} now published on GitBounty.`);
-      setDrafts((current) => Object.fromEntries(Object.entries(current).map(([number, draft]) => [number, { ...draft, selected: false }])));
+      setSuccess(`${published.published} ${published.published === 1 ? "issue is" : "issues are"} now published on GitBounty.`);
+      setDrafts((current) => Object.fromEntries(Object.entries(current).map(([key, draft]) => [key, { ...draft, selected: false }])));
       onPublished();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -98,60 +118,47 @@ export function BountyManager({ onPublished }: { onPublished: () => void }) {
   }
 
   return (
-    <section className="bounty-manager" aria-label="Manage repository bounties">
-      <form className="bounty-repository-form" onSubmit={inspect}>
-        <label htmlFor="repository-url">GitHub repository</label>
-        <div>
-          <input
-            id="repository-url"
-            value={repository}
-            onChange={(event) => setRepository(event.target.value)}
-            placeholder="https://github.com/owner/repository"
-            autoComplete="url"
-            required
-          />
-          <button type="submit" disabled={loading}>{loading ? "Loading…" : "Load issues"}</button>
-        </div>
-        <p>Public personal repositories and organization repositories you can manage are supported.</p>
-      </form>
+    <section className="bounty-manager" aria-label="Add issues from your repositories">
+      <div className="bounty-source-bar">
+        <div><strong>Your GitHub issues</strong><span>Open issues from public repositories owned by your account.</span></div>
+        <button type="button" disabled={loading} onClick={() => void loadOwnedIssues()}>{loading ? "Loading…" : "Refresh"}</button>
+      </div>
 
       {error && <div className="bounty-message is-error" role="alert"><strong>Couldn’t continue.</strong><span>{error}</span></div>}
       {success && <div className="bounty-message is-success" role="status"><strong>Published.</strong><span>{success}</span></div>}
+      {loading && <div className="app-empty bounty-loading" aria-live="polite"><strong>Loading your open GitHub issues…</strong><span>This can take a moment if you own several repositories.</span></div>}
 
-      {inspection && (
+      {!loading && result && (
         <div className="bounty-selection">
-          <div className="bounty-repository-summary">
-            <div><strong>{inspection.full_name}</strong><span>{inspection.description || "No repository description"}</span></div>
-            <span>{inspection.owner_type === "Organization" ? "Organization" : "Personal"} · {inspection.open_issues.length} open issues</span>
-          </div>
-
           <div className="bounty-publish-bar">
             <span><strong>{selectedCount}</strong> selected</span>
-            <span>Only selected issues will appear on GitBounty.</span>
+            <span>{result.items.length} open issues across {result.repository_count} {result.repository_count === 1 ? "repository" : "repositories"}. Only selected issues will be published.</span>
             <button type="button" disabled={!selectedCount || publishing} onClick={publish}>
               {publishing ? "Publishing…" : `Publish ${selectedCount || ""} ${selectedCount === 1 ? "bounty" : "bounties"}`.replace("  ", " ")}
             </button>
           </div>
 
           <div className="app-table bounty-table">
-            <div className="app-table-head"><span>Select</span><span>Issue</span><span>Category</span><span>Points</span></div>
-            {inspection.open_issues.map((issue) => {
-              const draft = drafts[issue.number];
+            <div className="app-table-head"><span>Select</span><span>Issue</span><span>Repository</span><span>Category</span><span>Points</span></div>
+            {result.items.map((issue) => {
+              const key = issueKey(issue);
+              const draft = drafts[key];
               return (
-                <div className={`app-table-row${draft?.selected ? " is-selected" : ""}`} key={issue.number}>
+                <div className={`app-table-row${draft?.selected ? " is-selected" : ""}`} key={key}>
                   <label className="bounty-check" data-label="Select">
-                    <input type="checkbox" checked={draft?.selected || false} onChange={(event) => updateDraft(issue.number, { selected: event.target.checked })} />
-                    <span className="sr-only">Select issue #{issue.number}</span>
+                    <input type="checkbox" checked={draft?.selected || false} onChange={(event) => updateDraft(issue, { selected: event.target.checked })} />
+                    <span className="sr-only">Select {issue.repository} issue #{issue.number}</span>
                   </label>
                   <div className="app-primary-cell"><small>#{issue.number}</small><a href={issue.html_url} target="_blank" rel="noreferrer">{issue.title}</a>{issue.labels.length > 0 && <span>{issue.labels.slice(0, 3).join(" · ")}</span>}</div>
-                  <label className="bounty-field" data-label="Category"><span className="sr-only">Category for issue #{issue.number}</span><select value={draft?.category || issue.suggested_category} disabled={!draft?.selected} onChange={(event) => updateDraft(issue.number, { category: event.target.value as BountyCategory })}>{categories.map((category) => <option value={category.value} key={category.value}>{category.label}</option>)}</select></label>
-                  <label className="bounty-field" data-label="Points"><span className="sr-only">Points for issue #{issue.number}</span><input type="number" min="1" step="1" inputMode="numeric" value={draft?.points || ""} disabled={!draft?.selected} placeholder="40" onChange={(event) => updateDraft(issue.number, { points: event.target.value })} /></label>
+                  <div className="app-repo" data-label="Repository">github.com/{issue.repository}</div>
+                  <label className="bounty-field" data-label="Category"><span className="sr-only">Category for {issue.repository} issue #{issue.number}</span><select value={draft?.category || issue.suggested_category} disabled={!draft?.selected} onChange={(event) => updateDraft(issue, { category: event.target.value as BountyCategory })}>{categories.map((category) => <option value={category.value} key={category.value}>{category.label}</option>)}</select></label>
+                  <label className="bounty-field" data-label="Points"><span className="sr-only">Points for {issue.repository} issue #{issue.number}</span><input type="number" min="1" step="1" inputMode="numeric" value={draft?.points || ""} disabled={!draft?.selected} placeholder="40" onChange={(event) => updateDraft(issue, { points: event.target.value })} /></label>
                 </div>
               );
             })}
-            {!inspection.open_issues.length && <div className="app-empty"><strong>This repository has no open issues.</strong><span>Create an issue on GitHub, then load the repository again.</span></div>}
+            {!result.items.length && <div className="app-empty"><strong>No open issues found in your repositories.</strong><span>Create an issue in one of your public GitHub repositories, then refresh this page.</span><button type="button" onClick={() => void loadOwnedIssues()}>Refresh issues</button></div>}
           </div>
-          {inspection.truncated && <p className="bounty-footnote">Showing the first 500 open issues.</p>}
+          {result.truncated && <p className="bounty-footnote">GitHub returned a large account. Showing up to 500 repositories and 500 issues per repository.</p>}
         </div>
       )}
     </section>

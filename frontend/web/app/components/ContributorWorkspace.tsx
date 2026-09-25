@@ -7,7 +7,7 @@ import { api, type Issue, type IssueList } from "../lib/api";
 import { BountyManager } from "./BountyManager";
 import { useAuth } from "./AuthProvider";
 
-type View = "issues" | "bounties" | "pulls" | "leaderboard";
+type View = "issues" | "add-issues" | "pulls" | "leaderboard";
 type PullStatus = "Submitted" | "In review" | "Merged";
 
 /*
@@ -86,7 +86,7 @@ export function ContributorWorkspace() {
     return <main className="app-loading" aria-live="polite">{loading ? "Opening GitBounty…" : "Returning to sign in…"}</main>;
   }
 
-  const title = view === "issues" ? "Issues" : view === "bounties" ? "Manage bounties" : view === "pulls" ? "My pull requests" : "Leaderboard";
+  const title = view === "issues" ? "Issues" : view === "add-issues" ? "Add issues" : view === "pulls" ? "My pull requests" : "Leaderboard";
 
   return (
     <div className="app-shell">
@@ -98,7 +98,6 @@ export function ContributorWorkspace() {
           </Link>
           <nav className="app-nav" aria-label="Dashboard">
             <button type="button" aria-current={view === "issues" ? "page" : undefined} onClick={() => setView("issues")}>Issues</button>
-            <button type="button" aria-current={view === "bounties" ? "page" : undefined} onClick={() => setView("bounties")}>Manage bounties</button>
             <button type="button" aria-current={view === "pulls" ? "page" : undefined} onClick={() => setView("pulls")}>My PRs</button>
             <button type="button" aria-current={view === "leaderboard" ? "page" : undefined} onClick={() => setView("leaderboard")}>Leaderboard</button>
           </nav>
@@ -108,7 +107,9 @@ export function ContributorWorkspace() {
 
       <main className="app-main">
         <div className="app-page-heading">
-          <div><h1>{title}</h1><p>{view === "issues" ? "Bounties published by repository maintainers." : view === "bounties" ? "Choose which repository issues appear on GitBounty." : view === "pulls" ? "Track the work you have submitted." : "Points earned from merged open-source work."}</p></div>
+          <div><h1>{title}</h1><p>{view === "issues" ? "Bounties published by repository maintainers." : view === "add-issues" ? "Choose open issues from repositories owned by your GitHub account." : view === "pulls" ? "Track the work you have submitted." : "Points earned from merged open-source work."}</p></div>
+          {view === "issues" && <button className="app-add-issues" type="button" onClick={() => setView("add-issues")}>Add issues</button>}
+          {view === "add-issues" && <button className="app-back-action" type="button" onClick={() => setView("issues")}>Back to issues</button>}
           {(view === "pulls" || view === "leaderboard") && <span>Demo data</span>}
         </div>
 
@@ -131,12 +132,12 @@ export function ContributorWorkspace() {
                   <div className="app-points" data-label="Points">+{issue.points}</div>
                 </div>
               ))}
-              {!issuesLoading && !issuesError && !filteredIssues.length && <div className="app-empty"><strong>{issues.length ? "No issues match those filters." : "No bounties have been published yet."}</strong><span>{issues.length ? "Try another repository, user, or category." : "Add a repository and publish its first selected issue."}</span>{issues.length ? <button type="button" onClick={() => { setQuery(""); setCategory("All"); }}>Clear filters</button> : <button type="button" onClick={() => setView("bounties")}>Manage bounties</button>}</div>}
+              {!issuesLoading && !issuesError && !filteredIssues.length && <div className="app-empty"><strong>{issues.length ? "No issues match those filters." : "No bounties have been published yet."}</strong><span>{issues.length ? "Try another repository, user, or category." : "Choose an open issue from one of your GitHub repositories."}</span>{issues.length ? <button type="button" onClick={() => { setQuery(""); setCategory("All"); }}>Clear filters</button> : <button type="button" onClick={() => setView("add-issues")}>Add issues</button>}</div>}
             </div>
           </section>
         )}
 
-        {view === "bounties" && <BountyManager onPublished={loadIssues} />}
+        {view === "add-issues" && <BountyManager onPublished={loadIssues} />}
 
         {view === "pulls" && (
           <section aria-label="My pull requests">
