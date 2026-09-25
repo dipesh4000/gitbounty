@@ -175,7 +175,7 @@ The world is near-black, square-edged, and ruled by fine lines. Off-white type p
 
 The authenticated workspace is the product's compact operating surface, not a continuation of the landing-page narrative. It retains the same graphite ground, fine rules, lime semantics, and evidence typography while replacing oversized display statements with fixed, workmanlike Inter and mono sizes. A sticky horizontal header exposes Issues, My PRs, Leaderboard, the signed-in username, and an explicit Sign out action; Add issues is a contextual action inside Issues rather than a permanent navigation destination.
 
-Operate mode is intentionally dense and quiet. Search, filters, account-derived issue loading, selection controls, summaries, tabs, and records join into ruled planes rather than floating cards. The maintainer path makes its publication boundary explicit: issues from repositories personally owned by the signed-in GitHub user stay inside the selection surface until chosen, assigned a category and positive whole-number point value, and published. Sample content is disclosed once as “Demo data” in the page heading; that disclosure is product state, not a reusable badge or decorative label.
+Operate mode is intentionally dense and quiet. Search, filters, account-derived issue loading, selection controls, summaries, and records join into ruled planes rather than floating cards. The maintainer path makes its publication boundary explicit: issues from repositories personally owned by the signed-in GitHub user stay inside the selection surface until chosen, assigned a category and positive whole-number point value, and published. Points, merged pull requests, and leaderboard positions must come from the live backend; unavailable or empty data is shown honestly instead of being replaced by samples.
 
 ### Raster Inventory
 
@@ -393,4 +393,4 @@ Path drawing and ledger rows enter sequentially with 520–560ms eased motion; p
 - **Don't** treat the generated social card's visible composition as editable without preserving the prompt embedded in its PNG metadata.
 - **Don't** carry the landing page's hero, marketing navigation, cinematic section pacing, gradients, glass, decorative metrics, or complex charts into Operate mode.
 - **Don't** show unselected repository issues in Issues or imply that loading a repository publishes its full backlog.
-- **Don't** canonize the shipped “Demo data” text as an eyebrow, chip, or reusable decorative component; it is a one-time disclosure.
+- **Don't** place illustrative activity inside the authenticated workspace; operational totals and records must come from the live backend.

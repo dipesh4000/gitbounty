@@ -40,7 +40,7 @@
 .app-table-head > *, .app-table-row > * { min-width: 0; }
 .app-issues-table .app-table-head, .app-issues-table .app-table-row { grid-template-columns: minmax(300px,2.1fr) minmax(100px,.75fr) minmax(180px,1.15fr) minmax(100px,.7fr) 64px; padding: 0 18px; }
 .app-pulls-table .app-table-head, .app-pulls-table .app-table-row { grid-template-columns: minmax(300px,2fr) minmax(190px,1.2fr) minmax(100px,.7fr) 100px 64px; padding: 0 18px; }
-.app-leaderboard-table .app-table-head, .app-leaderboard-table .app-table-row { grid-template-columns: 62px minmax(220px,1.5fr) minmax(130px,1fr) 110px 80px; padding: 0 18px; }
+.app-leaderboard-table .app-table-head, .app-leaderboard-table .app-table-row { grid-template-columns: 62px minmax(220px,1fr) 110px 80px; padding: 0 18px; }
 .app-primary-cell { display: grid; gap: 5px; padding-block: 13px; }
 .app-primary-cell small { color: var(--text-muted); font: 500 9px/1 var(--font-mono); }
 .app-primary-cell strong, .app-primary-cell a { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }

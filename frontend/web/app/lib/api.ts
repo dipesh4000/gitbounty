@@ -69,6 +69,40 @@ export type User = {
   avatar_url: string | null;
 };
 
+export type MergeSummary = {
+  repo_full_name: string;
+  number: number;
+  title: string;
+  url: string;
+  category: BountyCategory;
+  merged_at: string;
+  issue_points: number | null;
+  points: number;
+};
+
+export type MyPointsResponse = {
+  github_login: string;
+  total_points: number;
+  week_points: number;
+  total_merges: number;
+  points_by_category: Partial<Record<BountyCategory, number>>;
+  recent_merges: MergeSummary[];
+};
+
+export type LeaderboardEntry = {
+  rank: number;
+  github_login: string;
+  avatar_url: string | null;
+  points: number;
+  merges: number;
+};
+
+export type LeaderboardResponse = {
+  period: "all" | "week" | "month";
+  category: BountyCategory | null;
+  entries: LeaderboardEntry[];
+};
+
 export class ApiError extends Error {
   status: number;
 
