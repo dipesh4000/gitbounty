@@ -16,9 +16,9 @@
   --status: #3ddb82;
   --focus: #d7ff8f;
   --danger: #f08b73;
-  --font-display: var(--font-space-grotesk), sans-serif;
-  --font-body: var(--font-inter), sans-serif;
-  --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-display: var(--font-space-grotesk, "Space Grotesk"), Arial, sans-serif;
+  --font-body: var(--font-inter, Inter), Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "Courier New", monospace;
 }
 
 * { box-sizing: border-box; }
