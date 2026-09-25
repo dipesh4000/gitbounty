@@ -18,6 +18,7 @@ def oauth_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "github_client_secret", "client-secret")
     monkeypatch.setattr(settings, "session_secret", "test-session-secret")
     monkeypatch.setattr(settings, "token_encryption_key", Fernet.generate_key().decode())
+    monkeypatch.setattr(settings, "frontend_url", "http://localhost:8000")
     monkeypatch.setattr(auth, "_require_oauth_configuration", lambda: None)
 
 
@@ -41,6 +42,45 @@ def test_callback_rejects_missing_or_mismatched_state_before_using_code(oauth_co
         assert client.get("/auth/github/callback?code=code&state=wrong").status_code == 400
         # The expected state was consumed, so replaying it is rejected too.
         assert client.get(f"/auth/github/callback?code=code&state={expected}").status_code == 400
+
+
+def test_callback_stores_user_and_returns_to_workspace(
+    oauth_config: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeConnection:
+        async def fetchrow(self, *_args: object) -> dict[str, int]:
+            return {"id": 17}
+
+    class FakeAcquire:
+        async def __aenter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self) -> FakeAcquire:
+            return FakeAcquire()
+
+    async def exchange_code_for_token(_code: str) -> str:
+        return "github-token"
+
+    async def get_authenticated_user(_token: str) -> dict[str, object]:
+        return {"id": 42, "login": "aasha-malik", "name": "Aasha Malik", "avatar_url": None}
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        expected = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        callback = client.get(
+            f"/auth/github/callback?code=code&state={expected}", follow_redirects=False
+        )
+
+    assert callback.status_code == 302
+    assert callback.headers["location"] == "http://localhost:8000/explore"
 
 
 def test_github_token_is_encrypted_at_rest(oauth_config: None) -> None:

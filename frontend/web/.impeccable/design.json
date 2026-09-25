@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-24T00:33:37+05:30",
+  "generatedAt": "2026-09-25T20:47:10+05:30",
   "title": "Design System: GitBounty Open-Source Ledger",
   "extensions": {
     "colorMeta": {
@@ -21,7 +21,8 @@
       "status": { "role": "secondary", "displayName": "Verification Mint", "canonical": "#3ddb82", "tonalRamp": ["oklch(15% 0.13 150)", "oklch(26% 0.13 150)", "oklch(38% 0.13 150)", "oklch(50% 0.13 150)", "oklch(62% 0.13 150)", "oklch(74% 0.13 150)", "oklch(86% 0.13 150)", "oklch(95% 0.13 150)"] },
       "focus": { "role": "primary", "displayName": "Focus Lime", "canonical": "#d7ff8f", "tonalRamp": ["oklch(15% 0.11 125)", "oklch(26% 0.11 125)", "oklch(38% 0.11 125)", "oklch(50% 0.11 125)", "oklch(62% 0.11 125)", "oklch(74% 0.11 125)", "oklch(86% 0.11 125)", "oklch(95% 0.11 125)"] },
       "danger": { "role": "tertiary", "displayName": "Exception Coral", "canonical": "#f08b73", "tonalRamp": ["oklch(15% 0.12 30)", "oklch(26% 0.12 30)", "oklch(38% 0.12 30)", "oklch(50% 0.12 30)", "oklch(62% 0.12 30)", "oklch(74% 0.12 30)", "oklch(86% 0.12 30)", "oklch(95% 0.12 30)"] },
-      "signal-ink": { "role": "neutral", "displayName": "Signal Ink", "canonical": "#0a0d0a", "tonalRamp": ["oklch(15% 0.008 145)", "oklch(26% 0.008 145)", "oklch(38% 0.008 145)", "oklch(50% 0.008 145)", "oklch(62% 0.008 145)", "oklch(74% 0.008 145)", "oklch(86% 0.008 145)", "oklch(95% 0.008 145)"] }
+      "signal-ink": { "role": "neutral", "displayName": "Signal Ink", "canonical": "#0a0d0a", "tonalRamp": ["oklch(15% 0.008 145)", "oklch(26% 0.008 145)", "oklch(38% 0.008 145)", "oklch(50% 0.008 145)", "oklch(62% 0.008 145)", "oklch(74% 0.008 145)", "oklch(86% 0.008 145)", "oklch(95% 0.008 145)"] },
+      "operate-canvas": { "role": "neutral", "displayName": "Operate Canvas", "canonical": "#0a0d0b", "tonalRamp": ["oklch(15% 0.008 145)", "oklch(26% 0.008 145)", "oklch(38% 0.008 145)", "oklch(50% 0.008 145)", "oklch(62% 0.008 145)", "oklch(74% 0.008 145)", "oklch(86% 0.008 145)", "oklch(95% 0.008 145)"] }
     },
     "typographyMeta": {
       "display": { "displayName": "Manifesto Display", "purpose": "The first-viewport statement only." },
@@ -29,7 +30,10 @@
       "title": { "displayName": "Artifact Title", "purpose": "Issue names and compact evidence titles." },
       "body": { "displayName": "Reading Body", "purpose": "Product explanation and supporting copy." },
       "label": { "displayName": "Action Label", "purpose": "Buttons and direct actions." },
-      "mono": { "displayName": "Ledger Evidence", "purpose": "Repositories, identifiers, states, values, timestamps, and audit trails." }
+      "mono": { "displayName": "Ledger Evidence", "purpose": "Repositories, identifiers, states, values, timestamps, and audit trails." },
+      "operate-heading": { "displayName": "Operate Heading", "purpose": "Compact authenticated workspace page identity." },
+      "operate-body": { "displayName": "Operate Body", "purpose": "Navigation, controls, row titles, metadata, and table values." },
+      "operate-mono": { "displayName": "Operate Evidence", "purpose": "Table headers, identifiers, repositories, ranks, account names, and points." }
     },
     "shadows": [
       { "name": "hero-ledger-lift", "value": "0 24px 60px rgba(0,0,0,.22)", "purpose": "Establishes the contribution ledger as the first proof object." },
@@ -44,7 +48,8 @@
     "breakpoints": [
       { "name": "navigation-condense", "value": "1100px" },
       { "name": "paired-layout-stack", "value": "820px" },
-      { "name": "mobile-records", "value": "520px" }
+      { "name": "mobile-records", "value": "520px" },
+      { "name": "operate-phone", "value": "480px" }
     ],
     "rasterInventory": [
       {
@@ -110,31 +115,55 @@
       "css": ".ds-receipt { border:1px solid var(--line-strong); background:var(--canvas-raised); color:var(--text); font-family:var(--font-mono); } .ds-receipt header { min-height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid var(--line); color:var(--text-muted); font-size:10px; } .ds-receipt dl { margin:0; padding:10px 20px; } .ds-receipt dl div { min-height:43px; display:grid; grid-template-columns:1fr 1.5fr; align-items:center; border-bottom:1px solid var(--line-soft); } .ds-receipt dt { color:var(--text-muted); font-size:9px; } .ds-receipt dd { margin:0; text-align:right; color:var(--text-secondary); font-size:11px; } .ds-receipt footer { display:flex; justify-content:space-between; align-items:center; padding:25px 20px 18px; border-top:1px solid var(--line-strong); background:var(--surface); font-size:14px; } .ds-receipt footer strong { color:var(--signal); font-size:26px; }"
     },
     {
-      "name": "FAQ Row",
+      "name": "Maintainer Bounty Manager",
       "kind": "custom",
-      "description": "A ruled disclosure row with a minimal lime plus-to-minus state.",
-      "html": "<details class=\"ds-faq\"><summary>Does GitBounty replace GitHub’s workflow?<i aria-hidden=\"true\"></i></summary><p>No. Issues, review, and merges stay on GitHub.</p></details>",
-      "css": ".ds-faq { border-top:1px solid var(--line-strong); border-bottom:1px solid var(--line); color:var(--text); font-family:var(--font-body); } .ds-faq summary { min-height:74px; display:flex; align-items:center; justify-content:space-between; gap:22px; cursor:pointer; font-size:15px; font-weight:600; list-style:none; } .ds-faq summary::-webkit-details-marker { display:none; } .ds-faq i { position:relative; width:14px; height:14px; flex:none; } .ds-faq i::before,.ds-faq i::after { content:''; position:absolute; background:var(--signal); } .ds-faq i::before { inset:6px 0 auto; height:1px; } .ds-faq i::after { inset:0 auto auto 6px; width:1px; height:14px; transition:transform 180ms ease; } .ds-faq[open] i::after { transform:rotate(90deg); } .ds-faq p { margin:0; padding:0 0 25px; color:var(--text-secondary); font-size:14px; line-height:1.6; } .ds-faq summary:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+      "refersTo": "bounty-selected-row",
+      "description": "The account-derived, selected-issue publication surface for maintainers.",
+      "html": "<section class=\"ds-bounty\"><div class=\"ds-bounty-source\"><div><strong>Your GitHub issues</strong><span>Open issues from public repositories owned by your account.</span></div><button type=\"button\">Refresh</button></div><div class=\"ds-bounty-selection\"><div class=\"ds-bounty-publish\"><span><strong>1</strong> selected</span><span>12 open issues across 3 repositories. Only selected issues will be published.</span><button type=\"button\">Publish 1 bounty</button></div><article class=\"ds-bounty-row\"><label><input type=\"checkbox\" checked/> <span class=\"ds-sr-only\">Select issue 1842</span></label><div><small>#1842</small><a href=\"#\">Improve keyboard navigation</a><span>accessibility · frontend</span></div><code>github.com/aasha-malik/core</code><select aria-label=\"Category\"><option>Frontend</option></select><input type=\"number\" value=\"40\" aria-label=\"Points\"/></article></div></section>",
+      "css": ".ds-bounty { display:grid; gap:20px; color:var(--text); font-family:var(--font-body); } .ds-bounty-source { min-height:64px; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:11px 14px 11px 18px; border:1px solid var(--line); background:var(--canvas); } .ds-bounty-source>div { display:grid; gap:5px; } .ds-bounty-source span { color:var(--text-muted); font-size:12px; } .ds-bounty-source button { min-height:36px; padding:0 12px; border:1px solid var(--line-strong); border-radius:3px; background:var(--surface); color:var(--text-secondary); } .ds-bounty-selection { display:grid; } .ds-bounty-publish { min-height:58px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:18px; padding:8px 12px 8px 18px; border:1px solid var(--line); border-bottom:0; background:var(--surface); } .ds-bounty-publish>span { color:var(--text-muted); font-size:12px; } .ds-bounty-publish strong { color:var(--text); font:600 14px/1 var(--font-mono); } .ds-bounty-publish button { min-height:42px; padding:0 16px; border:1px solid var(--signal); border-radius:3px; background:var(--signal); color:var(--signal-ink); font-size:13px; font-weight:700; } .ds-bounty-row { min-height:86px; display:grid; grid-template-columns:50px minmax(260px,1.4fr) minmax(175px,.9fr) 150px 90px; gap:24px; align-items:center; padding:0 18px; border:1px solid var(--line); background:var(--signal-dark); } .ds-bounty-row label { display:grid; place-items:center; } .ds-bounty-row label input { width:16px; height:16px; padding:0; accent-color:var(--signal); } .ds-bounty-row div { display:grid; gap:5px; padding:13px 0; } .ds-bounty-row small,.ds-bounty-row div>span { color:var(--text-muted); font:500 9px/1.35 var(--font-mono); } .ds-bounty-row a { overflow:hidden; color:var(--text); font-size:14px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-bounty-row code { overflow:hidden; color:var(--text-secondary); font:500 10px/1.4 var(--font-mono); text-overflow:ellipsis; } .ds-bounty-row select,.ds-bounty-row>input { width:100%; height:38px; padding:0 9px; border:1px solid var(--line-strong); border-radius:3px; background:var(--surface); color:var(--text); } .ds-sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); } @media(max-width:820px){ .ds-bounty-publish{grid-template-columns:auto 1fr}.ds-bounty-publish button{grid-column:1/-1}.ds-bounty-row{grid-template-columns:44px 1fr}.ds-bounty-row div{grid-column:2}.ds-bounty-row code,.ds-bounty-row select,.ds-bounty-row>input{grid-column:1/-1} } @media(max-width:480px){ .ds-bounty-source{align-items:flex-start}.ds-bounty-publish{grid-template-columns:1fr}.ds-bounty-publish button{grid-column:auto;width:100%} }"
+    },
+    {
+      "name": "Operate Header",
+      "kind": "nav",
+      "description": "The compact authenticated shell with one active destination and explicit account exit.",
+      "html": "<header class=\"ds-operate-header\"><a class=\"ds-operate-brand\" href=\"#\">GitBounty</a><nav><button class=\"ds-operate-active\" type=\"button\">Issues</button><button type=\"button\">My PRs</button><button type=\"button\">Leaderboard</button></nav><div class=\"ds-operate-account\"><span>@aasha-malik</span><button type=\"button\">Sign out</button></div></header>",
+      "css": ".ds-operate-header { height:64px; display:flex; align-items:center; gap:34px; padding:0 24px; border-bottom:1px solid var(--line); background:#0a0d0b; color:var(--text); font-family:var(--font-body); } .ds-operate-brand { color:var(--text); font-size:16px; font-weight:700; text-decoration:none; } .ds-operate-header nav { height:100%; display:flex; align-items:stretch; gap:4px; } .ds-operate-header nav button { position:relative; padding:0 15px; border:0; background:transparent; color:var(--text-muted); font-family:var(--font-body); font-size:13px; font-weight:600; cursor:pointer; } .ds-operate-header nav button:hover { color:var(--text); } .ds-operate-header nav .ds-operate-active { color:var(--text); } .ds-operate-header nav .ds-operate-active::after { content:''; position:absolute; right:15px; bottom:-1px; left:15px; height:2px; background:var(--signal); } .ds-operate-account { min-height:34px; margin-left:auto; display:inline-flex; align-items:stretch; border:1px solid var(--line-strong); border-radius:3px; background:var(--surface); } .ds-operate-account span { display:flex; align-items:center; padding:0 10px; font:600 11px/1 var(--font-mono); } .ds-operate-account button { padding:0 10px; border:0; border-left:1px solid var(--line-strong); background:transparent; color:var(--text-muted); font-family:var(--font-body); font-size:11px; font-weight:600; cursor:pointer; } .ds-operate-account button:hover { color:var(--text); } .ds-operate-header button:focus-visible,.ds-operate-brand:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Operate Data Row",
+      "kind": "card",
+      "refersTo": "operate-row",
+      "description": "The shared dense record grammar for issues, pull requests, and leaderboard entries.",
+      "html": "<article class=\"ds-operate-row\"><div class=\"ds-operate-primary\"><small>#1842</small><strong>Improve keyboard navigation in the command palette</strong></div><span>@maya-dev</span><code>github.com/openframe/core</code><em>Frontend</em><b>+40</b></article>",
+      "css": ".ds-operate-row { min-height:78px; display:grid; grid-template-columns:minmax(300px,2.1fr) minmax(100px,.75fr) minmax(180px,1.15fr) minmax(100px,.7fr) 64px; column-gap:24px; align-items:center; padding:0 18px; border:1px solid var(--line-soft); background:var(--canvas); color:var(--text-secondary); font-family:var(--font-body); font-size:13px; } .ds-operate-row:hover { background:var(--surface); } .ds-operate-primary { display:grid; gap:5px; padding:13px 0; } .ds-operate-primary small { color:var(--text-muted); font:500 9px/1 var(--font-mono); } .ds-operate-primary strong { overflow:hidden; color:var(--text); font-size:14px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-operate-row code { overflow:hidden; color:var(--text-secondary); font:500 10px/1.4 var(--font-mono); text-overflow:ellipsis; white-space:nowrap; } .ds-operate-row em { justify-self:start; min-height:26px; display:inline-flex; align-items:center; padding:0 8px; border:1px solid var(--line); border-radius:999px; color:var(--text-secondary); font-size:11px; font-style:normal; } .ds-operate-row b { color:var(--signal); font:600 14px/1 var(--font-mono); text-align:right; font-variant-numeric:tabular-nums; }"
     }
   ],
   "narrative": {
     "northStar": "The Living Contribution Ledger",
-    "overview": "GitBounty ships as a dark editorial record of open-source work, not a centered SaaS pitch. Large, tightly set statements share the page with dense graphite artifacts: issue rows, code diffs, system traces, receipts, policy logs, and rankings. The visual story follows work from an open issue to a verified merge and makes the evidence feel inspectable at every step.\n\nThe world is near-black, square-edged, and ruled by fine lines. Off-white type provides the reading layer; lime is deliberately scarce and marks actions, selected states, points, and moments of verification. Broad alternating bands create cinematic pacing while the artifacts stay disciplined and technical.",
+    "overview": "GitBounty ships as a dark editorial record of open-source work, not a centered SaaS pitch. Large, tightly set statements share the page with dense graphite artifacts: issue rows, code diffs, system traces, receipts, policy logs, and rankings. The visual story follows work from an open issue to a verified merge and makes the evidence feel inspectable at every step.\n\nThe world is near-black, square-edged, and ruled by fine lines. Off-white type provides the reading layer; lime is deliberately scarce and marks actions, selected states, points, and moments of verification. Broad alternating bands create cinematic pacing while the artifacts stay disciplined and technical.\n\nThe authenticated workspace is the product's compact operating surface, not a continuation of the landing-page narrative. It retains the same graphite ground, fine rules, lime semantics, and evidence typography while replacing oversized display statements with fixed, workmanlike Inter and mono sizes. A sticky horizontal header exposes Issues, My PRs, Leaderboard, the signed-in username, and an explicit Sign out action; Add issues is a contextual action inside Issues.\n\nOperate mode is intentionally dense and quiet. Search, filters, account-derived issue loading, selection controls, summaries, and records join into ruled planes rather than floating cards. The maintainer path lists open issues only from public repositories personally owned by the signed-in GitHub user, then publishes only issues that receive a category and positive whole-number point value. Points, merged pull requests, and leaderboard positions come from the live backend; unavailable or empty data is shown honestly instead of being replaced by samples.",
     "keyCharacteristics": [
       "Dark-only graphite bands separated by one-pixel rules.",
       "Oversized Space Grotesk statements paired with compact JetBrains Mono evidence.",
       "Lime reserved for action, points, selection, progress, and verified state.",
       "Square artifacts and controls, with pills used only for compact taxonomy.",
       "Full-width editorial pacing around a centered 1320px content shell.",
-      "Evidence-first signature surfaces: the contribution ledger, issue explorer, system trace, receipt, audit log, and leaderboard."
+      "Evidence-first signature surfaces: the contribution ledger, issue explorer, system trace, receipt, audit log, and leaderboard.",
+      "Maintainer selection stays inside the same flat Operate grammar as contributor records.",
+      "Authenticated Operate mode uses a compact 1180px shell and fixed sans/mono typography.",
+      "Issues, Add issues, My PRs, and Leaderboard share one task frame and appear one at a time."
     ],
     "rules": [
       { "name": "The Signal Has Meaning Rule", "body": "Lime marks action, selection, points, progress, or verification; it is not decorative fill for ordinary content.", "section": "colors" },
       { "name": "The Dark Ledger Rule", "body": "New surfaces remain inside the shipped near-black graphite world; there is no light-mode counterpart in this build.", "section": "colors" },
+      { "name": "The Operate Signal Rule", "body": "In the authenticated workspace, lime is limited to active underlines, point values, current-user emphasis, focus, and verified status; ordinary navigation and rows stay neutral.", "section": "colors" },
       { "name": "The Evidence Typeface Rule", "body": "Use JetBrains Mono for machine-like evidence and compact system state; use Inter for explanation and Space Grotesk for assertions.", "section": "typography" },
       { "name": "The Statement Break Rule", "body": "Major headings use intentional line breaks and tight leading to create editorial rhythm, not generic centered marketing copy.", "section": "typography" },
+      { "name": "The Operate Scale Rule", "body": "Authenticated task surfaces do not use the marketing display ramp; hierarchy comes from weight, rules, and compact fixed sizes.", "section": "typography" },
       { "name": "The Full-Band Rule", "body": "Background changes and rules run edge to edge; alignment comes from the shared shell rather than boxed page containers.", "section": "layout" },
       { "name": "The Artifact Follows Copy Rule", "body": "On narrow screens, the claim leads and its proof artifact follows directly beneath it.", "section": "layout" },
+      { "name": "The One Task Surface Rule", "body": "Issues, Add issues, My PRs, and Leaderboard occupy the same workspace frame one at a time; do not assemble them into a dashboard of simultaneous cards or charts.", "section": "layout" },
+      { "name": "The Dense Record Rule", "body": "Preserve ruled rows and scan-friendly columns on desktop, then re-label fields in-place on narrow screens instead of converting records into decorative cards.", "section": "layout" },
+      { "name": "The Published Selection Rule", "body": "Add issues may list every open issue from the signed-in user's public personal repositories, but only selected issues cross into the public Issues surface after publication.", "section": "layout" },
       { "name": "The Ruled Plane Rule", "body": "Ordinary surfaces use tone and one-pixel borders, never ambient card shadows.", "section": "elevation" },
       { "name": "The Taxonomy Pill Rule", "body": "A pill must contain a short category, label, or status; it is not a general container shape.", "section": "shapes" }
     ],
@@ -143,7 +172,11 @@
       "Do build new sections as full-width ruled bands aligned to the shared shell.",
       "Do pair assertions with inspectable graphite artifacts such as rows, traces, receipts, or logs.",
       "Do preserve the display/body/mono division between statements, explanations, and evidence.",
-      "Do keep responsive reflow and reduced-motion behavior alongside every new interactive pattern."
+      "Do keep responsive reflow and reduced-motion behavior alongside every new interactive pattern.",
+      "Do keep authenticated work inside the scoped Operate shell: compact header, one active task surface, and dense ruled records.",
+      "Do keep account-derived issue loading, ownership feedback, selection, category, points, and publication in one continuous maintainer flow.",
+      "Do make selection the visible gate that enables category and point editing and determines what reaches Issues.",
+      "Do disclose sample data once at page-heading level while the workspace remains backed by demo content."
     ],
     "donts": [
       "Don't introduce a centered generic SaaS hero, floating gradient cards, glow, or decorative glass.",
@@ -151,7 +184,10 @@
       "Don't spend lime on large decorative areas outside the shipped final CTA band.",
       "Don't turn compact uppercase metadata into a reusable eyebrow above every section; the few live labels belong to specific artifacts and audiences.",
       "Don't use glyphs as general-purpose icons; keep interface symbols structural, minimal, and accessible.",
-      "Don't treat the generated social card's visible composition as editable without preserving the prompt embedded in its PNG metadata."
+      "Don't treat the generated social card's visible composition as editable without preserving the prompt embedded in its PNG metadata.",
+      "Don't carry the landing page's hero, marketing navigation, cinematic section pacing, gradients, glass, decorative metrics, or complex charts into Operate mode.",
+      "Don't show unselected repository issues in Issues or imply that loading a repository publishes its full backlog.",
+      "Don't place illustrative activity inside the authenticated workspace; operational totals and records must come from the live backend."
     ]
   }
 }

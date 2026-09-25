@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./multi-page.css";
+import "./workspace.css";
 import { AuthProvider } from "./components/AuthProvider";
 
 /* The same three families the static site loaded from Google Fonts, but self-hosted by next/font so there is no

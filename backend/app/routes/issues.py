@@ -6,6 +6,7 @@ services/issue_sync.py, and it is never triggered by a page load.
 
 from __future__ import annotations
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import CurrentUser, get_current_user_with_token
@@ -56,24 +57,29 @@ async def browse_issues(
 
     # Fetch one extra row to find out whether another page exists, without
     # paying for a second count query.
-    rows = await fetch_all(
-        f"""
-        select {ISSUE_LIST_COLUMNS}
-        from issues i
-        join repositories r on r.id = i.repository_id
-        where i.state = 'open'
-          and ($1::text is null or i.category = $1)
-          and ($2::text is null or lower(i.language) = lower($2))
-          and ($3::text is null or i.title ilike '%' || $3 || '%')
-        order by {order_by}
-        limit $4 offset $5
-        """,
-        category,
-        language,
-        q,
-        per_page + 1,
-        (page - 1) * per_page,
-    )
+    try:
+        rows = await fetch_all(
+            f"""
+            select {ISSUE_LIST_COLUMNS}
+            from issues i
+            join repositories r on r.id = i.repository_id
+            join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+            left join users u on u.id = ip.set_by_user_id
+            where i.state = 'open'
+              and ($1::text is null or i.category = $1)
+              and ($2::text is null or lower(i.language) = lower($2))
+              and ($3::text is null or i.title ilike '%' || $3 || '%')
+            order by {order_by}
+            limit $4 offset $5
+            """,
+            category,
+            language,
+            q,
+            per_page + 1,
+            (page - 1) * per_page,
+        )
+    except asyncpg.UndefinedTableError as error:
+        raise HTTPException(status_code=503, detail="Bounty publishing is awaiting database migration 0004.") from error
 
     return IssueList(
         items=rows[:per_page],
@@ -87,12 +93,17 @@ async def browse_issues(
 @router.get("/api/issues/categories", response_model=CategoryCounts)
 async def category_counts() -> CategoryCounts:
     """How many open issues sit in each category. Drives the filter chips."""
-    rows = await fetch_all(
-        """
-        select category, count(*) as count
-        from issues
-        where state = 'open'
-        group by category
-        """
-    )
+    try:
+        rows = await fetch_all(
+            """
+            select category, count(*) as count
+            from issues i
+            join repositories r on r.id = i.repository_id
+            join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+            where i.state = 'open'
+            group by category
+            """
+        )
+    except asyncpg.UndefinedTableError as error:
+        raise HTTPException(status_code=503, detail="Bounty publishing is awaiting database migration 0004.") from error
     return CategoryCounts(**{row["category"]: row["count"] for row in rows})

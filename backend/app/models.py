@@ -48,7 +48,9 @@ ISSUE_LIST_COLUMNS = """
     i.labels, i.comments_count, i.issue_created_at, i.issue_updated_at,
     r.full_name        as repository,
     r.description      as repository_description,
-    r.stargazers_count as stars
+    r.stargazers_count as stars,
+    ip.points          as points,
+    u.github_login     as posted_by
 """
 
 
@@ -68,6 +70,8 @@ class IssueOut(BaseModel):
     repository: str
     repository_description: str | None = None
     stars: int = 0
+    points: int
+    posted_by: str | None = None
 
 
 class IssueList(BaseModel):
@@ -87,6 +91,11 @@ class CategoryCounts(BaseModel):
     backend: int = 0
     fullstack: int = 0
     docs: int = 0
+    testing: int = 0
+    devops: int = 0
+    design: int = 0
+    mobile: int = 0
+    other: int = 0
 
 
 class SyncResult(BaseModel):

@@ -78,7 +78,18 @@ def test_sync_stores_points_and_reports_them(api: TestClient) -> None:
 
     points = api.get("/api/me/points").json()
     assert points["total_points"] == 50
+    assert points["week_points"] == 0  # the GitHub fixtures use historical merge dates
     assert points["points_by_category"] == {"backend": 45, "docs": 5}
+
+    import asyncio
+
+    async def mark_one_merge_recent() -> None:
+        connection = await asyncpg.connect(API_TEST_DATABASE_URL)
+        await connection.execute("update merged_prs set merged_at = now() where number = 1")
+        await connection.close()
+
+    asyncio.run(mark_one_merge_recent())
+    assert api.get("/api/me/points").json()["week_points"] == 45
 
 
 @respx.mock

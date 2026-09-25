@@ -9,7 +9,10 @@ anything labelled as documentation is docs regardless of language.
 
 from __future__ import annotations
 
-CATEGORIES = ("frontend", "backend", "fullstack", "docs")
+CATEGORIES = (
+    "frontend", "backend", "fullstack", "docs", "testing",
+    "devops", "design", "mobile", "other",
+)
 
 FRONTEND_LANGUAGES = frozenset(
     {"javascript", "typescript", "css", "html", "scss", "vue", "svelte"}
@@ -27,6 +30,10 @@ DOC_LABELS = frozenset({"documentation", "docs", "doc", "good first doc"})
 # still has backend issues.
 FRONTEND_LABELS = frozenset({"frontend", "front-end", "ui", "ux", "css", "styling", "design"})
 BACKEND_LABELS = frozenset({"backend", "back-end", "api", "server", "database", "db"})
+TESTING_LABELS = frozenset({"testing", "tests", "test", "qa"})
+DEVOPS_LABELS = frozenset({"devops", "ci", "ci/cd", "infrastructure", "deployment"})
+DESIGN_LABELS = frozenset({"design", "ux", "ui/ux"})
+MOBILE_LABELS = frozenset({"mobile", "android", "ios", "flutter", "react native"})
 
 
 def classify(language: str | None, labels: list[str] | None = None) -> str:
@@ -34,6 +41,14 @@ def classify(language: str | None, labels: list[str] | None = None) -> str:
     names = {label.lower() for label in (labels or [])}
     if names & DOC_LABELS:
         return "docs"
+    if names & TESTING_LABELS:
+        return "testing"
+    if names & DEVOPS_LABELS:
+        return "devops"
+    if names & MOBILE_LABELS:
+        return "mobile"
+    if names & DESIGN_LABELS:
+        return "design"
     # An explicit area label outranks the repository's language.
     if names & BACKEND_LABELS:
         return "backend"

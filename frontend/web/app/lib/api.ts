@@ -14,6 +14,8 @@ export type Issue = {
   repository: string;
   repository_description: string | null;
   stars: number;
+  points: number;
+  posted_by: string | null;
 };
 
 export type IssueList = {
@@ -29,6 +31,34 @@ export type CategoryCounts = {
   backend: number;
   fullstack: number;
   docs: number;
+  testing: number;
+  devops: number;
+  design: number;
+  mobile: number;
+  other: number;
+};
+
+export type BountyCategory = "frontend" | "backend" | "fullstack" | "docs" | "testing" | "devops" | "design" | "mobile" | "other";
+
+export type OwnedRepositoryIssue = {
+  repository: string;
+  repository_description: string | null;
+  number: number;
+  title: string;
+  html_url: string;
+  labels: string[];
+  suggested_category: BountyCategory;
+};
+
+export type OwnedIssuesResponse = {
+  items: OwnedRepositoryIssue[];
+  repository_count: number;
+  truncated: boolean;
+};
+
+export type PublishBountiesResponse = {
+  published: number;
+  repositories: number;
 };
 
 export type User = {
@@ -37,6 +67,40 @@ export type User = {
   github_login: string;
   name: string | null;
   avatar_url: string | null;
+};
+
+export type MergeSummary = {
+  repo_full_name: string;
+  number: number;
+  title: string;
+  url: string;
+  category: BountyCategory;
+  merged_at: string;
+  issue_points: number | null;
+  points: number;
+};
+
+export type MyPointsResponse = {
+  github_login: string;
+  total_points: number;
+  week_points: number;
+  total_merges: number;
+  points_by_category: Partial<Record<BountyCategory, number>>;
+  recent_merges: MergeSummary[];
+};
+
+export type LeaderboardEntry = {
+  rank: number;
+  github_login: string;
+  avatar_url: string | null;
+  points: number;
+  merges: number;
+};
+
+export type LeaderboardResponse = {
+  period: "all" | "week" | "month";
+  category: BountyCategory | null;
+  entries: LeaderboardEntry[];
 };
 
 export class ApiError extends Error {

@@ -20,6 +20,7 @@ from .store import (
     recent_merges,
     upsert_user,
     user_points_by_category,
+    user_points_since,
     user_totals,
 )
 
@@ -58,6 +59,7 @@ class MergeSummary(BaseModel):
 class MyPointsResponse(BaseModel):
     github_login: str
     total_points: int
+    week_points: int
     total_merges: int
     points_by_category: dict[str, int]
     recent_merges: list[MergeSummary]
@@ -135,12 +137,18 @@ async def my_points(user: Annotated[CurrentUser, Depends(get_current_user)]) -> 
     async with pool().acquire() as connection:
         user_row_id = await upsert_user(connection, user.github_id, user.github_login)
         totals = await user_totals(connection, user_row_id)
+        week_points = await user_points_since(
+            connection,
+            user_row_id,
+            datetime.now(timezone.utc) - timedelta(days=7),
+        )
         by_category = await user_points_by_category(connection, user_row_id)
         merges = await recent_merges(connection, user_row_id)
 
     return MyPointsResponse(
         github_login=user.github_login,
         total_points=totals["points"],
+        week_points=week_points,
         total_merges=totals["merges"],
         points_by_category=by_category,
         recent_merges=[

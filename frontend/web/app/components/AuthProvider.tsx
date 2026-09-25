@@ -27,18 +27,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     connect: (placement) => {
       if (!user) {
-        // The OAuth route belongs to the separately hosted API, not this Next.js app.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign(`${API_BASE}/auth/github`);
         return;
       }
       if (placement === "page") {
-        document.getElementById("explore")?.scrollIntoView({ behavior: "smooth" });
+        window.location.assign("/explore");
         return;
       }
-      api("/auth/logout", { method: "POST" })
-        .catch(() => undefined)
-        .finally(() => window.location.reload());
+      api("/auth/logout", { method: "POST" }).catch(() => undefined).finally(() => window.location.reload());
     },
   }), [loading, user]);
 
