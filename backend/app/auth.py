@@ -167,7 +167,7 @@ async def github_callback(request: Request, code: str = "", state: str = "") -> 
     if row is None:
         raise HTTPException(status_code=500, detail="Could not save the signed-in user.")
     request.session[SESSION_USER_KEY] = row["id"]
-    return RedirectResponse(settings.frontend_url.rstrip("/"), status_code=302)
+    return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/explore", status_code=302)
 
 
 @router.post("/auth/logout", response_model=Message)
