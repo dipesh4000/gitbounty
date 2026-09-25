@@ -1,3 +1,5 @@
+import { demoResponse } from "./demoSession";
+
 export const API_BASE = (process.env.NEXT_PUBLIC_GITBOUNTY_API || "http://localhost:8001").replace(/\/+$/, "");
 
 export type Issue = {
@@ -114,6 +116,18 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  try {
+    return await request<T>(path, options);
+  } catch (error) {
+    // Hard-coded sign-in (demoSession.ts): the demo user has no real session, so a few reads fall back to
+    // empty states. Returns undefined for a real user, and the original error is thrown.
+    const demo = demoResponse<T>(path);
+    if (demo !== undefined) return demo;
+    throw error;
+  }
+}
+
+async function request<T>(path: string, options: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
