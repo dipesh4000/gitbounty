@@ -36,7 +36,11 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: baseUrl,
     title,
     description: "Discover open-source issues matched to your skills, ship through GitHub, and build a visible contribution record from merged work.",
-    icons: { icon: "/assets/logo_mark.svg" },
+    icons: {
+      icon: [{ url: "/assets/favicon.png", type: "image/png", sizes: "64x64" }],
+      shortcut: "/assets/favicon.png",
+      apple: "/assets/favicon.png",
+    },
     openGraph: { title, description, type: "website", images: [new URL("/og-broadsheet.jpg", baseUrl)] },
     twitter: { card: "summary_large_image", title, description, images: [new URL("/og-broadsheet.jpg", baseUrl)] },
   };
