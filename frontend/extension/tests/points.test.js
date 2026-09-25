@@ -1,7 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { formatPoints, parseIssueLocation, parsePointsLabel } = require("../src/points.js");
+const {
+  closingIssueNumbers,
+  formatPoints,
+  parseIssueLocation,
+  parsePointsLabel,
+  parsePullLocation,
+} = require("../src/points.js");
 
 test("parses the shared gitbounty points label without confusing similar labels", () => {
   assert.equal(parsePointsLabel("gitbounty:40"), 40);
@@ -27,4 +33,13 @@ test("recognises issue lists and issue detail paths only", () => {
 test("formats point values as stable, readable evidence", () => {
   assert.equal(formatPoints(40), "40");
   assert.equal(formatPoints(1200), "1,200");
+});
+
+test("recognises pull request paths and closing issue references", () => {
+  assert.deepEqual(parsePullLocation("/openframe/core/pull/1910"), {
+    repository: "openframe/core",
+    number: 1910,
+  });
+  assert.equal(parsePullLocation("/openframe/core/issues/1910"), null);
+  assert.deepEqual(closingIssueNumbers("Fixes #1842, resolves #611 and closes #1842"), [1842, 611]);
 });
