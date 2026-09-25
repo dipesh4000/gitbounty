@@ -144,6 +144,21 @@ async def user_totals(connection: asyncpg.Connection, user_id: int) -> dict[str,
     return {"points": row["points"], "merges": row["merges"]}
 
 
+async def user_points_since(
+    connection: asyncpg.Connection, user_id: int, since: datetime
+) -> int:
+    """One user's points inside a real time window, used by the popup's weekly score."""
+    return await connection.fetchval(
+        """
+        select coalesce(sum(points), 0)::int
+        from merged_prs
+        where user_id = $1 and merged_at >= $2
+        """,
+        user_id,
+        since,
+    )
+
+
 async def user_points_by_category(connection: asyncpg.Connection, user_id: int) -> dict[str, int]:
     """One user's points, split by category. Only categories they actually have appear."""
     rows = await connection.fetch(
