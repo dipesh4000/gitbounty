@@ -141,7 +141,7 @@ export function ContributorWorkspace() {
 
         {view === "pulls" && (
           <section aria-label="My pull requests">
-            <div className="app-summary-line"><span><strong>5</strong> total</span><span><strong>1</strong> submitted</span><span><strong>2</strong> in review</span><span><strong>2</strong> merged</span><span><strong>70</strong> points earned</span></div>
+            <div className="app-summary-line"><span><strong>5</strong> total</span><span><strong>1</strong> submitted</span><span><strong>2</strong> in review</span><span><strong>2</strong> merged</span><span className="is-points-earned"><strong>70</strong> points earned</span></div>
             <div className="app-tabs" role="group" aria-label="Filter pull requests by status">
               {(["All", "Submitted", "In review", "Merged"] as const).map((status) => <button type="button" key={status} aria-pressed={pullStatus === status} onClick={() => setPullStatus(status)}>{status}</button>)}
             </div>

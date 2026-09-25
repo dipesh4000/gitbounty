@@ -49,6 +49,8 @@
 .app-summary-line { min-height: 58px; display: flex; align-items: center; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-bottom: 0; background: var(--canvas); }
 .app-summary-line span { min-height: 58px; display: inline-flex; align-items: center; gap: 7px; padding: 0 18px; border-right: 1px solid var(--line); color: var(--text-muted); font-size: 12px; }
 .app-summary-line strong { color: var(--text); font: 600 14px/1 var(--font-mono); }
+.app-summary-line .is-points-earned { padding-inline: 22px; border-right-color: var(--signal); background: var(--signal); color: rgba(10,13,10,.72); font-weight: 650; }
+.app-summary-line .is-points-earned strong { color: var(--signal-ink); font-size: 18px; font-weight: 750; letter-spacing: -.02em; }
 .app-tabs { min-height: 52px; display: flex; align-items: end; gap: 22px; padding: 0 18px; border: 1px solid var(--line); border-bottom: 0; background: var(--canvas); }
 .app-tabs button { height: 52px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
 .app-tabs button:hover { color: var(--text); }
