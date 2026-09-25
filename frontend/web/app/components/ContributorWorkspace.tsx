@@ -41,6 +41,7 @@ export function ContributorWorkspace() {
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
   const [pullStatus, setPullStatus] = useState<"All" | PullStatus>("All");
+  const [leaderboardCategory, setLeaderboardCategory] = useState("All");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(true);
   const [issuesError, setIssuesError] = useState("");
@@ -80,6 +81,11 @@ export function ContributorWorkspace() {
   const filteredPulls = useMemo(
     () => pullRequests.filter((pull) => pullStatus === "All" || pull.status === pullStatus),
     [pullStatus],
+  );
+
+  const filteredLeaders = useMemo(
+    () => leaders.filter((leader) => leaderboardCategory === "All" || leader.focus === leaderboardCategory),
+    [leaderboardCategory],
   );
 
   if (!user) {
@@ -165,17 +171,21 @@ export function ContributorWorkspace() {
 
         {view === "leaderboard" && (
           <section aria-label="Leaderboard">
+            <div className="app-category-filter" role="group" aria-label="Filter leaderboard by category">
+              {categories.map((item) => <button type="button" key={item} aria-pressed={leaderboardCategory === item} onClick={() => setLeaderboardCategory(item)}>{item}</button>)}
+            </div>
             <div className="app-table app-leaderboard-table">
-              <div className="app-table-head"><span>Rank</span><span>Contributor</span><span>Top category</span><span>Merged PRs</span><span>Points</span></div>
-              {leaders.map((leader) => (
+              <div className="app-table-head"><span>Rank</span><span>Contributor</span><span>{leaderboardCategory === "All" ? "Top category" : "Category"}</span><span>Merged PRs</span><span>Points</span></div>
+              {filteredLeaders.map((leader, index) => (
                 <div className={`app-table-row${leader.user === user.github_login ? " is-current-user" : ""}`} key={leader.user}>
-                  <div className="app-rank" data-label="Rank">{leader.rank.toString().padStart(2, "0")}</div>
+                  <div className="app-rank" data-label="Rank">{(index + 1).toString().padStart(2, "0")}</div>
                   <div className="app-user" data-label="Contributor"><span>{leader.user.slice(0, 2).toUpperCase()}</span><strong>@{leader.user}</strong>{leader.user === user.github_login && <small>You</small>}</div>
                   <div data-label="Top category"><span className="app-category">{leader.focus}</span></div>
                   <div data-label="Merged PRs">{leader.merges}</div>
                   <div className="app-points" data-label="Points">{leader.points}</div>
                 </div>
               ))}
+              {!filteredLeaders.length && <div className="app-empty"><strong>No {leaderboardCategory} contributors yet.</strong><span>Contributors will appear here after earning points in this category.</span><button type="button" onClick={() => setLeaderboardCategory("All")}>View all contributors</button></div>}
             </div>
           </section>
         )}
