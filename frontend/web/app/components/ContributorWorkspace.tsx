@@ -101,7 +101,7 @@ export function ContributorWorkspace() {
             <button type="button" aria-current={view === "pulls" ? "page" : undefined} onClick={() => setView("pulls")}>My PRs</button>
             <button type="button" aria-current={view === "leaderboard" ? "page" : undefined} onClick={() => setView("leaderboard")}>Leaderboard</button>
           </nav>
-          <div className="app-account-group"><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
+          <div className="app-account-group"><span className="app-nav-points" aria-label="70 points earned"><strong>70</strong> points</span><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
         </div>
       </header>
 
@@ -141,7 +141,7 @@ export function ContributorWorkspace() {
 
         {view === "pulls" && (
           <section aria-label="My pull requests">
-            <div className="app-summary-line"><span><strong>5</strong> total</span><span><strong>1</strong> submitted</span><span><strong>2</strong> in review</span><span><strong>2</strong> merged</span><span className="is-points-earned"><strong>70</strong> points earned</span></div>
+            <div className="app-summary-line"><span><strong>5</strong> total</span><span><strong>1</strong> submitted</span><span><strong>2</strong> in review</span><span><strong>2</strong> merged</span></div>
             <div className="app-tabs" role="group" aria-label="Filter pull requests by status">
               {(["All", "Submitted", "In review", "Merged"] as const).map((status) => <button type="button" key={status} aria-pressed={pullStatus === status} onClick={() => setPullStatus(status)}>{status}</button>)}
             </div>
