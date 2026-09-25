@@ -37,8 +37,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description: "Discover open-source issues matched to your skills, ship through GitHub, and build a visible contribution record from merged work.",
     icons: { icon: "/assets/logo_mark.svg" },
-    openGraph: { title, description, type: "website", images: [new URL("/og-broadsheet.png", baseUrl)] },
-    twitter: { card: "summary_large_image", title, description, images: [new URL("/og-broadsheet.png", baseUrl)] },
+    openGraph: { title, description, type: "website", images: [new URL("/og-broadsheet.jpg", baseUrl)] },
+    twitter: { card: "summary_large_image", title, description, images: [new URL("/og-broadsheet.jpg", baseUrl)] },
   };
 }
 
