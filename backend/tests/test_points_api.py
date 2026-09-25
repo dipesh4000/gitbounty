@@ -43,6 +43,7 @@ def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         pytest.skip(f"No API test database ({type(error).__name__}). See backend/dev/README.md")
 
     monkeypatch.setattr(settings, "database_url", API_TEST_DATABASE_URL)
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
     monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
     monkeypatch.setattr(settings, "dev_github_token", "not-a-real-token")
 
@@ -169,6 +170,7 @@ def test_endpoints_needing_the_database_say_so_when_there_is_none(
     monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(settings, "database_url", "")
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
     monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
     monkeypatch.setattr(settings, "dev_github_token", "not-a-real-token")
 

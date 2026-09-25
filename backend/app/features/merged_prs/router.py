@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ...auth_stub import CurrentUser, get_current_user_with_token
+from ...auth import CurrentUser, get_current_user_with_token
 from .github import GitHubAuthError, GitHubError, GitHubRateLimited
 from .models import Category
 from .service import detect_merges

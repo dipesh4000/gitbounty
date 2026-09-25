@@ -38,7 +38,7 @@ class CurrentUser:
 
 
 def dev_login_is_enabled() -> bool:
-    return bool(settings.dev_github_login)
+    return settings.dev_login_stub_enabled and bool(settings.dev_github_login)
 
 
 def warn_if_dev_login_enabled() -> None:

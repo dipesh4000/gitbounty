@@ -22,6 +22,7 @@ def client() -> TestClient:
 @pytest.fixture
 def dev_login(monkeypatch: pytest.MonkeyPatch) -> None:
     """Turn the dev login stub on for one test."""
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
     monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
     monkeypatch.setattr(settings, "dev_github_token", "not-a-real-token")
 
@@ -38,8 +39,8 @@ def test_without_a_login_it_says_so_rather_than_pretending(
 
     response = client.get("/api/me/merged-prs")
 
-    assert response.status_code == 503
-    assert "login isn't built yet" in response.json()["detail"].casefold()
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not signed in."
 
 
 def test_the_dev_stub_is_off_by_default() -> None:
@@ -52,6 +53,7 @@ def test_the_dev_stub_is_off_by_default() -> None:
 
     assert Settings.model_fields["dev_github_login"].default == ""
     assert Settings.model_fields["dev_github_token"].default == ""
+    assert Settings.model_fields["dev_login_stub_enabled"].default is False
 
 
 def test_the_stub_is_off_when_no_login_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -61,6 +63,7 @@ def test_the_stub_is_off_when_no_login_is_configured(monkeypatch: pytest.MonkeyP
 
 def test_reading_points_does_not_require_a_github_token(monkeypatch: pytest.MonkeyPatch) -> None:
     """Only endpoints that call GitHub need a token; reading stored points does not."""
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
     monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
     monkeypatch.setattr(settings, "dev_github_token", "")
 
@@ -169,9 +172,10 @@ def test_me_reports_who_is_signed_in(client: TestClient, dev_login: None) -> Non
     body = client.get("/api/me").json()
 
     assert body["github_login"] == DEV_LOGIN
-    assert body["is_dev_stub"] is True, "the pages must be able to say nobody was really authenticated"
+    assert isinstance(body["github_id"], int)
+    assert "github_token" not in body
 
 
 def test_me_says_503_when_there_is_no_login(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "dev_github_login", "")
-    assert client.get("/api/me").status_code == 503
+    assert client.get("/api/me").status_code == 401

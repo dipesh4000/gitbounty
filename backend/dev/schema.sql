@@ -16,9 +16,20 @@ create table if not exists users (
     -- GitHub's numeric id, not the login: a person can rename their account and the login follows them.
     github_id   bigint      not null unique,
     github_login text       not null,
+    name         text,
     avatar_url  text,
-    created_at  timestamptz not null default now()
+    -- OAuth tokens are Fernet-encrypted by backend/app/crypto.py before storage.
+    github_access_token text,
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now(),
+    last_login_at timestamptz
 );
+
+-- Keep older local databases compatible with Nishika's OAuth migration.
+alter table users add column if not exists name text;
+alter table users add column if not exists github_access_token text;
+alter table users add column if not exists updated_at timestamptz not null default now();
+alter table users add column if not exists last_login_at timestamptz;
 
 -- One row per merged pull request that has been counted for a user.
 create table if not exists merged_prs (

@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ...auth_stub import CurrentUser, get_current_user, get_current_user_with_token
+from ...auth import CurrentUser, get_current_user, get_current_user_with_token
 from ...db import DatabaseNotConfigured, pool
 from ..merged_prs.github import GitHubAuthError, GitHubError, GitHubRateLimited
 from ..merged_prs.models import Category
@@ -31,19 +31,6 @@ def _require_database() -> None:
         pool()
     except DatabaseNotConfigured as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
-
-
-class MeResponse(BaseModel):
-    """Who the caller is.
-
-    TEMPORARY. Identity belongs to the GitHub Login feature (Nishika's), which isn't built yet. This exists so
-    the pages can show who is signed in, and `is_dev_stub` is here so they can say out loud that nobody has
-    actually been authenticated. When the real login lands, this is replaced by whatever it provides.
-    """
-
-    github_login: str
-    github_id: int
-    is_dev_stub: bool
 
 
 class SyncResponse(BaseModel):
@@ -88,12 +75,6 @@ class LeaderboardResponse(BaseModel):
     period: Literal["all", "week", "month"]
     category: Category | None
     entries: list[LeaderboardEntry]
-
-
-@router.get("/me", response_model=MeResponse)
-async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> MeResponse:
-    """The signed-in user. Needs no database and no GitHub token."""
-    return MeResponse(github_login=user.github_login, github_id=user.github_id, is_dev_stub=True)
 
 
 @router.post("/me/sync", response_model=SyncResponse)
