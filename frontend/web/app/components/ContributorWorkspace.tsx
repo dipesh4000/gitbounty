@@ -101,7 +101,10 @@ export function ContributorWorkspace() {
             <button type="button" aria-current={view === "pulls" ? "page" : undefined} onClick={() => setView("pulls")}>My PRs</button>
             <button type="button" aria-current={view === "leaderboard" ? "page" : undefined} onClick={() => setView("leaderboard")}>Leaderboard</button>
           </nav>
-          <div className="app-account-group"><span className="app-nav-points" aria-label="70 points earned"><strong>70</strong> points</span><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
+          <div className="app-header-meta">
+            <span className="app-nav-points" aria-label="70 points earned"><strong>70</strong> points</span>
+            <div className="app-account-group"><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
+          </div>
         </div>
       </header>
 
