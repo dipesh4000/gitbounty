@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -165,62 +166,65 @@ async def publish_bounties(
     except DatabaseNotConfigured as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
 
-    async with db_pool.acquire() as connection, connection.transaction():
-        repository_id = await connection.fetchval(
-            """
-            insert into repositories (
-                github_id, full_name, owner_login, owner_type, primary_language,
-                description, stargazers_count, repo_created_at, fetched_at
-            ) values ($1, $2, $3, $4, $5, $6, $7, $8, now())
-            on conflict (github_id) do update set
-                full_name = excluded.full_name,
-                owner_login = excluded.owner_login,
-                owner_type = excluded.owner_type,
-                primary_language = excluded.primary_language,
-                description = excluded.description,
-                stargazers_count = excluded.stargazers_count,
-                fetched_at = now()
-            returning id
-            """,
-            repo["id"], repo["full_name"], repo["owner"]["login"], repo["owner"].get("type"),
-            repo.get("language"), repo.get("description"), repo.get("stargazers_count", 0),
-            _as_datetime(repo.get("created_at")),
-        )
-        for item in request.issues:
-            issue = by_number[item.number]
-            labels = _labels(issue)
-            await connection.execute(
+    try:
+        async with db_pool.acquire() as connection, connection.transaction():
+            repository_id = await connection.fetchval(
                 """
-                insert into issues (
-                    github_id, repository_id, number, title, html_url, state, category,
-                    language, labels, comments_count, issue_created_at, issue_updated_at, fetched_at
-                ) values ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11, now())
+                insert into repositories (
+                    github_id, full_name, owner_login, owner_type, primary_language,
+                    description, stargazers_count, repo_created_at, fetched_at
+                ) values ($1, $2, $3, $4, $5, $6, $7, $8, now())
                 on conflict (github_id) do update set
-                    repository_id = excluded.repository_id,
-                    title = excluded.title,
-                    html_url = excluded.html_url,
-                    state = 'open',
-                    category = excluded.category,
-                    language = excluded.language,
-                    labels = excluded.labels,
-                    comments_count = excluded.comments_count,
-                    issue_updated_at = excluded.issue_updated_at,
+                    full_name = excluded.full_name,
+                    owner_login = excluded.owner_login,
+                    owner_type = excluded.owner_type,
+                    primary_language = excluded.primary_language,
+                    description = excluded.description,
+                    stargazers_count = excluded.stargazers_count,
                     fetched_at = now()
+                returning id
                 """,
-                issue["id"], repository_id, issue["number"], issue["title"], issue["html_url"],
-                item.category, repo.get("language"), labels, issue.get("comments", 0),
-                _as_datetime(issue.get("created_at")), _as_datetime(issue.get("updated_at")),
+                repo["id"], repo["full_name"], repo["owner"]["login"], repo["owner"].get("type"),
+                repo.get("language"), repo.get("description"), repo.get("stargazers_count", 0),
+                _as_datetime(repo.get("created_at")),
             )
-            await connection.execute(
-                """
-                insert into issue_points (repo_full_name, issue_number, points, set_by_user_id)
-                values ($1, $2, $3, $4)
-                on conflict (repo_full_name, issue_number) do update set
-                    points = excluded.points,
-                    set_by_user_id = excluded.set_by_user_id,
-                    updated_at = now()
-                """,
-                repo["full_name"], issue["number"], item.points, user.id,
-            )
+            for item in request.issues:
+                issue = by_number[item.number]
+                labels = _labels(issue)
+                await connection.execute(
+                    """
+                    insert into issues (
+                        github_id, repository_id, number, title, html_url, state, category,
+                        language, labels, comments_count, issue_created_at, issue_updated_at, fetched_at
+                    ) values ($1, $2, $3, $4, $5, 'open', $6, $7, $8, $9, $10, $11, now())
+                    on conflict (github_id) do update set
+                        repository_id = excluded.repository_id,
+                        title = excluded.title,
+                        html_url = excluded.html_url,
+                        state = 'open',
+                        category = excluded.category,
+                        language = excluded.language,
+                        labels = excluded.labels,
+                        comments_count = excluded.comments_count,
+                        issue_updated_at = excluded.issue_updated_at,
+                        fetched_at = now()
+                    """,
+                    issue["id"], repository_id, issue["number"], issue["title"], issue["html_url"],
+                    item.category, repo.get("language"), labels, issue.get("comments", 0),
+                    _as_datetime(issue.get("created_at")), _as_datetime(issue.get("updated_at")),
+                )
+                await connection.execute(
+                    """
+                    insert into issue_points (repo_full_name, issue_number, points, set_by_user_id)
+                    values ($1, $2, $3, $4)
+                    on conflict (repo_full_name, issue_number) do update set
+                        points = excluded.points,
+                        set_by_user_id = excluded.set_by_user_id,
+                        updated_at = now()
+                    """,
+                    repo["full_name"], issue["number"], item.points, user.id,
+                )
+    except asyncpg.UndefinedTableError as error:
+        raise HTTPException(status_code=503, detail="Bounty publishing is awaiting database migration 0004.") from error
 
     return PublishResponse(repository=repo["full_name"], published=len(request.issues))
