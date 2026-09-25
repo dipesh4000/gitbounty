@@ -1,124 +1,159 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { MarketingShell } from "./MarketingShell";
 import { useAuth } from "./AuthProvider";
 
+type View = "issues" | "pulls" | "leaderboard";
+type PullStatus = "Submitted" | "In review" | "Merged";
+
+/*
+  FORM: compact contributor operations table with one task surface at a time.
+  FORM_SEED: simple-issues-prs-leaderboard-20260925.
+  CORROBORATION: the user pinned a separate logged-in shell containing only Issues, My PRs, Leaderboard, and account controls.
+*/
+
 const issues = [
-  { repo: "openframe/core", number: 1842, title: "Improve keyboard navigation in the command palette", category: "Frontend", labels: ["TypeScript", "a11y"], points: 40, stars: "12.4k", updated: "3d ago", updatedMinutes: 4320 },
-  { repo: "relaylabs/queue", number: 611, title: "Retry backoff ignores max_delay under sustained load", category: "Backend", labels: ["Go", "good first issue"], points: 60, stars: "3.1k", updated: "20m ago", updatedMinutes: 20 },
-  { repo: "marrow/orm", number: 2207, title: "Support composite keys in the migration diff", category: "Full-stack", labels: ["Postgres", "TypeScript"], points: 80, stars: "8.7k", updated: "5d ago", updatedMinutes: 7200 },
-  { repo: "halyard/docs", number: 93, title: "Document streaming responses with runnable examples", category: "Docs", labels: ["MDX", "documentation"], points: 20, stars: "1.2k", updated: "3h ago", updatedMinutes: 180 },
-  { repo: "cinder/test-kit", number: 418, title: "Snapshot test is flaky on Windows path separators", category: "Testing", labels: ["Rust", "flaky"], points: 30, stars: "2.4k", updated: "40m ago", updatedMinutes: 40 },
-  { repo: "harbor/app", number: 274, title: "Android back gesture dismisses a nested modal twice", category: "Mobile", labels: ["Kotlin", "Android"], points: 35, stars: "1.8k", updated: "2d ago", updatedMinutes: 2880 },
+  { id: 1842, title: "Improve keyboard navigation in the command palette", user: "maya-dev", repo: "openframe/core", category: "Frontend", points: 40 },
+  { id: 611, title: "Retry backoff ignores max delay under sustained load", user: "nolan-s", repo: "relaylabs/queue", category: "Backend", points: 60 },
+  { id: 2207, title: "Support composite keys in the migration diff", user: "priya-k", repo: "marrow/orm", category: "Full-stack", points: 80 },
+  { id: 93, title: "Add runnable examples for streaming responses", user: "sam-docs", repo: "halyard/docs", category: "Docs", points: 20 },
+  { id: 418, title: "Fix Windows path handling in snapshot tests", user: "liam-rs", repo: "cinder/test-kit", category: "Testing", points: 30 },
 ];
 
-const pullRequests = [
-  { repo: "openframe/core", number: 1910, title: "Trap focus and loop arrow keys", category: "Frontend", points: 45, merged: "Today" },
-  { repo: "relaylabs/queue", number: 611, title: "Make retry ceilings deterministic", category: "Backend", points: 65, merged: "Yesterday" },
-  { repo: "halyard/docs", number: 93, title: "Add runnable streaming examples", category: "Docs", points: 25, merged: "4 days ago" },
+const pullRequests: Array<{ id: number; title: string; repo: string; category: string; status: PullStatus; points: number | null; updated: string }> = [
+  { id: 1910, title: "Trap focus and loop arrow keys", repo: "openframe/core", category: "Frontend", status: "Merged", points: 45, updated: "Today" },
+  { id: 742, title: "Preserve filters when returning to the issue list", repo: "openframe/core", category: "Frontend", status: "Submitted", points: null, updated: "Just now" },
+  { id: 724, title: "Handle worker retry ceilings", repo: "relaylabs/queue", category: "Backend", status: "In review", points: null, updated: "2h ago" },
+  { id: 101, title: "Add streaming response examples", repo: "halyard/docs", category: "Docs", status: "Merged", points: 25, updated: "4d ago" },
+  { id: 2284, title: "Cover composite-key migration output", repo: "marrow/orm", category: "Full-stack", status: "In review", points: null, updated: "1d ago" },
 ];
 
-const categories = ["All", "Frontend", "Backend", "Full-stack", "Docs", "Testing", "Mobile"];
+const leaders = [
+  { rank: 1, user: "maya-dev", focus: "Frontend", merges: 12, points: 420 },
+  { rank: 2, user: "aasha-malik", focus: "Full-stack", merges: 7, points: 185 },
+  { rank: 3, user: "nolan-s", focus: "Backend", merges: 6, points: 160 },
+  { rank: 4, user: "sam-docs", focus: "Docs", merges: 9, points: 145 },
+  { rank: 5, user: "liam-rs", focus: "Testing", merges: 5, points: 120 },
+];
+
+const categories = ["All", "Frontend", "Backend", "Full-stack", "Docs", "Testing"];
 
 export function ContributorWorkspace() {
-  const { user, loading } = useAuth();
+  const { user, loading, connect } = useAuth();
+  const [view, setView] = useState<View>("issues");
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"points" | "recent">("points");
-  const [scanning, setScanning] = useState(false);
-  const login = user?.github_login;
+  const [pullStatus, setPullStatus] = useState<"All" | PullStatus>("All");
 
   useEffect(() => {
     if (!loading && !user) window.location.replace("/");
   }, [loading, user]);
 
-  const visibleIssues = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    const filtered = issues.filter((issue) => {
-      const categoryMatch = category === "All" || issue.category === category;
-      const queryMatch = !normalized || `${issue.repo} ${issue.title} ${issue.labels.join(" ")}`.toLowerCase().includes(normalized);
-      return categoryMatch && queryMatch;
+  const filteredIssues = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return issues.filter((issue) => {
+      const inCategory = category === "All" || issue.category === category;
+      const inSearch = !needle || `${issue.title} ${issue.user} ${issue.repo}`.toLowerCase().includes(needle);
+      return inCategory && inSearch;
     });
-    return [...filtered].sort(sort === "points"
-      ? (left, right) => right.points - left.points
-      : (left, right) => left.updatedMinutes - right.updatedMinutes);
-  }, [category, query, sort]);
+  }, [category, query]);
 
-  function scanPullRequests() {
-    setScanning(true);
-    window.setTimeout(() => setScanning(false), 900);
-  }
+  const filteredPulls = useMemo(
+    () => pullRequests.filter((pull) => pullStatus === "All" || pull.status === pullStatus),
+    [pullStatus],
+  );
 
   if (!user) {
-    return (
-      <MarketingShell current="/explore">
-        <section className="workspace-auth-state" aria-live="polite">
-          <span />
-          <p>{loading ? "Opening your contributor workspace…" : "Returning to GitBounty…"}</p>
-        </section>
-      </MarketingShell>
-    );
+    return <main className="app-loading" aria-live="polite">{loading ? "Opening GitBounty…" : "Returning to sign in…"}</main>;
   }
 
+  const title = view === "issues" ? "Issues" : view === "pulls" ? "My pull requests" : "Leaderboard";
+
   return (
-    <MarketingShell current="/explore">
-      <section className="workspace-head">
-        <div className="mp-shell workspace-head-grid">
-          <div>
-            <h1>Pick the work.<br />Build the record.</h1>
-            <p>Signed in as <strong>@{login}</strong>. Browse open work and review the merged pull requests GitBounty found for you.</p>
-            <div className="workspace-jumps" aria-label="Workspace shortcuts"><a href="#workspace-issues">Browse issues</a><a href="#workspace-prs">Review merged PRs</a></div>
-          </div>
-          <div className="workspace-ledger" aria-label="Demo account summary">
-            <div><span>THIS WEEK</span><strong>185 points</strong></div>
-            <div><span>MERGED WORK</span><strong>3 pull requests</strong></div>
-            <div><span>MODE</span><strong>Hard-coded preview</strong></div>
-          </div>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-main">
+          <Link className="app-brand" href="/" aria-label="GitBounty home">
+            <Image src="/assets/favicon.png" alt="" width={28} height={28} priority />
+            <span>GitBounty</span>
+          </Link>
+          <nav className="app-nav" aria-label="Dashboard">
+            <button type="button" aria-current={view === "issues" ? "page" : undefined} onClick={() => setView("issues")}>Issues</button>
+            <button type="button" aria-current={view === "pulls" ? "page" : undefined} onClick={() => setView("pulls")}>My PRs</button>
+            <button type="button" aria-current={view === "leaderboard" ? "page" : undefined} onClick={() => setView("leaderboard")}>Leaderboard</button>
+          </nav>
+          <div className="app-account-group"><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
         </div>
-      </section>
+      </header>
 
-      <section className="workspace-main">
-        <div className="mp-shell workspace-grid">
-          <div className="issue-workspace" id="workspace-issues">
-            <div className="workspace-section-head">
-              <div><h2>Open issues</h2><p>Illustrative issues while the live GitHub feed is disconnected.</p></div>
-              <label className="workspace-sort"><span>SORT</span><select value={sort} onChange={(event) => setSort(event.target.value as "points" | "recent")}><option value="points">Highest points</option><option value="recent">Recently updated</option></select></label>
+      <main className="app-main">
+        <div className="app-page-heading">
+          <div><h1>{title}</h1><p>{view === "issues" ? "Find work by repository and category." : view === "pulls" ? "Track the work you have submitted." : "Points earned from merged open-source work."}</p></div>
+          <span>Demo data</span>
+        </div>
+
+        {view === "issues" && (
+          <section aria-label="Open issues">
+            <div className="app-toolbar">
+              <label className="app-search"><span className="sr-only">Search issues</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search issues, users, or repositories" /></label>
+              <label className="app-select"><span>Category</span><select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
             </div>
-
-            <div className="workspace-search"><label><span>SEARCH</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Repository, issue, or label" /></label></div>
-            <div className="workspace-filters" role="group" aria-label="Filter issues by category">
-              {categories.map((item) => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}</button>)}
+            <div className="app-table app-issues-table">
+              <div className="app-table-head"><span>Issue</span><span>Posted by</span><span>Repository</span><span>Category</span><span>Points</span></div>
+              {filteredIssues.map((issue) => (
+                <div className="app-table-row" key={issue.id}>
+                  <div className="app-primary-cell"><small>#{issue.id}</small><strong>{issue.title}</strong></div>
+                  <div data-label="Posted by">@{issue.user}</div>
+                  <div className="app-repo" data-label="Repository">github.com/{issue.repo}</div>
+                  <div data-label="Category"><span className="app-category">{issue.category}</span></div>
+                  <div className="app-points" data-label="Points">+{issue.points}</div>
+                </div>
+              ))}
+              {!filteredIssues.length && <div className="app-empty"><strong>No issues match those filters.</strong><button type="button" onClick={() => { setQuery(""); setCategory("All"); }}>Clear filters</button></div>}
             </div>
+          </section>
+        )}
 
-            <div className="issue-ledger" aria-live="polite">
-              {visibleIssues.length ? visibleIssues.map((issue) => (
-                <article className="workspace-issue" key={`${issue.repo}-${issue.number}`}>
-                  <div className="workspace-issue-main"><span>{issue.repo} · #{issue.number}</span><h3>{issue.title}</h3><div>{issue.labels.map((label) => <small key={label}>{label}</small>)}</div></div>
-                  <div className="workspace-issue-meta"><span>{issue.stars} stars</span><span>{issue.updated}</span><strong>+{issue.points}</strong></div>
-                  <a href="https://github.com/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22" target="_blank" rel="noreferrer">Find similar issues</a>
-                </article>
-              )) : <div className="workspace-empty"><strong>No matching issues.</strong><button type="button" onClick={() => { setCategory("All"); setQuery(""); }}>Clear filters</button></div>}
+        {view === "pulls" && (
+          <section aria-label="My pull requests">
+            <div className="app-summary-line"><span><strong>5</strong> total</span><span><strong>1</strong> submitted</span><span><strong>2</strong> in review</span><span><strong>2</strong> merged</span><span><strong>70</strong> points earned</span></div>
+            <div className="app-tabs" role="group" aria-label="Filter pull requests by status">
+              {(["All", "Submitted", "In review", "Merged"] as const).map((status) => <button type="button" key={status} aria-pressed={pullStatus === status} onClick={() => setPullStatus(status)}>{status}</button>)}
             </div>
-          </div>
-
-          <aside className="pr-workspace" id="workspace-prs">
-            <div className="workspace-section-head workspace-section-head-pr"><div><h2>Your merged PRs</h2><p>Hard-coded finder results for @{login}.</p></div></div>
-            <button className="pr-scan-button" type="button" onClick={scanPullRequests} disabled={scanning}>{scanning ? "Refreshing demo results…" : "Refresh demo results"}</button>
-            <div className={`pr-scan-status${scanning ? " is-scanning" : ""}`}><span />{scanning ? "Refreshing saved demo records" : "Demo snapshot · 3 merged PRs"}</div>
-            <div className="pr-ledger" aria-live="polite" aria-busy={scanning}>
-              {pullRequests.map((pull) => (
-                <article key={`${pull.repo}-${pull.number}`}>
-                  <span>{pull.repo} · PR #{pull.number}</span>
-                  <h3>{pull.title}</h3>
-                  <div><small>{pull.category.toUpperCase()}</small><small>MERGED {pull.merged.toUpperCase()}</small><strong>+{pull.points}</strong></div>
-                </article>
+            <div className="app-table app-pulls-table">
+              <div className="app-table-head"><span>Pull request</span><span>Repository</span><span>Category</span><span>Status</span><span>Points</span></div>
+              {filteredPulls.map((pull) => (
+                <div className="app-table-row" key={pull.id}>
+                  <div className="app-primary-cell"><small>#{pull.id} · {pull.updated}</small><strong>{pull.title}</strong></div>
+                  <div className="app-repo" data-label="Repository">github.com/{pull.repo}</div>
+                  <div data-label="Category"><span className="app-category">{pull.category}</span></div>
+                  <div data-label="Status"><span className={`app-status ${pull.status === "Merged" ? "is-merged" : ""}`}>{pull.status}</span></div>
+                  <div className="app-points" data-label="Points">{pull.points ? `+${pull.points}` : "—"}</div>
+                </div>
               ))}
             </div>
-            <div className="pr-total"><span>RECORDED FROM THESE RESULTS</span><strong>135 points</strong></div>
-          </aside>
-        </div>
-      </section>
-    </MarketingShell>
+          </section>
+        )}
+
+        {view === "leaderboard" && (
+          <section aria-label="Leaderboard">
+            <div className="app-table app-leaderboard-table">
+              <div className="app-table-head"><span>Rank</span><span>Contributor</span><span>Top category</span><span>Merged PRs</span><span>Points</span></div>
+              {leaders.map((leader) => (
+                <div className={`app-table-row${leader.user === user.github_login ? " is-current-user" : ""}`} key={leader.user}>
+                  <div className="app-rank" data-label="Rank">{leader.rank.toString().padStart(2, "0")}</div>
+                  <div className="app-user" data-label="Contributor"><span>{leader.user.slice(0, 2).toUpperCase()}</span><strong>@{leader.user}</strong>{leader.user === user.github_login && <small>You</small>}</div>
+                  <div data-label="Top category"><span className="app-category">{leader.focus}</span></div>
+                  <div data-label="Merged PRs">{leader.merges}</div>
+                  <div className="app-points" data-label="Points">{leader.points}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
   );
 }
