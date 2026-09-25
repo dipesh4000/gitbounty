@@ -14,6 +14,8 @@ export type Issue = {
   repository: string;
   repository_description: string | null;
   stars: number;
+  points: number;
+  posted_by: string | null;
 };
 
 export type IssueList = {
@@ -29,6 +31,34 @@ export type CategoryCounts = {
   backend: number;
   fullstack: number;
   docs: number;
+  testing: number;
+  devops: number;
+  design: number;
+  mobile: number;
+  other: number;
+};
+
+export type BountyCategory = "frontend" | "backend" | "fullstack" | "docs" | "testing" | "devops" | "design" | "mobile" | "other";
+
+export type RepositoryIssue = {
+  number: number;
+  title: string;
+  html_url: string;
+  labels: string[];
+  suggested_category: BountyCategory;
+};
+
+export type RepositoryInspection = {
+  full_name: string;
+  owner_type: string;
+  description: string | null;
+  open_issues: RepositoryIssue[];
+  truncated: boolean;
+};
+
+export type PublishBountiesResponse = {
+  repository: string;
+  published: number;
 };
 
 export type User = {

@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { api, type Issue, type IssueList } from "../lib/api";
+import { BountyManager } from "./BountyManager";
 import { useAuth } from "./AuthProvider";
 
-type View = "issues" | "pulls" | "leaderboard";
+type View = "issues" | "bounties" | "pulls" | "leaderboard";
 type PullStatus = "Submitted" | "In review" | "Merged";
 
 /*
@@ -13,14 +15,6 @@ type PullStatus = "Submitted" | "In review" | "Merged";
   FORM_SEED: simple-issues-prs-leaderboard-20260925.
   CORROBORATION: the user pinned a separate logged-in shell containing only Issues, My PRs, Leaderboard, and account controls.
 */
-
-const issues = [
-  { id: 1842, title: "Improve keyboard navigation in the command palette", user: "maya-dev", repo: "openframe/core", category: "Frontend", points: 40 },
-  { id: 611, title: "Retry backoff ignores max delay under sustained load", user: "nolan-s", repo: "relaylabs/queue", category: "Backend", points: 60 },
-  { id: 2207, title: "Support composite keys in the migration diff", user: "priya-k", repo: "marrow/orm", category: "Full-stack", points: 80 },
-  { id: 93, title: "Add runnable examples for streaming responses", user: "sam-docs", repo: "halyard/docs", category: "Docs", points: 20 },
-  { id: 418, title: "Fix Windows path handling in snapshot tests", user: "liam-rs", repo: "cinder/test-kit", category: "Testing", points: 30 },
-];
 
 const pullRequests: Array<{ id: number; title: string; repo: string; category: string; status: PullStatus; points: number | null; updated: string }> = [
   { id: 1910, title: "Trap focus and loop arrow keys", repo: "openframe/core", category: "Frontend", status: "Merged", points: 45, updated: "Today" },
@@ -38,7 +32,8 @@ const leaders = [
   { rank: 5, user: "liam-rs", focus: "Testing", merges: 5, points: 120 },
 ];
 
-const categories = ["All", "Frontend", "Backend", "Full-stack", "Docs", "Testing"];
+const categories = ["All", "Frontend", "Backend", "Full-stack", "Docs", "Testing", "DevOps", "Design", "Mobile", "Other"];
+const categoryLabel = (value: string) => value === "fullstack" ? "Full-stack" : value === "devops" ? "DevOps" : value.charAt(0).toUpperCase() + value.slice(1);
 
 export function ContributorWorkspace() {
   const { user, loading, connect } = useAuth();
@@ -46,19 +41,41 @@ export function ContributorWorkspace() {
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
   const [pullStatus, setPullStatus] = useState<"All" | PullStatus>("All");
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [issuesLoading, setIssuesLoading] = useState(true);
+  const [issuesError, setIssuesError] = useState("");
+
+  const loadIssues = useCallback(() => {
+    setIssuesLoading(true);
+    setIssuesError("");
+    api<IssueList>("/api/issues?per_page=100")
+      .then((result) => setIssues(result.items))
+      .catch((error: unknown) => setIssuesError(error instanceof Error ? error.message : "Could not load published issues."))
+      .finally(() => setIssuesLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) window.location.replace("/");
   }, [loading, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    api<IssueList>("/api/issues?per_page=100")
+      .then((result) => { if (active) setIssues(result.items); })
+      .catch((error: unknown) => { if (active) setIssuesError(error instanceof Error ? error.message : "Could not load published issues."); })
+      .finally(() => { if (active) setIssuesLoading(false); });
+    return () => { active = false; };
+  }, [user]);
+
   const filteredIssues = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return issues.filter((issue) => {
-      const inCategory = category === "All" || issue.category === category;
-      const inSearch = !needle || `${issue.title} ${issue.user} ${issue.repo}`.toLowerCase().includes(needle);
+      const inCategory = category === "All" || categoryLabel(issue.category) === category;
+      const inSearch = !needle || `${issue.title} ${issue.posted_by || ""} ${issue.repository}`.toLowerCase().includes(needle);
       return inCategory && inSearch;
     });
-  }, [category, query]);
+  }, [category, issues, query]);
 
   const filteredPulls = useMemo(
     () => pullRequests.filter((pull) => pullStatus === "All" || pull.status === pullStatus),
@@ -69,7 +86,7 @@ export function ContributorWorkspace() {
     return <main className="app-loading" aria-live="polite">{loading ? "Opening GitBounty…" : "Returning to sign in…"}</main>;
   }
 
-  const title = view === "issues" ? "Issues" : view === "pulls" ? "My pull requests" : "Leaderboard";
+  const title = view === "issues" ? "Issues" : view === "bounties" ? "Manage bounties" : view === "pulls" ? "My pull requests" : "Leaderboard";
 
   return (
     <div className="app-shell">
@@ -81,6 +98,7 @@ export function ContributorWorkspace() {
           </Link>
           <nav className="app-nav" aria-label="Dashboard">
             <button type="button" aria-current={view === "issues" ? "page" : undefined} onClick={() => setView("issues")}>Issues</button>
+            <button type="button" aria-current={view === "bounties" ? "page" : undefined} onClick={() => setView("bounties")}>Manage bounties</button>
             <button type="button" aria-current={view === "pulls" ? "page" : undefined} onClick={() => setView("pulls")}>My PRs</button>
             <button type="button" aria-current={view === "leaderboard" ? "page" : undefined} onClick={() => setView("leaderboard")}>Leaderboard</button>
           </nav>
@@ -90,8 +108,8 @@ export function ContributorWorkspace() {
 
       <main className="app-main">
         <div className="app-page-heading">
-          <div><h1>{title}</h1><p>{view === "issues" ? "Find work by repository and category." : view === "pulls" ? "Track the work you have submitted." : "Points earned from merged open-source work."}</p></div>
-          <span>Demo data</span>
+          <div><h1>{title}</h1><p>{view === "issues" ? "Bounties published by repository maintainers." : view === "bounties" ? "Choose which repository issues appear on GitBounty." : view === "pulls" ? "Track the work you have submitted." : "Points earned from merged open-source work."}</p></div>
+          {(view === "pulls" || view === "leaderboard") && <span>Demo data</span>}
         </div>
 
         {view === "issues" && (
@@ -102,19 +120,23 @@ export function ContributorWorkspace() {
             </div>
             <div className="app-table app-issues-table">
               <div className="app-table-head"><span>Issue</span><span>Posted by</span><span>Repository</span><span>Category</span><span>Points</span></div>
-              {filteredIssues.map((issue) => (
+              {issuesLoading && <div className="app-empty"><strong>Loading published issues…</strong></div>}
+              {!issuesLoading && issuesError && <div className="app-empty"><strong>Couldn’t load published issues.</strong><span>{issuesError}</span><button type="button" onClick={loadIssues}>Try again</button></div>}
+              {!issuesLoading && !issuesError && filteredIssues.map((issue) => (
                 <div className="app-table-row" key={issue.id}>
-                  <div className="app-primary-cell"><small>#{issue.id}</small><strong>{issue.title}</strong></div>
-                  <div data-label="Posted by">@{issue.user}</div>
-                  <div className="app-repo" data-label="Repository">github.com/{issue.repo}</div>
-                  <div data-label="Category"><span className="app-category">{issue.category}</span></div>
+                  <div className="app-primary-cell"><small>#{issue.number}</small><a href={issue.html_url} target="_blank" rel="noreferrer">{issue.title}</a></div>
+                  <div data-label="Posted by">{issue.posted_by ? `@${issue.posted_by}` : "Maintainer"}</div>
+                  <div className="app-repo" data-label="Repository">github.com/{issue.repository}</div>
+                  <div data-label="Category"><span className="app-category">{categoryLabel(issue.category)}</span></div>
                   <div className="app-points" data-label="Points">+{issue.points}</div>
                 </div>
               ))}
-              {!filteredIssues.length && <div className="app-empty"><strong>No issues match those filters.</strong><button type="button" onClick={() => { setQuery(""); setCategory("All"); }}>Clear filters</button></div>}
+              {!issuesLoading && !issuesError && !filteredIssues.length && <div className="app-empty"><strong>{issues.length ? "No issues match those filters." : "No bounties have been published yet."}</strong><span>{issues.length ? "Try another repository, user, or category." : "Add a repository and publish its first selected issue."}</span>{issues.length ? <button type="button" onClick={() => { setQuery(""); setCategory("All"); }}>Clear filters</button> : <button type="button" onClick={() => setView("bounties")}>Manage bounties</button>}</div>}
             </div>
           </section>
         )}
+
+        {view === "bounties" && <BountyManager onPublished={loadIssues} />}
 
         {view === "pulls" && (
           <section aria-label="My pull requests">
