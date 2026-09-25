@@ -87,6 +87,7 @@ export function ContributorWorkspace() {
     () => leaders.filter((leader) => leaderboardCategory === "All" || leader.focus === leaderboardCategory),
     [leaderboardCategory],
   );
+  const issuesNeedFirstPublish = issuesError.toLowerCase().includes("migration 0004");
 
   if (!user) {
     return <main className="app-loading" aria-live="polite">{loading ? "Opening GitBounty…" : "Returning to sign in…"}</main>;
@@ -131,7 +132,9 @@ export function ContributorWorkspace() {
             <div className="app-table app-issues-table">
               <div className="app-table-head"><span>Issue</span><span>Posted by</span><span>Repository</span><span>Category</span><span>Points</span></div>
               {issuesLoading && <div className="app-empty"><strong>Loading published issues…</strong></div>}
-              {!issuesLoading && issuesError && <div className="app-empty"><strong>Couldn’t load published issues.</strong><span>{issuesError}</span><button type="button" onClick={loadIssues}>Try again</button></div>}
+              {!issuesLoading && issuesError && (issuesNeedFirstPublish
+                ? <div className="app-empty"><strong>No issues published yet.</strong><span>Add an issue from one of your GitHub repositories and set its bounty.</span><button type="button" onClick={() => setView("add-issues")}>Add your first issue</button></div>
+                : <div className="app-empty"><strong>Couldn’t load published issues.</strong><span>{issuesError}</span><button type="button" onClick={loadIssues}>Try again</button></div>)}
               {!issuesLoading && !issuesError && filteredIssues.map((issue) => (
                 <div className="app-table-row" key={issue.id}>
                   <div className="app-primary-cell"><small>#{issue.number}</small><a href={issue.html_url} target="_blank" rel="noreferrer">{issue.title}</a></div>
