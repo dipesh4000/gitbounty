@@ -167,13 +167,13 @@ export default function GitBountyLanding() {
       <style>{CSS}</style>
       <header style={{ position: "sticky", top: "0", zIndex: "50", background: v.headerBg, borderBottom: `1px solid ${v.headerBd}`, backdropFilter: v.headerBlur, WebkitBackdropFilter: v.headerBlur, transition: "background 180ms,border-color 180ms" }}>
         <div style={{ maxWidth: "1320px", margin: "0 auto", padding: "0 clamp(20px,4vw,56px)", height: "60px", display: "flex", alignItems: "center", gap: "28px", fontFamily: "'JetBrains Mono',monospace", fontSize: "12.5px" }}>
-          <a href="#top" aria-label="GitBounty home" style={{ display: "flex", alignItems: "center", gap: "10px", fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "17px", letterSpacing: "-0.02em" }}><img src="/assets/favicon.png" alt="" width="28" height="28" style={{ display: "block", width: "28px", height: "28px", objectFit: "contain" }} />GitBounty</a>
+          <a href="/" aria-label="GitBounty home" style={{ display: "flex", alignItems: "center", gap: "10px", fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "17px", letterSpacing: "-0.02em" }}><img src="/assets/favicon.png" alt="" width="28" height="28" style={{ display: "block", width: "28px", height: "28px", objectFit: "contain" }} />GitBounty</a>
           {v.navWide && (<>
             <nav aria-label="Primary" style={{ whiteSpace: "nowrap", display: "flex", gap: "24px", color: "#AAB5AB", marginLeft: "auto" }}>
-              <a href="#explore" style={{ color: "#AAB5AB" }}>Explore Issues</a><a href="#how" style={{ color: "#AAB5AB" }}>How It Works</a><a href="#leaderboard" style={{ color: "#AAB5AB" }}>Leaderboard</a><a href="#maintainers" style={{ color: "#AAB5AB" }}>For Maintainers</a><a href="https://github.com" style={{ color: "#AAB5AB" }}>GitHub ↗</a>
+              <a href="/explore" style={{ color: "#AAB5AB" }}>Explore Issues</a><a href="/how-it-works" style={{ color: "#AAB5AB" }}>How It Works</a><a href="/leaderboard" style={{ color: "#AAB5AB" }}>Leaderboard</a><a href="/maintainers" style={{ color: "#AAB5AB" }}>For Maintainers</a><a href="https://github.com/dipesh4000/gitbounty" style={{ color: "#AAB5AB" }}>GitHub ↗</a>
               </nav>
             <span aria-hidden="true" style={{ width: "1px", height: "20px", background: "#303C33" }}></span>
-            {!user && <button type="button" disabled={authLoading} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", color: "#F2F6EF", background: "transparent", border: "0", padding: "8px 0", font: "inherit", cursor: "pointer" }}>Sign in</button>}
+            <a href="/extension" style={{ whiteSpace: "nowrap", color: "#F2F6EF" }}>Get extension</a>
             <button type="button" disabled={authLoading} title={user ? 'Sign out' : undefined} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", fontFamily: "Inter,sans-serif", fontSize: "14px", fontWeight: "600", background: "#B7F34A", color: "#080B09", padding: "8px 14px", border: "0", borderRadius: "2px", cursor: "pointer" }} className="gbh0">{user ? '@' + user.github_login : 'Connect GitHub'}</button>
             </>)}
           {v.navNarrow && (<>
@@ -182,7 +182,7 @@ export default function GitBountyLanding() {
           </div>
         {v.menu && (<>
           <nav id="mnav" aria-label="Mobile" style={{ borderTop: "1px solid #202923", padding: "8px clamp(20px,4vw,56px) 20px", display: "flex", flexDirection: "column", fontSize: "17px" }}>
-            <a href="#explore" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Explore Issues</a><a href="#how" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>How It Works</a><a href="#leaderboard" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Leaderboard</a><a href="#maintainers" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>For Maintainers</a>
+            <a href="/explore" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Explore Issues</a><a href="/how-it-works" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>How It Works</a><a href="/leaderboard" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Leaderboard</a><a href="/maintainers" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>For Maintainers</a><a href="/extension" onClick={v.closeMenu} style={{ padding: "14px 0", borderBottom: "1px solid #202923" }}>Get extension</a>
             <button type="button" disabled={authLoading} title={user ? 'Sign out' : undefined} onClick={() => connect('nav')} style={{ whiteSpace: "nowrap", marginTop: "16px", textAlign: "center", padding: "14px", background: "#B7F34A", color: "#080B09", fontWeight: "600", border: "0", borderRadius: "2px", cursor: "pointer" }}>{user ? '@' + user.github_login : 'Connect GitHub'}</button>
             </nav>
           </>)}
@@ -196,8 +196,8 @@ export default function GitBountyLanding() {
             <p style={{ fontSize: "clamp(17px,1.3vw,19px)", lineHeight: "1.6", color: "#AAB5AB", margin: "0", maxWidth: "34em", textWrap: "pretty" }}>GitBounty turns merged open-source contributions into a visible record of impact. Discover issues that match your skills, ship the work through GitHub, and earn points when your pull request merges.</p>
             <div style={{ display: "grid", gap: "16px", justifyItems: "start" }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                <a href="#explore" style={{ display: "inline-flex", alignItems: "center", gap: "10px", minHeight: "48px", padding: "0 20px", background: "#B7F34A", color: "#080B09", fontWeight: "600", fontSize: "15px", borderRadius: "2px" }} className="gbh1">Explore open issues →</a>
-                <a href="#provenance" style={{ display: "inline-flex", alignItems: "center", minHeight: "48px", padding: "0 20px", border: "1px solid #465449", fontSize: "15px", borderRadius: "2px" }} className="gbh2">How points work</a>
+                <a href="/explore" style={{ display: "inline-flex", alignItems: "center", gap: "10px", minHeight: "48px", padding: "0 20px", background: "#B7F34A", color: "#080B09", fontWeight: "600", fontSize: "15px", borderRadius: "2px" }} className="gbh1">Explore open issues →</a>
+                <a href="/how-it-works" style={{ display: "inline-flex", alignItems: "center", minHeight: "48px", padding: "0 20px", border: "1px solid #465449", fontSize: "15px", borderRadius: "2px" }} className="gbh2">How points work</a>
                 </div>
               <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "12px", color: "#707C72" }}>Built around GitHub. No new contribution workflow.</span>
               </div>
@@ -257,7 +257,7 @@ export default function GitBountyLanding() {
                   <ul style={{ listStyle: "none", margin: "0", padding: "0" }}>
                     {v.issues.map((i, $index) => (<React.Fragment key={$index}>
                       <li style={{ borderBottom: "1px solid #202923", transition: "background 160ms" }} className="gbh4">
-                        <a href="#explore" aria-label={i.aria} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: "10px 24px", padding: "18px 16px 18px 24px", color: "#F2F6EF" }}>
+                        <a href="/explore" aria-label={i.aria} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: "10px 24px", padding: "18px 16px 18px 24px", color: "#F2F6EF" }}>
                           <span style={{ minWidth: "0", display: "grid", gap: "8px" }}>
                             <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "12px", color: "#AAB5AB", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}><span>{i.repo} {i.numS}</span><span style={{ color: "#707C72" }}>★ {i.stars} · {i.updated}</span></span>
                             <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "clamp(18px,1.6vw,22px)", fontWeight: "500", letterSpacing: "-0.01em", lineHeight: "1.25" }}>{i.title}</span>
@@ -441,7 +441,7 @@ export default function GitBountyLanding() {
             <h2 id="h-cta" style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "clamp(50px,9vw,136px)", lineHeight: "0.9", letterSpacing: "-0.05em", margin: "0 0 48px" }}>Your next contribution<br /><span style={{ color: "#B7F34A" }}>is already open.</span></h2>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "24px 40px", alignItems: "center", borderTop: "3px solid #B7F34A", paddingTop: "28px" }}>
               <p style={{ fontSize: "19px", lineHeight: "1.5", margin: "0", color: "#AAB5AB", flex: "1 1 280px", maxWidth: "26em" }}>Find an issue that matches your skills and make the work count.</p>
-              <a href="#explore" style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 24px", background: "#B7F34A", color: "#080B09", fontWeight: "600", fontSize: "16px", borderRadius: "2px" }} className="gbh7">Explore open issues →</a>
+              <a href="/explore" style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 24px", background: "#B7F34A", color: "#080B09", fontWeight: "600", fontSize: "16px", borderRadius: "2px" }} className="gbh7">Explore open issues →</a>
               <button type="button" disabled={authLoading} onClick={() => connect(user ? 'page' : 'nav')} style={{ display: "inline-flex", alignItems: "center", minHeight: "52px", padding: "0 4px", color: "#F2F6EF", background: "transparent", border: "0", borderBottom: "1px solid #465449", fontWeight: "500", fontSize: "16px", cursor: "pointer" }} className="gbh8">{user ? 'Browse issues' : 'Connect GitHub'}</button>
               </div>
             </div>
@@ -451,7 +451,7 @@ export default function GitBountyLanding() {
         <div style={{ maxWidth: "1320px", margin: "0 auto", padding: "40px clamp(20px,4vw,56px) 28px", display: "grid", gap: "32px" }}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "24px", alignItems: "baseline" }}>
             <span style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px", fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "22px", letterSpacing: "-0.02em" }}><img src="/assets/favicon.png" alt="" width="32" height="32" style={{ display: "block", width: "32px", height: "32px", objectFit: "contain" }} />GitBounty <span style={{ fontFamily: "Inter,sans-serif", fontWeight: "400", fontSize: "15px", color: "#AAB5AB", letterSpacing: "0" }}>Open-source work, made visible.</span></span>
-            <nav aria-label="Footer" style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", fontSize: "14px" }}><a href="#explore" style={{ color: "#AAB5AB" }}>Explore</a><a href="#leaderboard" style={{ color: "#AAB5AB" }}>Leaderboard</a><a href="#provenance" style={{ color: "#AAB5AB" }}>Contributors</a><a href="#maintainers" style={{ color: "#AAB5AB" }}>Maintainers</a><a href="https://github.com" style={{ color: "#AAB5AB" }}>GitHub repo</a><a href="#docs" style={{ color: "#AAB5AB" }}>Docs</a><a href="#privacy" style={{ color: "#AAB5AB" }}>Privacy</a><a href="#terms" style={{ color: "#AAB5AB" }}>Terms</a><a href="#status" style={{ color: "#AAB5AB" }}>Status</a></nav>
+            <nav aria-label="Footer" style={{ display: "flex", flexWrap: "wrap", gap: "12px 24px", fontSize: "14px" }}><a href="/explore" style={{ color: "#AAB5AB" }}>Explore</a><a href="/leaderboard" style={{ color: "#AAB5AB" }}>Leaderboard</a><a href="/contributors" style={{ color: "#AAB5AB" }}>Contributors</a><a href="/maintainers" style={{ color: "#AAB5AB" }}>Maintainers</a><a href="https://github.com/dipesh4000/gitbounty" style={{ color: "#AAB5AB" }}>GitHub repo</a><a href="/docs" style={{ color: "#AAB5AB" }}>Docs</a><a href="/privacy" style={{ color: "#AAB5AB" }}>Privacy</a><a href="/terms" style={{ color: "#AAB5AB" }}>Terms</a><a href="/status" style={{ color: "#AAB5AB" }}>Status</a></nav>
             </div>
           <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "12px", color: "#707C72", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "12px", borderTop: "1px dashed #303C33", paddingTop: "16px" }}><span>EOF · gitbounty-web v0.9.0 · build 2026.09.24</span><span>ledger schema 1</span></div>
           </div>
