@@ -36,10 +36,11 @@ Dependency-free and read-only on GitHub. It never changes issues or pull request
 4. The toolbar popup mirrors the supplied signed-out, default, and tracked-issue UI states using real backend data.
 5. A mutation observer restores GitBounty UI after GitHub's client-side navigation and live updates.
 
-The popup currently connects to `http://localhost:8001`. Its signed-in states require the backend OAuth and database
-environment values. While those credentials are pending, **Connect GitHub** creates a browser-local demo session as
-`@aasha-malik`; it does not call GitHub and can be signed out from the popup menu. Remove the demo-session branch when
-the real OAuth configuration is ready.
+The popup connects only to the local GitBounty services: the website at `http://localhost:8000` and the API at
+`http://localhost:8001`. Its signed-in states require the backend OAuth and database environment values. While those
+credentials are pending, **Connect GitHub** creates a browser-local demo session as `@aasha-malik`; it does not call
+GitHub and can be signed out from the popup menu. Remove the demo-session branch when the real OAuth configuration is
+ready.
 
 Website-published badges require migration `0004_published_bounties.sql` to be applied to the configured database and
 the backend to be running on port `8001`. Without that database table, the extension still supports GitHub's

@@ -2,7 +2,7 @@
   "use strict";
 
   const API_BASE = "http://localhost:8001";
-  const DASHBOARD_URL = "https://gitbounty-ledger.aasthamalik-work.chatgpt.site/contributors";
+  const DASHBOARD_URL = "http://localhost:8000/explore";
   const DEMO_SESSION_KEY = "gitbounty_demo_session";
   const data = globalThis.GitBountyPopupData;
   const ids = ["loading-state", "signed-out-state", "error-state", "signed-in-state"];
