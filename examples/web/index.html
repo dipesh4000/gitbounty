@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitBounty</title>
+<meta name="description" content="Maintainers attach a bounty to any GitHub issue. Contributors merge a fix and get paid straight to their wallet.">
+<link rel="icon" type="image/svg" href="assets/logo_mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top" aria-label="GitBounty home">
+      <img src="assets/logo_mark.svg" alt="" class="brand-mark">
+      <span class="brand-name">GitBounty</span>
+    </a>
+
+    <nav class="main-nav" aria-label="Primary">
+      <a href="#bounties">Bounties</a>
+      <a href="#audience">For maintainers</a>
+    </nav>
+
+    <div class="header-cta">
+      <button class="btn btn-ghost" id="nav-signin" type="button">Sign in</button>
+      <button class="btn btn-primary" id="nav-connect" type="button">Connect GitHub</button>
+    </div>
+
+    <button class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile">
+    <a href="#bounties">Bounties</a>
+    <a href="#audience">For maintainers</a>
+    <button class="btn btn-primary" id="mobile-connect" type="button">Connect GitHub</button>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <h1>Open-source work,<br>paid the day it ships.</h1>
+        <p class="hero-sub">Maintainers attach a bounty to any GitHub issue. Contributors merge a fix and get paid straight to their wallet — no invoices, no 20% cut, no waiting on someone to run payroll.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" id="hero-connect" type="button">Connect GitHub</button>
+          <a class="btn btn-outline btn-lg" href="#bounties">Browse open bounties</a>
+        </div>
+        <p class="hero-note">Free for individual bounties. No wallet setup, no seed phrase.</p>
+      </div>
+
+      <div class="hero-board" aria-label="Preview of open bounties">
+        <div class="board-card">
+          <div class="board-card-head">
+            <span class="board-dot" aria-hidden="true"></span>
+            <span>Open bounties</span>
+            <span class="board-count" id="hero-board-count">—</span>
+          </div>
+          <ul class="board-rows" id="hero-board-rows"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FACTS STRIP -->
+  <section class="facts" aria-label="Key facts">
+    <div class="wrap facts-inner">
+      <div class="fact">
+        <span class="fact-num">0%</span>
+        <span class="fact-label">platform commission, always</span>
+      </div>
+      <div class="fact">
+        <span class="fact-num">4</span>
+        <span class="fact-label">functions run the entire escrow contract</span>
+      </div>
+      <div class="fact">
+        <span class="fact-num">1</span>
+        <span class="fact-label">GitHub login is the whole onboarding flow</span>
+      </div>
+      <div class="fact">
+        <span class="fact-num">instant</span>
+        <span class="fact-label">payout the moment a PR merges</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ACTIVE BOUNTIES -->
+  <section class="section" id="bounties">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Open bounties</h2>
+        <p>A live board of funded issues across every connected repo.</p>
+      </div>
+
+      <div class="board-controls">
+        <div class="search-field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="text" id="bounty-search" placeholder="Search by repo or title" aria-label="Search bounties">
+        </div>
+
+        <div class="filter-pills" id="filter-pills" role="group" aria-label="Filter by label">
+          <button class="pill is-active" data-filter="all" type="button">All</button>
+          <button class="pill" data-filter="enhancement" type="button">Enhancement</button>
+          <button class="pill" data-filter="bug" type="button">Bug</button>
+          <button class="pill" data-filter="docs" type="button">Docs</button>
+          <button class="pill" data-filter="good-first-issue" type="button">Good first issue</button>
+        </div>
+
+        <label class="sort-field">
+          <span>Sort</span>
+          <select id="bounty-sort">
+            <option value="amount-desc">Highest bounty</option>
+            <option value="amount-asc">Lowest bounty</option>
+            <option value="newest">Newest</option>
+          </select>
+        </label>
+      </div>
+
+      <ul class="bounty-grid" id="bounty-grid" aria-live="polite"></ul>
+
+      <p class="board-footnote">Showing sample bounties for demonstration. Connect a repo to list real ones.</p>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section section-alt" id="how-it-works">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>How it works</h2>
+        <p>Four steps, all triggered by things you already do on GitHub.</p>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="step-index">01</span>
+          <h3>Tag the issue</h3>
+          <p>Add a bounty label with an amount. Funds move into escrow immediately — no separate invoice or approval chain.</p>
+        </li>
+        <li class="step">
+          <span class="step-index">02</span>
+          <h3>Escrow holds it</h3>
+          <p>A chain-agnostic contract locks the funds in ERC-20 stablecoins until the work is verified as done.</p>
+        </li>
+        <li class="step">
+          <span class="step-index">03</span>
+          <h3>Contributor merges</h3>
+          <p>Anyone can pick up the issue, open a PR against it, and get it reviewed and merged as usual.</p>
+        </li>
+        <li class="step">
+          <span class="step-index">04</span>
+          <h3>Wallet gets paid</h3>
+          <p>The merge event fires a webhook that releases the escrow straight to the contributor's wallet — same day.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- WHY GITBOUNTY -->
+  <section class="section" id="why">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Why GitBounty</h2>
+        <p>Built to stay out of the way of the workflow you already have.</p>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>Zero commission</h3>
+          <p>Every dollar funded goes to the person who did the work — not 10–20% to a platform, the way legacy freelance sites take.</p>
+        </div>
+        <div class="feature">
+          <h3>Lives on GitHub</h3>
+          <p>No separate dashboard or dispute portal. A bounty is just a label on an issue you already use.</p>
+        </div>
+        <div class="feature">
+          <h3>No seed phrases</h3>
+          <p>Signing in with GitHub provisions a non-custodial wallet automatically. Nothing to install, nothing to memorize.</p>
+        </div>
+        <div class="feature">
+          <h3>Paid on merge</h3>
+          <p>Payout is automatic and immediate, replacing the 5–14 day manual release cycles other platforms run on.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUDIENCE -->
+  <section class="section section-alt" id="audience">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Built for both sides</h2>
+        <p>Maintainers and contributors get the same login, different jobs to do.</p>
+      </div>
+
+      <div class="audience-grid">
+        <div class="audience-card">
+          <span class="audience-tag">Maintainers</span>
+          <h3>Clear your backlog</h3>
+          <p>Attach a bounty to any issue in a few clicks. You decide the amount and the repo; GitBounty handles escrow, matching, and payout.</p>
+          <ul class="check-list">
+            <li>Fund issues straight from labels you already use</li>
+            <li>Refund automatically if a bounty goes stale</li>
+            <li>See every open and paid bounty in one place</li>
+          </ul>
+        </div>
+        <div class="audience-card">
+          <span class="audience-tag">Contributors</span>
+          <h3>Get paid for the fix</h3>
+          <p>Find funded issues that match your stack, open a PR, and get paid the moment it merges — no client calls, no chasing invoices.</p>
+          <ul class="check-list">
+            <li>Browse bounties by label, language, or amount</li>
+            <li>Get a wallet automatically on your first GitHub login</li>
+            <li>Funds land the same day your PR is merged</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section class="section" id="security">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Under the hood</h2>
+        <p>Built on well-documented, boring-on-purpose tooling — Next.js, GitHub webhooks, and a four-function Solidity contract.</p>
+      </div>
+
+      <div class="flow-strip" aria-label="Architecture flow">
+        <span class="flow-node">Client<br><small>bounty board, wallet UI</small></span>
+        <span class="flow-arrow" aria-hidden="true">&#8594;</span>
+        <span class="flow-node">Event engine<br><small>verifies GitHub webhooks</small></span>
+        <span class="flow-arrow" aria-hidden="true">&#8594;</span>
+        <span class="flow-node">Escrow contract<br><small>holds and releases funds</small></span>
+      </div>
+
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3>Verified webhooks</h3>
+          <p>Every webhook is HMAC-signed per repository, so forged or replayed events are rejected before they ever touch escrow.</p>
+        </div>
+        <div class="trust-card">
+          <h3>Timelocked refunds</h3>
+          <p>If a bounty goes stale, a configurable timelock returns the funds to the maintainer automatically. Nothing gets stuck.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="section section-alt" id="pricing">
+    <div class="wrap pricing-wrap">
+      <div class="section-head">
+        <h2>Free while we grow</h2>
+        <p>Individual bounties run at 0% commission today. Later, teams that want more can opt into premium tools — the core escrow layer stays free either way.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="price-card">
+          <h3>Individual</h3>
+          <p class="price-amount">0<span>% fee</span></p>
+          <p>Fund or claim bounties on any public repo. Non-custodial wallet included.</p>
+          <ul class="check-list">
+            <li>Unlimited bounties</li>
+            <li>Instant payout on merge</li>
+            <li>Community support</li>
+          </ul>
+          <button class="btn btn-outline" type="button">Connect GitHub</button>
+        </div>
+        <div class="price-card price-card-highlight">
+          <h3>Organization</h3>
+          <p class="price-amount">Custom</p>
+          <p>For teams that want estimation, analytics, and split payouts on top of the free escrow layer.</p>
+          <ul class="check-list">
+            <li>AI-assisted bounty estimation</li>
+            <li>Spend analytics across repos</li>
+            <li>Milestone streaming &amp; multi-contributor splits</li>
+          </ul>
+          <button class="btn btn-primary" type="button">Talk to us</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="cta-band">
+    <div class="cta-pattern" aria-hidden="true">
+      <span class="cta-orbit cta-orbit-large"></span>
+      <span class="cta-orbit cta-orbit-small"></span>
+    </div>
+    <div class="wrap cta-band-inner">
+      <h2>Fund your first bounty in under a minute.</h2>
+      <button class="btn btn-primary btn-lg" id="cta-connect" type="button">Connect GitHub</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="#top" aria-label="GitBounty home">
+        <img src="assets/logo_mark.svg" alt="" class="brand-mark">
+        <span class="brand-name">GitBounty</span>
+      </a>
+      <p>Open-source work, paid on merge.</p>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#">About</a>
+        <a href="#">Docs</a>
+        <a href="#">GitHub</a>
+      </div>
+      <div class="footer-col">
+        <h4>Also available</h4>
+        <p class="footer-note">Prefer working inline? The GitBounty browser extension overlays bounty badges directly on GitHub's issue list.</p>
+        <a href="#">Get the extension →</a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>&copy; <span id="year"></span> GitBounty. All rights reserved.</span>
+    <span class="footer-legal"><a href="#">Terms</a><a href="#">Privacy</a></span>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
