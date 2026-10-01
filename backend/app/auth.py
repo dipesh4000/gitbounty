@@ -7,11 +7,12 @@ user id; GitHub tokens are encrypted in Postgres and never returned by the API.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -153,7 +154,12 @@ async def github_login(request: Request) -> RedirectResponse:
 
 
 @router.get("/auth/github/callback")
-async def github_callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
+async def github_callback(
+    request: Request,
+    background: BackgroundTasks,
+    code: str = "",
+    state: str = "",
+) -> RedirectResponse:
     _require_oauth_configuration()
     expected_state = request.session.pop(SESSION_STATE_KEY, None)
     if not state or not expected_state or not secrets.compare_digest(state, expected_state):
@@ -194,7 +200,38 @@ async def github_callback(request: Request, code: str = "", state: str = "") -> 
     request.session.clear()
     request.session[SESSION_USER_KEY] = row["id"]
     request.session[SESSION_CSRF_KEY] = secrets.token_urlsafe(32)
+
+    # Synchronise straight away, in the background. Nobody should have to find a hidden endpoint for their
+    # own merged work to appear: the first thing a new account sees should be its own history, not an empty
+    # table and a button. The redirect does not wait for it -- a first import makes one GitHub request per
+    # pull request -- and /api/me/points reports its progress.
+    background.add_task(
+        _sync_after_sign_in,
+        CurrentUser(
+            id=row["id"],
+            github_id=profile["id"],
+            github_login=profile["login"],
+            github_token=token,
+            name=profile.get("name"),
+            avatar_url=profile.get("avatar_url"),
+        ),
+    )
     return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/explore", status_code=302)
+
+
+async def _sync_after_sign_in(user: CurrentUser) -> None:
+    """Run the first synchronisation, swallowing any failure.
+
+    Imported here rather than at module scope because the points feature imports this module; a failure is
+    swallowed because a sign-in must not break on it. The failure is recorded in `sync_runs` by the sync
+    itself, so the website can still report it.
+    """
+    from .features.points.router import run_sync
+
+    try:
+        await run_sync(user)
+    except Exception:  # pragma: no cover - defence in depth; run_sync records its own failures
+        logging.getLogger(__name__).exception("the sign-in sync failed for %s", user.github_login)
 
 
 @router.post("/auth/logout", response_model=Message)

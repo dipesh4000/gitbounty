@@ -224,3 +224,92 @@ def test_logout_needs_no_database(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "database_url", "")
     with TestClient(app) as client:
         assert client.post("/auth/logout").json() == {"status": "logged out"}
+
+
+def test_signing_in_starts_a_synchronisation(oauth_config: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nobody should have to find a hidden endpoint for their own merged work to appear."""
+    synced: list[str] = []
+
+    class FakeConnection:
+        async def fetchrow(self, *_args: object) -> dict[str, int]:
+            return {"id": 17}
+
+        async def execute(self, *_args: object) -> None:
+            return None
+
+    class FakeAcquire:
+        async def __aenter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self) -> FakeAcquire:
+            return FakeAcquire()
+
+    async def exchange_code_for_token(_code: str) -> str:
+        return "github-token"
+
+    async def get_authenticated_user(_token: str) -> dict[str, object]:
+        return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
+
+    async def fake_sync(user: auth.CurrentUser) -> None:
+        synced.append(user.github_login)
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
+    monkeypatch.setattr(auth, "_sync_after_sign_in", fake_sync)
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
+
+    assert synced == ["aastha-malik"], "the sync is started with the account that just signed in"
+
+
+def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
+    oauth_config: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeConnection:
+        async def fetchrow(self, *_args: object) -> dict[str, int]:
+            return {"id": 17}
+
+        async def execute(self, *_args: object) -> None:
+            return None
+
+    class FakeAcquire:
+        async def __aenter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self) -> FakeAcquire:
+            return FakeAcquire()
+
+    async def exchange_code_for_token(_code: str) -> str:
+        return "github-token"
+
+    async def get_authenticated_user(_token: str) -> dict[str, object]:
+        return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
+
+    async def exploding_sync(_user: auth.CurrentUser) -> None:
+        raise RuntimeError("GitHub is on fire")
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
+    import app.features.points.router as points_router
+
+    monkeypatch.setattr(points_router, "run_sync", exploding_sync)
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        callback = client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
+
+    assert callback.status_code == 302
