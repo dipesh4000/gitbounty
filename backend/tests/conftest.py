@@ -13,6 +13,18 @@ from pathlib import Path
 import asyncpg
 import pytest
 
+# Run against the declared defaults, not against whoever's machine this is. `app.config` reads
+# backend/.env by default, so without this a developer's own ALLOWED_ORIGINS, DATABASE_URL or OAuth
+# credentials leak into the suite and a test can pass here and fail in CI (or the reverse). This has to
+# happen before anything imports `app`, which is why it sits at module scope in conftest.
+os.environ["GITBOUNTY_ENV_FILE"] = ""
+for _leaked in (
+    "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_CALLBACK_URL", "FRONTEND_URL",
+    "SESSION_SECRET", "TOKEN_ENCRYPTION_KEY", "DATABASE_URL", "ALLOWED_ORIGINS",
+    "DEV_LOGIN_STUB_ENABLED", "DEV_GITHUB_LOGIN", "DEV_GITHUB_TOKEN", "DEV_GITHUB_ID",
+):
+    os.environ.pop(_leaked, None)
+
 DEV_DATABASE_URL = "postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev"
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEV_DATABASE_URL)
 

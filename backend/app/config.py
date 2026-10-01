@@ -1,10 +1,17 @@
 """Configuration, read from the environment only — never hard-coded (rules.md section 5)."""
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Which dotenv file to read, if any. Normally `.env` next to this package. The test suite sets
+# GITBOUNTY_ENV_FILE="" so that a result never depends on what a particular developer happens to have in
+# their `.env` -- a suite that passes on one machine and fails on another is not a safety net.
+_ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", ".env") or None
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     github_client_id: str = ""
     github_client_secret: str = ""
