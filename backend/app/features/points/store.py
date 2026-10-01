@@ -1,6 +1,6 @@
 """Reading and writing points.
 
-Plain SQL against the schema in `backend/dev/schema.sql`. Every query is written out in full rather than built,
+Plain SQL against the schema in `migrations/`. Every query is written out in full rather than built,
 so that what runs against Nishika's Supabase project is exactly what can be read here.
 """
 

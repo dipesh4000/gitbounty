@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.main import app
 
+from .conftest import apply_migrations
 from .test_github import SEARCH_URL, search_item
 
 API_TEST_DATABASE_URL = os.environ.get(
@@ -34,8 +35,15 @@ def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
     async def prepare() -> None:
         connection = await asyncpg.connect(API_TEST_DATABASE_URL, timeout=3)
-        await connection.execute("truncate merged_prs, issue_points, users restart identity cascade")
-        await connection.close()
+        try:
+            # Build the schema from migrations/ first, so this works on a machine where the database
+            # exists but is empty -- which is what a clean checkout plus `createdb` looks like.
+            await apply_migrations(connection)
+            await connection.execute(
+                "truncate merged_prs, issue_points, issues, repositories, users restart identity cascade"
+            )
+        finally:
+            await connection.close()
 
     try:
         asyncio.run(prepare())
@@ -118,11 +126,26 @@ def test_a_website_set_value_is_used_by_sync(api: TestClient) -> None:
 
     async def store_value() -> None:
         connection = await asyncpg.connect(API_TEST_DATABASE_URL)
-        await connection.execute(
-            "insert into issue_points (repo_full_name, issue_number, points) values ($1, $2, $3)",
-            "org/a", 12, 100,
-        )
-        await connection.close()
+        try:
+            # issue_points.set_by_user_id is NOT NULL: a stored value exists because an authenticated
+            # maintainer set it, which is the whole reason it beats a label.
+            maintainer_id = await connection.fetchval(
+                """
+                insert into users (github_id, github_login) values ($1, $2)
+                on conflict (github_id) do update set github_login = excluded.github_login
+                returning id
+                """,
+                9001, "the-maintainer",
+            )
+            await connection.execute(
+                """
+                insert into issue_points (repo_full_name, issue_number, points, set_by_user_id)
+                values ($1, $2, $3, $4)
+                """,
+                "org/a", 12, 100, maintainer_id,
+            )
+        finally:
+            await connection.close()
 
     asyncio.run(store_value())
 

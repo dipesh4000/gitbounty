@@ -28,7 +28,18 @@ for _leaked in (
 DEV_DATABASE_URL = "postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev"
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEV_DATABASE_URL)
 
-SCHEMA = Path(__file__).resolve().parent.parent / "dev" / "schema.sql"
+MIGRATIONS = sorted((Path(__file__).resolve().parents[2] / "migrations").glob("*.sql"))
+
+
+async def apply_migrations(connection: asyncpg.Connection) -> None:
+    """Build the schema from migrations/, which is the only description of it.
+
+    Previously this applied backend/dev/schema.sql: a second, hand-maintained copy of the same tables
+    that could drift from the files actually applied to the real database. Bootstrapping from the
+    migrations means the suite is also a clean-database bootstrap test (rules.md section 4).
+    """
+    for path in MIGRATIONS:
+        await connection.execute(path.read_text())
 
 
 @pytest.fixture
@@ -39,13 +50,15 @@ async def db() -> AsyncIterator[asyncpg.Connection]:
     except Exception as error:  # not running, wrong port, no such database
         pytest.skip(f"No local database at {TEST_DATABASE_URL} ({type(error).__name__}). See backend/dev/README.md")
 
-    await connection.execute(SCHEMA.read_text())
+    await apply_migrations(connection)
 
     transaction = connection.transaction()
     await transaction.start()
     # Start from empty inside the transaction, so a test sees only its own rows even when the development
     # database has data in it. The rollback puts that data back; nothing is actually deleted.
-    await connection.execute("truncate merged_prs, issue_points, users restart identity cascade")
+    await connection.execute(
+        "truncate merged_prs, issue_points, issues, repositories, users restart identity cascade"
+    )
     try:
         yield connection
     finally:
