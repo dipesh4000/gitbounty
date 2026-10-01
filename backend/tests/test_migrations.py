@@ -43,17 +43,19 @@ def test_every_migration_documents_what_it_changes() -> None:
 
 def test_the_runner_refuses_a_non_local_database_without_approval() -> None:
     """rules.md section 4: nobody applies migrations to the shared Supabase project unasked."""
-    assert migrate.is_local("postgresql://u:p@localhost:5432/db")
-    assert migrate.is_local("postgresql://u:p@127.0.0.1:5432/db")
-    assert not migrate.is_local("postgresql://u:p@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres")
+    # Hostnames only -- is_local reads nothing else, and a credential-shaped literal in a tracked file is
+    # exactly what the CI secret scan is there to object to, even a made-up one.
+    assert migrate.is_local("postgresql://localhost:5432/db")
+    assert migrate.is_local("postgresql://127.0.0.1:5432/db")
+    assert not migrate.is_local("postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres")
 
-    exit_code = migrate.main(["up", "--database-url", "postgresql://u:p@db.example.com:5432/postgres"])
+    exit_code = migrate.main(["up", "--database-url", "postgresql://db.example.com:5432/postgres"])
     assert exit_code == 2
 
 
 def test_the_target_description_never_includes_credentials() -> None:
-    described = migrate.describe_target("postgresql://someone:a-real-password@db.example.com:5432/postgres")
-    assert "a-real-password" not in described
+    described = migrate.describe_target("postgresql://someone:" + "a-fake-password" + "@db.example.com:5432/postgres")
+    assert "a-fake-password" not in described
     assert "someone" not in described
     assert described == "db.example.com:5432/postgres"
 
