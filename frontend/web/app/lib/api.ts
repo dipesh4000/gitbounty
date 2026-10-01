@@ -1,5 +1,3 @@
-import { demoResponse } from "./demoSession";
-
 export const API_BASE = (process.env.NEXT_PUBLIC_GITBOUNTY_API || "http://localhost:8001").replace(/\/+$/, "");
 
 export type Issue = {
@@ -115,20 +113,18 @@ export class ApiError extends Error {
   }
 }
 
+/*
+  Every call to the GitBounty API. There is no fallback to canned data: a failure is reported as a
+  failure, so a caller can show the real reason instead of an invented empty state.
+*/
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let response: Response;
   try {
-    return await request<T>(path, options);
-  } catch (error) {
-    // Hard-coded sign-in (demoSession.ts): the demo user has no real session, so a few reads fall back to
-    // empty states. Returns undefined for a real user, and the original error is thrown.
-    const demo = demoResponse<T>(path);
-    if (demo !== undefined) return demo;
-    throw error;
+    response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
+  } catch {
+    // fetch only rejects for network-level problems: the API is not running, or CORS refused the call.
+    throw new ApiError(`Could not reach the GitBounty API at ${API_BASE}.`, 0);
   }
-}
-
-async function request<T>(path: string, options: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
     try {

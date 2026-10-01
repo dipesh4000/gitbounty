@@ -20,7 +20,7 @@ const categoryLabel = (value: string) => value === "fullstack" ? "Full-stack" : 
 const categoryValue = (value: string) => value.toLowerCase().replace("-", "");
 
 export function ContributorWorkspace() {
-  const { user, loading, connect } = useAuth();
+  const { user, status: authStatus, error: authError, signOut } = useAuth();
   const [view, setView] = useState<View>("issues");
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
@@ -53,9 +53,12 @@ export function ContributorWorkspace() {
       .finally(() => setPointsLoading(false));
   }, []);
 
+  /* Only an actual 401 sends someone back to the landing page. When the API is unreachable or
+     unconfigured we stay here and say so, because bouncing to a page that cannot load either just
+     looks like the sign-in failed. */
   useEffect(() => {
-    if (!loading && !user) window.location.replace("/");
-  }, [loading, user]);
+    if (authStatus === "signed-out") window.location.replace("/");
+  }, [authStatus]);
 
   useEffect(() => {
     if (!user) return;
@@ -106,7 +109,22 @@ export function ContributorWorkspace() {
   };
 
   if (!user) {
-    return <main className="app-loading" aria-live="polite">{loading ? "Opening GitBounty…" : "Returning to sign in…"}</main>;
+    if (authStatus === "unavailable") {
+      return (
+        <main className="app-loading" aria-live="polite">
+          <div className="app-empty">
+            <strong>GitBounty can’t reach its API.</strong>
+            <span>{authError}</span>
+            <Link href="/">Back to the landing page</Link>
+          </div>
+        </main>
+      );
+    }
+    return (
+      <main className="app-loading" aria-live="polite">
+        {authStatus === "loading" ? "Checking your GitHub session…" : "Returning to sign in…"}
+      </main>
+    );
   }
 
   const title = view === "issues" ? "Issues" : view === "add-issues" ? "Add issues" : view === "pulls" ? "My pull requests" : "Leaderboard";
@@ -126,7 +144,7 @@ export function ContributorWorkspace() {
           </nav>
           <div className="app-header-meta">
             <span className="app-nav-points" aria-label={points ? `${points.total_points} points earned` : "Points unavailable"}><strong>{pointsLoading ? "…" : points?.total_points ?? "—"}</strong> points</span>
-            <div className="app-account-group"><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={() => connect("nav")}>Sign out</button></div>
+            <div className="app-account-group"><span className="app-account">@{user.github_login}</span><button className="app-signout" type="button" onClick={signOut}>Sign out</button></div>
           </div>
         </div>
       </header>

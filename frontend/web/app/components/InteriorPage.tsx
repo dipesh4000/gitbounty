@@ -12,7 +12,7 @@ type PageSpec = {
   next: Array<[string, string]>;
 };
 
-export const pages = {
+export const pages: Record<PageKey, PageSpec> = {
   explore: {
     path: "/explore",
     title: "Find work worth opening.",
@@ -133,9 +133,11 @@ export const pages = {
     ],
     next: [["/extension", "Install the extension preview"], ["https://github.com/dipesh4000/gitbounty", "Follow development on GitHub ↗"]],
   },
-} satisfies Record<string, PageSpec>;
+};
 
-export type PageKey = keyof typeof pages;
+export type PageKey =
+  | "explore" | "how-it-works" | "leaderboard" | "maintainers" | "extension"
+  | "contributors" | "docs" | "privacy" | "terms" | "status";
 
 export function InteriorPage({ page }: { page: PageKey }) {
   const spec = pages[page];
