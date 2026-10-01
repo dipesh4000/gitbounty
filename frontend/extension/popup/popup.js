@@ -1,9 +1,14 @@
+/*
+  The toolbar popup.
+
+  Everything shown here comes from the GitBounty API or from the GitHub page the visitor is looking at.
+  There is no demo account and no canned activity: with no session the popup says so and offers the real
+  OAuth route, and with a broken API it says that instead of showing a number nobody earned.
+*/
 (function runGitBountyPopup() {
   "use strict";
 
-  const API_BASE = "http://localhost:8001";
-  const DASHBOARD_URL = "http://localhost:8000/explore";
-  const DEMO_SESSION_KEY = "gitbounty_demo_session";
+  const { API_BASE, APP_BASE, SIGN_IN_URL, DASHBOARD_URL } = globalThis.GitBountyConfig;
   const data = globalThis.GitBountyPopupData;
   const ids = ["loading-state", "signed-out-state", "error-state", "signed-in-state"];
   const byId = (id) => document.getElementById(id);
@@ -17,7 +22,14 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
+    let response;
+    try {
+      response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
+    } catch {
+      const error = new Error(`GitBounty is not running on ${API_BASE}.`);
+      error.status = 0;
+      throw error;
+    }
     if (!response.ok) {
       const error = new Error(`GitBounty API returned ${response.status}`);
       error.status = response.status;
@@ -32,6 +44,7 @@
     try {
       return await chrome.tabs.sendMessage(tab.id, { type: "gitbounty:get-page-context" });
     } catch {
+      // No content script on this page -- not an issue or pull request URL. Not an error.
       return null;
     }
   }
@@ -65,41 +78,24 @@
     byId("points-total").textContent = data.formatPoints(pointsPayload.week_points ?? pointsPayload.total_points);
     renderActivity(pointsPayload);
 
+    /*
+      The page panel appears only for an issue with a published GitBounty bounty. The content script
+      returns null for anything else, so an untracked issue shows nothing rather than a guess.
+    */
     const tracked = data.popupState(user, pageContext) === "tracked-issue";
     byId("page-context").hidden = !tracked;
     if (tracked) {
       const issue = pageContext.issue;
       byId("issue-title").textContent = `#${issue.number} ${issue.title}`;
-      byId("issue-detail").textContent = `${issue.assignee || "unassigned"} · ${issue.category || "tracked"}`.toUpperCase();
+      byId("issue-detail").textContent = `${issue.status || "open"} · ${issue.category || "tracked"}`.toUpperCase();
       byId("issue-points").textContent = `+${data.formatPoints(issue.points)}`;
     }
     show("signed-in-state");
   }
 
-  function demoAccount() {
-    return {
-      user: { github_login: "aasha-malik" },
-      points: {
-        github_login: "aasha-malik",
-        total_points: 185,
-        week_points: 185,
-        recent_merges: [
-          { number: 1857, repo_full_name: "openframe/core", points: 5 },
-          { number: 611, repo_full_name: "relaylabs/queue", points: 65 },
-          { number: 93, repo_full_name: "halyard/docs", points: 25 },
-        ],
-      },
-    };
-  }
-
   async function load() {
     show("loading-state");
     const contextPromise = activePageContext();
-    if (window.localStorage.getItem(DEMO_SESSION_KEY) === "connected") {
-      const demo = demoAccount();
-      renderSignedIn(demo.user, demo.points, await contextPromise);
-      return;
-    }
     try {
       const user = await api("/api/me");
       const [pointsPayload, pageContext] = await Promise.all([api("/api/me/points"), contextPromise]);
@@ -107,23 +103,26 @@
     } catch (error) {
       await contextPromise;
       if (error.status === 401) {
+        // Signed out, or the session expired. Same remedy either way: sign in again.
         show("signed-out-state");
         return;
       }
       byId("error-message").textContent = error.status === 503
-        ? "GitBounty is not configured yet. Add the backend environment values, then try again."
-        : "The GitBounty API is not running on localhost:8001.";
+        ? "GitBounty is running but not configured yet. Add the backend environment values, then try again."
+        : error.status === 0
+          ? `GitBounty is not running on ${API_BASE}.`
+          : `The GitBounty API answered ${error.status}.`;
       show("error-state");
     }
   }
 
-  byId("connect-button").addEventListener("click", async () => {
-    window.localStorage.setItem(DEMO_SESSION_KEY, "connected");
-    const demo = demoAccount();
-    renderSignedIn(demo.user, demo.points, await activePageContext());
-  });
+  byId("connect-button").addEventListener("click", () => openTab(SIGN_IN_URL));
   byId("retry-button").addEventListener("click", load);
-  byId("refresh-button").addEventListener("click", () => { byId("popup-menu").hidden = true; load(); });
+  byId("refresh-button").addEventListener("click", () => {
+    byId("popup-menu").hidden = true;
+    // Drop the background worker's cached bounties too, or Refresh would re-show a stale answer.
+    chrome.runtime.sendMessage({ type: "gitbounty:invalidate-cache" }, () => load());
+  });
   byId("dashboard-button").addEventListener("click", () => openTab(DASHBOARD_URL));
   document.querySelectorAll("[data-open-external]").forEach((link) => {
     link.addEventListener("click", (event) => { event.preventDefault(); openTab(link.href); });
@@ -135,31 +134,16 @@
     byId("menu-button").setAttribute("aria-expanded", String(!menu.hidden));
   });
   byId("signout-button").addEventListener("click", async () => {
-    window.localStorage.removeItem(DEMO_SESSION_KEY);
-    try { await api("/auth/logout", { method: "POST" }); } catch { /* the local session may already be gone */ }
+    try { await api("/auth/logout", { method: "POST" }); } catch { /* the session may already be gone */ }
+    chrome.runtime.sendMessage({ type: "gitbounty:invalidate-cache" }, () => undefined);
     byId("popup-menu").hidden = true;
     show("signed-out-state");
   });
 
-  function renderPreview() {
-    const state = new URLSearchParams(window.location.search).get("state") || "tracked";
-    if (state === "signed-out") {
-      show("signed-out-state");
-      return;
-    }
-    const { user, points } = demoAccount();
-    const context = state === "tracked" ? {
-      issue: {
-        number: 1842,
-        title: "Improve keyboard navigation",
-        assignee: "unassigned",
-        category: "frontend",
-        points: 40,
-      },
-    } : null;
-    renderSignedIn(user, points, context);
-  }
-
+  // Opened outside the browser (a plain file load, for layout work): show the signed-out state, which
+  // is the only one that needs no data. Never a fabricated signed-in view.
   if (globalThis.chrome?.tabs) load();
-  else renderPreview();
+  else show("signed-out-state");
+
+  globalThis.GitBountyPopup = { APP_BASE };
 })();
