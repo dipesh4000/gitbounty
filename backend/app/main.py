@@ -9,14 +9,16 @@ import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import router as auth_router
 from .auth_stub import warn_if_dev_login_enabled
 from .config import settings
-from .db import connect, disconnect, is_configured
+from .csrf import CsrfMiddleware
+from . import db
+from .db import connect, disconnect, is_configured, pool
 from .features.merged_prs.router import router as merged_prs_router
 from .features.points.router import router as points_router
 from .routes.issues import router as issues_router
@@ -42,13 +44,20 @@ if not settings.session_secret:
     logging.getLogger(__name__).warning(
         "No SESSION_SECRET: GitHub login is disabled until it is configured."
     )
+# Middleware runs in reverse order of registration, so CSRF is added first and therefore runs *after*
+# SessionMiddleware has decoded the cookie -- it needs the session to compare the token against.
+app.add_middleware(CsrfMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret or secrets.token_urlsafe(32),
     session_cookie="gitbounty_session",
+    # Lax, not None: a cross-site POST must not carry this cookie. Starlette sets HttpOnly itself, so the
+    # value is never readable by page JavaScript.
     same_site="lax",
-    https_only=settings.frontend_url.startswith("https://"),
-    max_age=60 * 60 * 24 * 14,
+    # Secure in production. Derived from FRONTEND_URL before, which meant a deployment that forgot to
+    # update one environment variable silently shipped a cookie sent over plain HTTP.
+    https_only=settings.cookies_secure,
+    max_age=settings.session_max_age_seconds,
 )
 # The website is a separate origin from this API, so the browser needs to be told it may call it. Listed
 # origins only -- never "*", which would let any page on the internet make calls as a signed-in user.
@@ -69,5 +78,39 @@ app.include_router(maintainer_router)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    """Liveness check. Used to confirm the app is up, nothing more."""
+    """Liveness: the process is running and answering. Checks nothing else, on purpose."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready(response: Response) -> dict[str, object]:
+    """Readiness: whether this instance can actually serve requests.
+
+    Reports each dependency as configured / reachable, and answers 503 when something a request would need
+    is not there. Deliberately vague about *why* -- "database: unreachable" is useful to an operator and
+    tells an attacker nothing about the host, the driver or the credentials. The exception is never
+    included; it goes to the log.
+    """
+    checks: dict[str, str] = {
+        "github_oauth": "configured" if (settings.github_client_id and settings.github_client_secret) else "not configured",
+        "session_secret": "configured" if settings.session_secret else "not configured",
+        "token_encryption": "configured" if settings.token_encryption_key else "not configured",
+    }
+
+    if not is_configured():
+        checks["database"] = "unreachable" if db.last_connect_error else "not configured"
+    else:
+        try:
+            async with pool().acquire() as connection:
+                await connection.fetchval("select 1")
+            checks["database"] = "ok"
+        except Exception:
+            logging.getLogger(__name__).exception("readiness: database check failed")
+            checks["database"] = "unreachable"
+
+    ready_now = checks["database"] == "ok" and all(
+        value == "configured" for key, value in checks.items() if key != "database"
+    )
+    if not ready_now:
+        response.status_code = 503
+    return {"status": "ready" if ready_now else "not ready", "checks": checks}

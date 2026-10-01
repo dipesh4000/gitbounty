@@ -6,7 +6,7 @@ points: one merged PR, one category, some points.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 
@@ -49,6 +49,12 @@ class MergedPR:
     author_login: str
     labels: tuple[str, ...] = field(default_factory=tuple)
     body: str = ""
+    #: The GitBounty `users.id` of the author, when known. Set by the sync, which knows whose account it
+    #: is querying. Used to stop a maintainer collecting a bounty they published themselves.
+    author_user_id: int | None = None
+
+    def with_author_user_id(self, user_id: int) -> "MergedPR":
+        return replace(self, author_user_id=user_id)
 
     @property
     def repo_owner(self) -> str:

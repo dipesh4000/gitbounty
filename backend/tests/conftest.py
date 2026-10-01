@@ -7,11 +7,15 @@ fail, when it isn't running: someone reviewing the pure logic shouldn't need Doc
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 # Run against the declared defaults, not against whoever's machine this is. `app.config` reads
 # backend/.env by default, so without this a developer's own ALLOWED_ORIGINS, DATABASE_URL or OAuth
@@ -57,7 +61,8 @@ async def db() -> AsyncIterator[asyncpg.Connection]:
     # Start from empty inside the transaction, so a test sees only its own rows even when the development
     # database has data in it. The rollback puts that data back; nothing is actually deleted.
     await connection.execute(
-        "truncate merged_prs, issue_points, issues, repositories, users restart identity cascade"
+        "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+        "issues, repositories, users restart identity cascade"
     )
     try:
         yield connection
@@ -71,3 +76,56 @@ async def user_id(db: asyncpg.Connection) -> int:
     from app.features.points.store import upsert_user
 
     return await upsert_user(db, github_id=1, github_login="aastha-malik")
+
+
+# --- the API client, against a real database --------------------------------
+
+API_TEST_DATABASE_URL = os.environ.get(
+    "API_TEST_DATABASE_URL",
+    "postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_api_test",
+)
+
+#: The login the development stub authenticates as in API tests.
+DEV_LOGIN = "aastha-malik"
+
+TRUNCATE_ALL = (
+    "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+    "issues, repositories, users restart identity cascade"
+)
+
+
+@pytest.fixture
+def api(monkeypatch: pytest.MonkeyPatch) -> Iterator["TestClient"]:
+    """A TestClient with the database connected and the development login stub on.
+
+    Its own database (`gitbounty_api_test`), never the dev one, because it clears tables between tests and
+    nothing that clears tables should point anywhere near data someone is using. The schema is built from
+    migrations/, so this works on a machine where the database exists but is empty.
+    """
+    import asyncio
+
+    from fastapi.testclient import TestClient
+
+    from app.config import settings
+    from app.main import app
+
+    async def prepare() -> None:
+        connection = await asyncpg.connect(API_TEST_DATABASE_URL, timeout=3)
+        try:
+            await apply_migrations(connection)
+            await connection.execute(TRUNCATE_ALL)
+        finally:
+            await connection.close()
+
+    try:
+        asyncio.run(prepare())
+    except Exception as error:
+        pytest.skip(f"No API test database ({type(error).__name__}). See backend/dev/README.md")
+
+    monkeypatch.setattr(settings, "database_url", API_TEST_DATABASE_URL)
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
+    monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
+    monkeypatch.setattr(settings, "dev_github_token", "not-a-real-token")
+
+    with TestClient(app) as client:
+        yield client

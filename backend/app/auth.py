@@ -23,6 +23,7 @@ from .db import DatabaseNotConfigured, pool
 
 SESSION_USER_KEY = "user_id"
 SESSION_STATE_KEY = "oauth_state"
+SESSION_CSRF_KEY = "csrf_token"
 
 router = APIRouter(tags=["auth"])
 
@@ -47,6 +48,10 @@ class UserPublic(BaseModel):
 
 class Message(BaseModel):
     status: str
+
+
+class CsrfToken(BaseModel):
+    csrf_token: str
 
 
 def _require_oauth_configuration() -> None:
@@ -108,9 +113,27 @@ async def get_current_user(request: Request) -> CurrentUser:
 async def get_current_user_with_token(request: Request) -> CurrentUser:
     user = await get_current_user(request)
     if not user.github_token:
+        # Either the token was cleared at logout, or TOKEN_ENCRYPTION_KEY has been rotated and the stored
+        # ciphertext can no longer be read. Both mean the same thing to the person: sign in again.
         request.session.clear()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in with GitHub again.")
     return user
+
+
+async def get_current_user_optional(request: Request) -> CurrentUser | None:
+    """The signed-in user, or None. For endpoints that are public but say more when you are signed in.
+
+    A 503 from a missing database is still raised: "the database is not configured" is not "nobody is
+    signed in", and quietly answering None would hide a broken deployment.
+    """
+    if not request.session.get(SESSION_USER_KEY) and not dev_login_is_enabled():
+        return None
+    try:
+        return await get_current_user(request)
+    except HTTPException as error:
+        if error.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
 
 
 @router.get("/auth/github")
@@ -166,14 +189,50 @@ async def github_callback(request: Request, code: str = "", state: str = "") -> 
         )
     if row is None:
         raise HTTPException(status_code=500, detail="Could not save the signed-in user.")
+    # Rotate the session rather than adopting whatever session the browser arrived with. An attacker who
+    # can set a cookie before sign-in otherwise ends up holding a session that is now authenticated.
+    request.session.clear()
     request.session[SESSION_USER_KEY] = row["id"]
+    request.session[SESSION_CSRF_KEY] = secrets.token_urlsafe(32)
     return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/explore", status_code=302)
 
 
 @router.post("/auth/logout", response_model=Message)
 async def logout(request: Request) -> Message:
+    """End the session and forget the stored GitHub token.
+
+    Clearing the cookie alone would leave a usable GitHub access token in the database for an account that
+    has signed out. The token is dropped as well, so signing out actually removes GitBounty's access; the
+    next sign-in stores a fresh one. GitHub's own grant is revoked by the user from their GitHub settings,
+    which is the only place that can do it for an OAuth app -- `docs/security.md` says so and the UI links
+    to it.
+    """
+    user_id = request.session.get(SESSION_USER_KEY)
     request.session.clear()
+    if user_id:
+        try:
+            async with pool().acquire() as connection:
+                await connection.execute(
+                    "update users set github_access_token = null, updated_at = now() where id = $1",
+                    user_id,
+                )
+        except DatabaseNotConfigured:
+            pass  # nothing stored to forget
     return Message(status="logged out")
+
+
+@router.get("/api/csrf", response_model=CsrfToken)
+async def csrf_token(request: Request) -> CsrfToken:
+    """The token a browser must echo in `X-GitBounty-CSRF` on any state-changing request.
+
+    Minted at sign-in and kept in the signed session cookie, so the value is one only this browser's
+    session can know. See `app/csrf.py` for why the cookie alone is not enough.
+    """
+    token = request.session.get(SESSION_CSRF_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        request.session[SESSION_CSRF_KEY] = token
+    return CsrfToken(csrf_token=token)
 
 
 @router.get("/api/me", response_model=UserPublic)

@@ -107,3 +107,120 @@ def test_me_never_returns_the_dev_token(monkeypatch: pytest.MonkeyPatch) -> None
         "avatar_url": None,
     }
     assert "never-send-this" not in response.text
+
+
+def test_the_session_is_rotated_at_sign_in(oauth_config: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Session fixation: an attacker who can set a cookie before sign-in must not end up holding the
+    session that sign-in then authenticates."""
+    class FakeConnection:
+        async def fetchrow(self, *_args: object) -> dict[str, int]:
+            return {"id": 17}
+
+        async def execute(self, *_args: object) -> None:
+            return None
+
+    class FakeAcquire:
+        async def __aenter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self) -> FakeAcquire:
+            return FakeAcquire()
+
+    async def exchange_code_for_token(_code: str) -> str:
+        return "github-token"
+
+    async def get_authenticated_user(_token: str) -> dict[str, object]:
+        return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        before = login.cookies.get("gitbounty_session") or client.cookies.get("gitbounty_session")
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
+        after = client.cookies.get("gitbounty_session")
+
+    assert after is not None
+    assert after != before, "the cookie value changes when the session becomes authenticated"
+
+
+def test_the_session_cookie_is_httponly_and_samesite(oauth_config: None) -> None:
+    with TestClient(app) as client:
+        response = client.get("/auth/github", follow_redirects=False)
+
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "gitbounty_session=" in set_cookie
+    assert "httponly" in set_cookie.lower()
+    assert "samesite=lax" in set_cookie.lower()
+
+
+def test_the_cookie_is_secure_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Derived from FRONTEND_URL before, so one forgotten variable shipped a cookie over plain HTTP."""
+    from app.config import Settings
+
+    assert Settings(frontend_url="http://localhost:3000").cookies_secure is False
+    assert Settings(frontend_url="https://gitbounty.example").cookies_secure is True
+    assert Settings(frontend_url="http://localhost:3000", secure_cookies=True).cookies_secure is True
+    assert Settings(frontend_url="https://gitbounty.example", secure_cookies=False).cookies_secure is False
+
+
+def test_logout_forgets_the_stored_github_token(oauth_config: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clearing the cookie alone would leave a usable GitHub token for an account that has signed out."""
+    statements: list[str] = []
+
+    class FakeConnection:
+        async def fetchrow(self, *_args: object) -> dict[str, int]:
+            return {"id": 17}
+
+        async def execute(self, sql: str, *_args: object) -> None:
+            statements.append(sql)
+
+    class FakeAcquire:
+        async def __aenter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self) -> FakeAcquire:
+            return FakeAcquire()
+
+    async def exchange_code_for_token(_code: str) -> str:
+        return "github-token"
+
+    async def get_authenticated_user(_token: str) -> dict[str, object]:
+        return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
+        assert client.post("/auth/logout").json() == {"status": "logged out"}
+
+    assert any("github_access_token = null" in sql for sql in statements)
+
+
+def test_an_unreadable_stored_token_asks_for_a_new_sign_in(oauth_config: None) -> None:
+    """What a rotated TOKEN_ENCRYPTION_KEY looks like: the ciphertext no longer decrypts."""
+    from app.crypto import decrypt
+
+    other_key_ciphertext = Fernet(Fernet.generate_key()).encrypt(b"gho_secret").decode()
+    assert decrypt(other_key_ciphertext) is None
+
+
+def test_logout_needs_no_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "database_url", "")
+    with TestClient(app) as client:
+        assert client.post("/auth/logout").json() == {"status": "logged out"}

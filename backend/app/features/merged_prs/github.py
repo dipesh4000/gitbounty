@@ -10,7 +10,7 @@ never written anywhere except the caller's database column.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -97,19 +97,29 @@ async def fetch_merged_prs(
     token: str,
     *,
     max_pages: int = _MAX_PAGES,
+    since: datetime | None = None,
 ) -> list[MergedPR]:
     """Every merged PR GitHub will report for `login`, newest first.
 
     Self-merges are included here on purpose -- this function reports what GitHub says, and the decision to
     discard them belongs to whatever awards points, where it can be seen and changed.
+
+    `since` narrows the search to pull requests merged on or after that moment, which is how an incremental
+    sync avoids re-walking a long history every time. Search caps at 1000 results however many pages are
+    requested, so for anyone with more merged pull requests than that, narrowing is not an optimisation --
+    it is the only way the newest ones are reachable at all. A day is subtracted because GitHub's
+    `merged:>=` takes a date, and a timestamp late in a day would otherwise exclude that same day's work.
     """
     found: list[MergedPR] = []
+    query = f"is:pr author:{login} is:merged"
+    if since is not None:
+        query += f" merged:>={(since - timedelta(days=1)).date().isoformat()}"
 
     for page in range(1, max_pages + 1):
         response = await client.get(
             f"{GITHUB_API}/search/issues",
             params={
-                "q": f"is:pr author:{login} is:merged",
+                "q": query,
                 "per_page": _PER_PAGE,
                 "page": page,
                 "sort": "updated",

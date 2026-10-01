@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080,http://127.0.0.1:8080"
 
 
+    # Cookie and session policy. `secure_cookies` must be true in anything deployed: it was derived from
+    # whether FRONTEND_URL started with https://, which meant one forgotten environment variable silently
+    # shipped a session cookie over plain HTTP.
+    secure_cookies: bool | None = None
+    # Two weeks. A session cookie is a bearer credential, so this is a real expiry, not a formality.
+    session_max_age_seconds: int = 60 * 60 * 24 * 14
+
     # Explicitly gated local fallback for backend work without OAuth.
     dev_login_stub_enabled: bool = False
     dev_github_login: str = ""
@@ -39,6 +46,17 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def cookies_secure(self) -> bool:
+        """Whether the session cookie is marked Secure.
+
+        Set SECURE_COOKIES explicitly in a deployed build. Unset, it falls back to whether the site is
+        served over https, which is right locally and is the old behaviour.
+        """
+        if self.secure_cookies is not None:
+            return self.secure_cookies
+        return self.frontend_url.startswith("https://")
 
 
 settings = Settings()
