@@ -1,5 +1,6 @@
 # Secrets. Never commit these. See rules.md section 5.
 .env
+*.env
 .env.*
 !.env.example
 

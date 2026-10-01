@@ -5,10 +5,21 @@ The original `index.html`, `styles.css`, and `script.js` landing page, ported to
 ## Run locally
 
 ```bash
+npm ci
 npm run dev
 ```
 
-The issue board and GitHub sign-in call the FastAPI service at `http://localhost:8001` by default. Override that URL when necessary:
+Open `http://localhost:3000`. The issue board and GitHub sign-in call the FastAPI service at
+`http://localhost:8001` by default.
+
+To override the API URL in PowerShell:
+
+```powershell
+$env:NEXT_PUBLIC_GITBOUNTY_API = "http://localhost:8000"
+npm run dev
+```
+
+On macOS or Linux:
 
 ```bash
 NEXT_PUBLIC_GITBOUNTY_API=http://localhost:8000 npm run dev
