@@ -12,6 +12,10 @@ from typing import Any
 
 import httpx
 
+from .config import settings
+
+#: The real GitHub API. Read through `settings.github_api` at call time so the
+#: end-to-end test can point it at a local stand-in; see app/config.py.
 GITHUB_API_URL = "https://api.github.com"
 
 _TIMEOUT = httpx.Timeout(15.0)
@@ -65,7 +69,7 @@ async def search_issues(token: str, query: str, per_page: int = 50, page: int = 
     """
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(
-            f"{GITHUB_API_URL}/search/issues",
+            f"{settings.github_api}/search/issues",
             headers=_headers(token),
             params={
                 "q": query,
@@ -86,7 +90,7 @@ async def get_repo(token: str, full_name: str) -> dict[str, Any] | None:
     """Fetch one repository's metadata. Returns None if it is gone or private."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(
-            f"{GITHUB_API_URL}/repos/{full_name}", headers=_headers(token)
+            f"{settings.github_api}/repos/{full_name}", headers=_headers(token)
         )
     if response.status_code in (404, 403):
         return None
@@ -106,7 +110,7 @@ async def list_user_repositories(
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for page in range(1, max_pages + 1):
             response = await client.get(
-                f"{GITHUB_API_URL}/users/{username}/repos",
+                f"{settings.github_api}/users/{username}/repos",
                 headers=_headers(token),
                 params={
                     "type": "owner",
@@ -133,7 +137,7 @@ async def list_repo_issues(token: str, full_name: str, *, max_pages: int = 5) ->
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for page in range(1, max_pages + 1):
             response = await client.get(
-                f"{GITHUB_API_URL}/repos/{full_name}/issues",
+                f"{settings.github_api}/repos/{full_name}/issues",
                 headers=_headers(token),
                 params={"state": "open", "per_page": 100, "page": page, "sort": "created"},
             )
@@ -169,7 +173,7 @@ async def list_authorized_repositories(
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for page in range(1, max_pages + 1):
             response = await client.get(
-                f"{GITHUB_API_URL}/user/repos",
+                f"{settings.github_api}/user/repos",
                 headers=_headers(token),
                 params={
                     "affiliation": "owner,collaborator,organization_member",

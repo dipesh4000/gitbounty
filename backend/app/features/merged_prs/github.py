@@ -14,8 +14,11 @@ from datetime import datetime, timedelta
 
 import httpx
 
+from ...config import settings
 from .models import AuthoredPR, MergedPR, ReviewState
 
+#: The real GitHub API. Read through `settings.github_api` at call time so the
+#: end-to-end test can point it at a local stand-in; see app/config.py.
 GITHUB_API = "https://api.github.com"
 
 # GitHub's search endpoint refuses to return more than 1000 results however many pages are asked for, and each
@@ -150,7 +153,7 @@ async def fetch_merged_prs(
 
     for page in range(1, max_pages + 1):
         response = await client.get(
-            f"{GITHUB_API}/search/issues",
+            f"{settings.github_api}/search/issues",
             params={
                 "q": query,
                 "per_page": _PER_PAGE,
@@ -185,7 +188,7 @@ async def fetch_changed_paths(
     single page, which is plenty: a PR touching more than 100 files is already clearly categorised by the first 100.
     """
     response = await client.get(
-        f"{GITHUB_API}/repos/{repo_full_name}/pulls/{number}/files",
+        f"{settings.github_api}/repos/{repo_full_name}/pulls/{number}/files",
         params={"per_page": limit},
         headers=_headers(token),
     )
@@ -204,7 +207,7 @@ async def fetch_issue_labels(
     One request per issue, against the ordinary 5000-per-hour limit.
     """
     response = await client.get(
-        f"{GITHUB_API}/repos/{repo_full_name}/issues/{number}",
+        f"{settings.github_api}/repos/{repo_full_name}/issues/{number}",
         headers=_headers(token),
     )
     _raise_for_status(response)
@@ -234,7 +237,7 @@ async def fetch_authored_prs(
 
     for page in range(1, max_pages + 1):
         response = await client.get(
-            f"{GITHUB_API}/search/issues",
+            f"{settings.github_api}/search/issues",
             params={
                 "q": query,
                 "per_page": _PER_PAGE,
@@ -272,7 +275,7 @@ async def fetch_review_state(
     reviews: list[dict] = []
     for page in range(1, 4):  # 300 reviews is far past the point of usefulness
         response = await client.get(
-            f"{GITHUB_API}/repos/{repo_full_name}/pulls/{number}/reviews",
+            f"{settings.github_api}/repos/{repo_full_name}/pulls/{number}/reviews",
             params={"per_page": _PER_PAGE, "page": page},
             headers=_headers(token),
         )

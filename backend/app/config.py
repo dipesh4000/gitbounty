@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     github_callback_url: str = "http://localhost:8001/auth/github/callback"
+    # Where GitHub's REST API lives. Overridden only by the end-to-end test, which points it at a local
+    # stand-in so the whole flow can run without a GitHub account and without touching github.com.
+    # Anything other than the real host is refused unless GITBOUNTY_ENVIRONMENT is "test".
+    github_api_url: str = "https://api.github.com"
     frontend_url: str = "http://localhost:3000"
     session_secret: str = ""
     token_encryption_key: str = ""
@@ -58,6 +62,19 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def github_api(self) -> str:
+        """The GitHub API base, with the real host enforced outside a test environment.
+
+        A configurable API host is exactly the kind of setting that would be catastrophic if it could be
+        pointed somewhere else in a deployed build -- every user's token would be sent there. So it is
+        only honoured when GITBOUNTY_ENVIRONMENT is "test"; anywhere else it is the real host whatever the
+        variable says.
+        """
+        if self.environment == "test":
+            return self.github_api_url.rstrip("/")
+        return "https://api.github.com"
 
     @property
     def cookies_secure(self) -> bool:
