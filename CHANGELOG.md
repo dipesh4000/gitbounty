@@ -20,6 +20,14 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 
 ### Added
 
+- **Rate limiting** on every endpoint group, by user identity where there is one and client address
+  otherwise, returning 429 with `Retry-After` and a body naming the actual limit. `/health` and `/ready`
+  are never limited.
+- **Structured JSON logging** with a correlation id on every line and in every response's `X-Request-ID`,
+  and eleven named events covering synchronisation outcomes, bounty mutations, award outcomes,
+  authorization refusals and rate-limit rejections. Cookies, tokens, OAuth codes, secrets, database URLs
+  and request bodies are never logged, with a redaction backstop by field name and by shape.
+
 - **The whole pull-request lifecycle**, not only merged work: draft, open, in review, changes requested,
   approved, merged, closed without merging, and ineligible-with-a-reason. Every state is derived from
   something GitHub reports — the draft flag, the open/closed state, the merge timestamp, and the reviews

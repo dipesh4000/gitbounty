@@ -129,3 +129,17 @@ def api(monkeypatch: pytest.MonkeyPatch) -> Iterator["TestClient"]:
 
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Every test starts with an empty counter.
+
+    The limiter is per process and keyed by caller; a whole suite running as one caller would otherwise
+    trip it, and a test would fail because of what an earlier test did rather than because of itself.
+    """
+    from app.ratelimit import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()

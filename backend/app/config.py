@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Two weeks. A session cookie is a bearer credential, so this is a real expiry, not a formality.
     session_max_age_seconds: int = 60 * 60 * 24 * 14
 
+    #: Log level for everything GitBounty logs.
+    log_level: str = "INFO"
+    #: One JSON object per line. Turn it off locally if a human is reading the terminal.
+    json_logs: bool = True
+
     # Which environment this is. "production" by default, so an unset or mistyped value is never a test
     # environment. Only the exact string "test" unlocks the test sign-in path in app/test_auth.py, and
     # only together with TEST_AUTH_SECRET.

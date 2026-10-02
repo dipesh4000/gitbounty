@@ -23,6 +23,8 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+import logging
+
 from .. import github
 from ..auth import CurrentUser, get_current_user_with_token
 from ..categories import classify
@@ -39,6 +41,8 @@ BountyStatus = Literal["published", "unpublished", "archived"]
 # "owner/name", the only shape GitHub uses. Validated rather than trusted: the value reaches a GitHub URL
 # and several SQL parameters, and "../" or a query string in it is not a repository name.
 REPOSITORY_PATTERN = r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+
+logger = logging.getLogger("gitbounty.maintainer")
 
 router = APIRouter(prefix="/api/maintainer", tags=["maintainer"])
 
@@ -233,6 +237,10 @@ async def _authorized_repository(full_name: str, user: CurrentUser) -> dict[str,
             "renamed, transferred or deleted.",
         )
     if not github.can_publish_bounties(repo, user.github_login):
+        logger.warning("authorization refused", extra={
+            "event": "authz.refused", "github_login": user.github_login,
+            "repository": repo.get("full_name"), "required": "admin or maintain",
+        })
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "You need admin or maintain permission on a repository to publish bounties on it.",
@@ -575,6 +583,11 @@ async def publish_bounties(
     except asyncpg.UndefinedTableError as error:
         raise _missing_table(error) from error
 
+    logger.info("bounties published", extra={
+        "event": "bounty.published", "actor": user.github_login,
+        "count": len(request.issues), "repositories": len(verified),
+        "points": [item.points for item in request.issues],
+    })
     return PublishResponse(published=len(request.issues), repositories=len(verified))
 
 
@@ -772,6 +785,10 @@ async def update_bounty(
     except asyncpg.UndefinedTableError as error:
         raise _missing_table(error) from error
 
+    logger.info("bounty changed", extra={
+        "event": "bounty.changed", "actor": user.github_login,
+        "repository": full_name, "issue_number": number,
+    })
     updated = (await _existing_bounties(full_name)).get(number)
     if updated is None:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "The bounty could not be read back.")

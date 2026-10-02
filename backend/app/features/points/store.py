@@ -10,6 +10,7 @@ of *which pull requests have been seen*, which is a different question from *wha
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,6 +21,8 @@ from ..merged_prs.models import Category
 from ..merged_prs.lifecycle import TrackedPullRequest
 from ..merged_prs.service import DetectedMerge, PublishedBounty
 from .rules import RULE_VERSION, baseline_award
+
+logger = logging.getLogger("gitbounty.points")
 
 CATEGORY_VALUES: tuple[str, ...] = tuple(category.value for category in Category)
 
@@ -246,6 +249,11 @@ async def record_merges(
                 points_awarded += merge.bounty.points
             else:
                 bounties_already_claimed += 1
+                logger.info("bounty already claimed", extra={
+                    "event": "points.bounty_already_claimed", "user_id": user_id,
+                    "bounty": f"{merge.bounty.repo_full_name}#{merge.bounty.issue_number}",
+                    "github_pr_id": pr.github_pr_id,
+                })
 
     return SaveOutcome(
         newly_counted=newly_counted,
@@ -324,7 +332,7 @@ async def record_adjustment(
     """
     if not reason.strip():
         raise ValueError("An adjustment needs a reason.")
-    return await connection.fetchval(
+    entry_id = await connection.fetchval(
         """
         insert into points_ledger (
             user_id, kind, points, category, category_source, rule_version, reason,
@@ -335,6 +343,11 @@ async def record_adjustment(
         user_id, kind, points, category, RULE_VERSION, reason.strip(),
         github_pr_id, bounty_repo_full_name, bounty_issue_number,
     )
+    logger.info("ledger adjustment", extra={
+        "event": "points.adjusted", "user_id": user_id, "kind": kind, "points": points,
+        "entry_id": entry_id, "reason": reason.strip()[:200],
+    })
+    return entry_id
 
 
 async def user_totals(connection: asyncpg.Connection, user_id: int) -> dict[str, int]:

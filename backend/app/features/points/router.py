@@ -250,6 +250,10 @@ async def run_sync(
                 ),
             )
     except GitHubRateLimited as error:
+        logger.warning("github rate limit during sync", extra={
+            "event": "sync.github_rate_limited", "user_id": user_row_id, "run_id": run_id,
+            "retry_after": error.retry_after_seconds,
+        })
         async with db_pool.acquire() as connection:
             await sync_state.fail(
                 connection, run_id,
@@ -258,10 +262,17 @@ async def run_sync(
             )
         return
     except GitHubAuthError:
+        logger.warning("github rejected the stored token", extra={
+            "event": "sync.token_rejected", "user_id": user_row_id, "run_id": run_id,
+        })
         async with db_pool.acquire() as connection:
             await sync_state.fail(connection, run_id, error="GitHub rejected the stored token. Sign in again.")
         return
     except GitHubError as error:
+        logger.warning("github could not be read", extra={
+            "event": "sync.github_failed", "user_id": user_row_id, "run_id": run_id,
+            "reason": type(error).__name__,
+        })
         async with db_pool.acquire() as connection:
             await sync_state.fail(connection, run_id, error=f"GitHub could not be read: {error}")
         return
@@ -283,6 +294,15 @@ async def run_sync(
             # did not.
             await record_pull_requests(connection, user_row_id, lifecycle.tracked)
             outcome = await record_merges(connection, user_row_id, result.merges)
+        logger.info("sync finished", extra={
+            "event": "sync.succeeded", "user_id": user_row_id, "run_id": run_id,
+            "prs_seen": len(lifecycle.tracked),
+            "newly_counted": outcome.newly_counted,
+            "awards_written": outcome.awards_written,
+            "points_awarded": outcome.points_awarded,
+            "bounties_already_claimed": outcome.bounties_already_claimed,
+            "self_merges_skipped": result.self_merges_skipped,
+        })
         await sync_state.succeed(
             connection, run_id,
             prs_seen=len(lifecycle.tracked),

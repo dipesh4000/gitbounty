@@ -92,7 +92,15 @@ def publish_bounty(
 
 
 def sync(api: TestClient, **params: object) -> dict:
-    """Start a sync and return the points payload once it has finished."""
+    """Start a sync and return the points payload once it has finished.
+
+    The counter is cleared first. The real limit is six syncs a minute, which is right for a person and
+    wrong for a test that walks one pull request through seven states in a second. The limit itself is
+    covered by tests/test_ratelimit.py.
+    """
+    from app.ratelimit import limiter
+
+    limiter.reset()
     started = api.post("/api/me/sync", params=params)
     assert started.status_code == 202, started.text
     return api.get("/api/me/points").json()

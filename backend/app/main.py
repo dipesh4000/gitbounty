@@ -17,6 +17,8 @@ from .auth import router as auth_router
 from .auth_stub import warn_if_dev_login_enabled
 from .config import settings
 from .csrf import CsrfMiddleware
+from .observability import RequestLoggingMiddleware, configure as configure_logging
+from .ratelimit import RateLimitMiddleware
 from .test_auth import is_enabled as test_auth_enabled, router as test_auth_router, warn_if_enabled as warn_if_test_auth_enabled
 from . import db
 from .db import connect, disconnect, is_configured, pool
@@ -25,7 +27,7 @@ from .features.points.router import router as points_router
 from .routes.issues import router as issues_router
 from .routes.maintainer import router as maintainer_router
 
-logging.basicConfig(level=logging.INFO)
+configure_logging(settings.log_level, json_logs=settings.json_logs)
 
 
 @asynccontextmanager
@@ -46,9 +48,12 @@ if not settings.session_secret:
     logging.getLogger(__name__).warning(
         "No SESSION_SECRET: GitHub login is disabled until it is configured."
     )
-# Middleware runs in reverse order of registration, so CSRF is added first and therefore runs *after*
-# SessionMiddleware has decoded the cookie -- it needs the session to compare the token against.
+# Middleware runs in reverse order of registration, so the first one added is the innermost. The order
+# below means a request is seen as: logging -> rate limit -> CORS -> session -> CSRF -> the route. The
+# rate limiter and CSRF both need the session decoded, so both are added before SessionMiddleware; the
+# request logger is added last so it wraps everything and can time and report a rejection too.
 app.add_middleware(CsrfMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret or secrets.token_urlsafe(32),
@@ -98,7 +103,12 @@ app.add_middleware(
     # The CSRF token header has to survive preflight. "*" is echoed back by Starlette rather than sent
     # literally, so it stays compatible with allow_credentials.
     allow_headers=["*"],
+    # So a browser can read the id and quote it in a bug report.
+    expose_headers=["X-Request-ID", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Window"],
 )
+# Outermost: every request gets an id, and every outcome -- including one the rate limiter rejected -- is
+# logged once with its duration.
+app.add_middleware(RequestLoggingMiddleware)
 
 
 

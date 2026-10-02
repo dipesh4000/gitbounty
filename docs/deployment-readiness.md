@@ -13,7 +13,8 @@ true first, so the decision can be made with open eyes.
 | **A separate production OAuth app** | A local app's callback points at localhost; sharing one mixes environments | [`setup.md`](setup.md) |
 | **A production database, with backups verified by restoring one** | A backup nobody has restored is not a backup | [`database-runbook.md`](database-runbook.md) |
 | **`DEV_LOGIN_STUB_ENABLED` absent** | It authenticates nobody. It warns at startup; make sure nothing silences that | `backend/app/auth_stub.py` |
-| **API rate limiting** | There is none. A public endpoint without one is a free denial-of-service target | not built |
+| **Trusted proxy configuration** | The rate limiter reads the socket peer, never X-Forwarded-For. Behind a proxy, every request appears to come from the proxy and shares one bucket | [`observability.md`](observability.md) |
+| **A shared rate-limit store** | The counter is per process. More than one instance multiplies every limit by the number of instances | [`observability.md`](observability.md) |
 | **A decision on the licence** | No `LICENSE` means no rights granted, which is an odd thing to deploy | [`handoff.md`](handoff.md) |
 | **Legally reviewed privacy and terms** | The current pages are engineer-written summaries and say so | [`known-limitations.md`](known-limitations.md) |
 
@@ -21,7 +22,7 @@ true first, so the decision can be made with open eyes.
 
 | | |
 |---|---|
-| Structured logs with a request/correlation id | Today: `logging.basicConfig(level=INFO)` |
+| Metrics | The right events are logged ([`observability.md`](observability.md)) but nothing is emitted as a counter or a histogram |
 | Error reporting behind configuration | Never a hard-coded vendor. Nothing is wired today |
 | Metrics for the signals below | None are emitted today |
 | A real synchronisation worker | Background tasks die with the process. A restart mid-sync leaves a `running` row, released after 30 minutes |

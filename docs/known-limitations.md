@@ -61,8 +61,22 @@ speaks REST. The fix is a GraphQL query, not a better regular expression.
 
 ## Observability
 
-Logging is `logging.basicConfig(level=INFO)`. No structured logs, no request or correlation ids, no metrics
-and no error-reporting integration. `/ready` is the only operational signal.
+Structured JSON logs with a correlation id on every line and on every response, and eleven named events
+covering synchronisation, bounty mutations, award outcomes, authorization refusals and rate-limit
+rejections — see [`observability.md`](observability.md).
+
+**Not done**: no metrics are emitted (no counters, no histograms, no `/metrics`), and there is no
+error-reporting integration. Both mean choosing a vendor, which is an owner decision, and no telemetry
+goes to a third party without disclosure and approval.
+
+## Rate limiting
+
+Every endpoint group is limited, by user identity where there is one and by client address otherwise.
+
+**Not done**: the counter is a fixed window held **in one process**. More than one instance multiplies
+every limit by the number of instances, and a fixed window allows up to twice the limit in a burst
+spanning two windows. A deployment behind a proxy must also configure trusted proxy headers, because the
+limiter deliberately ignores `X-Forwarded-For`.
 
 ## Testing
 
