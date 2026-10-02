@@ -53,7 +53,7 @@ Cookies, the `Authorization` header, OAuth codes, GitHub tokens, session content
 dropped from the request log, because one of them carries the OAuth code.
 
 There is a redaction pass over every record — by field name (`token`, `cookie`, `client_secret`, …) and by
-shape (`gho_…`, `postgresql://user:pass@…`, `Bearer …`) — but that is a backstop. The primary defence is
+shape (a `gho_` token, a Postgres URL carrying a password, a `Bearer` header) — but that is a backstop. The primary defence is
 that nothing calls `logger.info(body)`.
 
 An exception is recorded as its type and message, not as a traceback: a traceback in a log line is
