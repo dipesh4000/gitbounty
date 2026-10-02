@@ -81,6 +81,16 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 
 ### Fixed
 
+- **CORS refused PATCH**, so no bounty could be edited, unpublished, republished or archived from the
+  website. The allowed-method list is now derived from the app's own routes.
+- **A bounty published after the merge was awarded but not shown.** `recent_merges` read the bounty from
+  `merged_prs`, which is inserted once and never updated, so the pull-request row said "baseline" beside a
+  figure of 45. It now reads the award from the ledger.
+- **Upgrading a database with existing `merged_prs` rows zeroed everybody's points**, because totals moved
+  to the ledger and nothing backfilled it. Migration 0010 reconstructs them.
+- A migration that a pre-existing row makes impossible now reports which file failed and how to find the
+  rows, instead of an asyncpg traceback.
+
 - `GET /api/issues` passed asyncpg `Record`s to a Pydantic model, which does not coerce them — a 500
   against a real database that every mocked test passed through.
 - The backend test suite read the developer's `.env`, so results depended on the machine.

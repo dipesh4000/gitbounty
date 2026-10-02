@@ -51,6 +51,39 @@ class MigrationError(RuntimeError):
     """Something about the migration set or the target database is wrong."""
 
 
+def _explain(filename: str, error: "asyncpg.PostgresError") -> str:
+    """Turn a Postgres failure into something the person running this can act on.
+
+    Nothing from the database's own message is dropped -- it names the constraint and the relation, which
+    is the useful part. What is added is which file failed, that the file did not half-apply, and, for the
+    failure that is actually likely here, what the decision is.
+    """
+    detail = getattr(error, "detail", None) or ""
+    lines = [
+        f"{filename} failed to apply. It ran in its own transaction, so nothing from it was kept.",
+        f"  {type(error).__name__}: {error}",
+    ]
+    if detail:
+        lines.append(f"  {detail}")
+
+    if isinstance(error, asyncpg.CheckViolationError):
+        lines += [
+            "",
+            "A row already in the database breaks a constraint this migration adds. That is a decision,",
+            "not a retry: find the offending rows and correct them deliberately, then run this again.",
+            "For the 1..1000 bounty range added by 0007, that is:",
+            "  select repo_full_name, issue_number, points from issue_points",
+            "   where points < 1 or points > 1000;",
+        ]
+    elif isinstance(error, asyncpg.ForeignKeyViolationError):
+        lines += [
+            "",
+            "A row references something that is not there. Check whether an earlier migration was",
+            "applied to a different database, or whether rows were inserted by hand.",
+        ]
+    return "\n".join(lines)
+
+
 def checksum(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
@@ -139,13 +172,19 @@ async def up(database_url: str) -> int:
                         "Never edit an applied migration -- add a new one (rules.md section 4)."
                     )
                 continue
-            async with connection.transaction():
-                await connection.execute(path.read_text())
-                await connection.execute(
-                    "insert into schema_migrations (filename, checksum) values ($1, $2)",
-                    path.name,
-                    current,
-                )
+            try:
+                async with connection.transaction():
+                    await connection.execute(path.read_text())
+                    await connection.execute(
+                        "insert into schema_migrations (filename, checksum) values ($1, $2)",
+                        path.name,
+                        current,
+                    )
+            except asyncpg.PostgresError as error:
+                # A teammate runs this by hand. A raw asyncpg traceback tells them nothing about which
+                # file failed or what to do, and the most likely failure -- an existing row that a new
+                # constraint refuses -- needs a human decision, not a retry.
+                raise MigrationError(_explain(path.name, error)) from error
             print(f"applied  {path.name}")
     finally:
         await connection.close()

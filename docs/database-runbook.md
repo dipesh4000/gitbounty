@@ -59,6 +59,29 @@ python dev/migrate.py up \
 other suites build their schema the same way — so a migration that does not describe the real schema breaks
 the tests rather than being discovered later.
 
+## Upgrading a database that already has data
+
+The migrations are additive and were tested against a database carrying rows from before this branch
+(`backend/tests/test_migrations.py`). Two things are worth knowing before running them on one.
+
+**Points are carried across, by 0010.** Before 0008 a total was summed from `merged_prs`; afterwards it is
+summed from `points_ledger`. Applying 0008 alone takes every existing user to **zero** — the rows are
+still there, nothing reads them any more. `0010_backfill_points_ledger.sql` reconstructs one ledger entry
+per existing merged pull request so totals are unchanged across the upgrade, and marks each one
+`rule_version = 'points-v0-backfill'` so a reconstructed award can always be told from an earned one. It is
+idempotent and cannot double-award (`on conflict do nothing` against the same unique indexes).
+
+**0007 refuses a bounty outside 1–1000.** If the database holds one, the migration fails and says so,
+naming the file and the query that finds the rows:
+
+```sql
+select repo_full_name, issue_number, points from issue_points
+ where points < 1 or points > 1000;
+```
+
+That is a decision, not a retry. Correct those rows deliberately — cap them, or unpublish them — then run
+the migration again. Each file runs in its own transaction, so a failure leaves nothing half-applied.
+
 ## Backup
 
 ### Local container
