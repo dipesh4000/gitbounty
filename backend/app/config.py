@@ -2,6 +2,7 @@
 
 import os
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Which dotenv file to read, if any. Normally `.env` next to this package. The test suite sets
@@ -11,7 +12,7 @@ _ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", ".env") or None
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore", env_prefix="")
 
     github_client_id: str = ""
     github_client_secret: str = ""
@@ -33,6 +34,17 @@ class Settings(BaseSettings):
     secure_cookies: bool | None = None
     # Two weeks. A session cookie is a bearer credential, so this is a real expiry, not a formality.
     session_max_age_seconds: int = 60 * 60 * 24 * 14
+
+    # Which environment this is. "production" by default, so an unset or mistyped value is never a test
+    # environment. Only the exact string "test" unlocks the test sign-in path in app/test_auth.py, and
+    # only together with TEST_AUTH_SECRET.
+    # Named GITBOUNTY_ENVIRONMENT rather than the obvious ENVIRONMENT on purpose: a bare ENVIRONMENT is a
+    # common variable that a host or a CI runner may already set to something, and "impossible to enable
+    # by accident" has to mean a name nothing else is likely to use.
+    environment: str = Field(default="production", validation_alias="GITBOUNTY_ENVIRONMENT")
+    #: The shared secret an automated test presents to create a session. Must be >= 16 characters to have
+    #: any effect at all. Never set outside a test environment.
+    test_auth_secret: str = Field(default="", validation_alias="GITBOUNTY_TEST_AUTH_SECRET")
 
     # Explicitly gated local fallback for backend work without OAuth.
     dev_login_stub_enabled: bool = False

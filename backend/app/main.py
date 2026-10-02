@@ -17,6 +17,7 @@ from .auth import router as auth_router
 from .auth_stub import warn_if_dev_login_enabled
 from .config import settings
 from .csrf import CsrfMiddleware
+from .test_auth import is_enabled as test_auth_enabled, router as test_auth_router, warn_if_enabled as warn_if_test_auth_enabled
 from . import db
 from .db import connect, disconnect, is_configured, pool
 from .features.merged_prs.router import router as merged_prs_router
@@ -30,6 +31,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     warn_if_dev_login_enabled()
+    warn_if_test_auth_enabled()
     await connect()
     if not is_configured():
         logging.getLogger(__name__).warning(
@@ -64,6 +66,10 @@ app.include_router(merged_prs_router)
 app.include_router(points_router)
 app.include_router(issues_router)
 app.include_router(maintainer_router)
+# Mounted only in a test environment. In any other configuration the path is not routed at all, so it
+# cannot be reached even with the right header.
+if test_auth_enabled():
+    app.include_router(test_auth_router)
 
 
 def declared_methods() -> list[str]:

@@ -313,3 +313,194 @@ def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
         callback = client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
 
     assert callback.status_code == 302
+
+
+# --- the OAuth callback, against a mocked GitHub boundary -------------------
+#
+# A real github.com authorization needs a human and is a separate, documented verification
+# (docs/oauth-verification.md). Everything on this side of the boundary is covered here: the token
+# exchange, the profile read, what is stored, and every failure GitHub can hand back.
+
+
+@pytest.fixture
+def mocked_github(oauth_config: None, monkeypatch: pytest.MonkeyPatch):
+    """The OAuth flow with httpx itself faked at the GitHub boundary."""
+    import respx
+
+    from app.features.points import router as points_router
+
+    stored: dict[str, object] = {}
+
+    class FakeConnection:
+        async def fetchrow(self, sql: str, *args: object):
+            if "insert into users" in sql:
+                stored["github_id"] = args[0]
+                stored["github_login"] = args[1]
+                stored["name"] = args[2]
+                stored["avatar_url"] = args[3]
+                stored["token_ciphertext"] = args[4]
+                return {"id": 17}
+            return None
+
+        async def execute(self, *_args: object) -> None:
+            return None
+
+    class FakeAcquire:
+        async def __aenter__(self):
+            return FakeConnection()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class FakePool:
+        def acquire(self):
+            return FakeAcquire()
+
+    async def no_sync(_user: object) -> None:
+        return None
+
+    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(points_router, "run_sync", no_sync)
+
+    with respx.mock(assert_all_called=False) as mock:
+        yield mock, stored
+
+
+def _complete_callback(client: TestClient, **params: str):
+    login = client.get("/auth/github", follow_redirects=False)
+    state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+    query = {"code": "the-code", "state": state, **params}
+    return client.get(
+        "/auth/github/callback?" + "&".join(f"{k}={v}" for k, v in query.items()),
+        follow_redirects=False,
+    )
+
+
+def test_the_callback_exchanges_the_code_and_stores_the_profile(mocked_github) -> None:
+    import httpx as _httpx
+
+    mock, stored = mocked_github
+    token_route = mock.post("https://github.com/login/oauth/access_token").mock(
+        return_value=_httpx.Response(200, json={"access_token": "gho_a_real_looking_token"})
+    )
+    mock.get("https://api.github.com/user").mock(
+        return_value=_httpx.Response(200, json={
+            "id": 4242, "login": "octocat", "name": "The Octocat",
+            "avatar_url": "https://avatars.example/octocat.png",
+        })
+    )
+
+    with TestClient(app) as client:
+        response = _complete_callback(client)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == "http://localhost:8000/explore"
+
+    # The code was exchanged with the client secret, as a form post, not a GET.
+    assert token_route.called
+    sent = token_route.calls[0].request
+    assert sent.method == "POST"
+    assert b"client_secret=client-secret" in sent.content
+    assert b"code=the-code" in sent.content
+
+    assert stored["github_id"] == 4242
+    assert stored["github_login"] == "octocat"
+    assert stored["name"] == "The Octocat"
+    # The token is stored encrypted, never as it arrived.
+    assert stored["token_ciphertext"] != "gho_a_real_looking_token"
+    assert "gho_a_real_looking_token" not in str(stored["token_ciphertext"])
+    assert decrypt(stored["token_ciphertext"]) == "gho_a_real_looking_token"
+
+
+def test_the_token_never_reaches_the_browser(mocked_github) -> None:
+    import httpx as _httpx
+
+    mock, _ = mocked_github
+    mock.post("https://github.com/login/oauth/access_token").mock(
+        return_value=_httpx.Response(200, json={"access_token": "gho_secret_value"})
+    )
+    mock.get("https://api.github.com/user").mock(
+        return_value=_httpx.Response(200, json={"id": 1, "login": "octocat"})
+    )
+
+    with TestClient(app) as client:
+        response = _complete_callback(client)
+        cookie = client.cookies.get("gitbounty_session") or ""
+
+    assert "gho_secret_value" not in response.text
+    assert "gho_secret_value" not in str(response.headers)
+    assert "gho_secret_value" not in cookie, "the session cookie carries a user id, never a token"
+
+
+def test_a_refused_code_exchange_becomes_a_502_without_leaking_the_body(mocked_github) -> None:
+    import httpx as _httpx
+
+    mock, _ = mocked_github
+    mock.post("https://github.com/login/oauth/access_token").mock(
+        return_value=_httpx.Response(200, json={
+            "error": "bad_verification_code",
+            "error_description": "secret-ish internal detail",
+        })
+    )
+
+    with TestClient(app) as client:
+        response = _complete_callback(client)
+
+    assert response.status_code == 502
+    assert "secret-ish internal detail" not in response.text
+
+
+def test_a_rejected_profile_read_becomes_a_502(mocked_github) -> None:
+    import httpx as _httpx
+
+    mock, _ = mocked_github
+    mock.post("https://github.com/login/oauth/access_token").mock(
+        return_value=_httpx.Response(200, json={"access_token": "gho_token"})
+    )
+    mock.get("https://api.github.com/user").mock(return_value=_httpx.Response(401, json={}))
+
+    with TestClient(app) as client:
+        response = _complete_callback(client)
+
+    assert response.status_code == 502
+    assert "gho_token" not in response.text
+
+
+def test_github_being_unreachable_becomes_a_502(mocked_github) -> None:
+    import httpx as _httpx
+
+    mock, _ = mocked_github
+    mock.post("https://github.com/login/oauth/access_token").mock(
+        side_effect=_httpx.ConnectError("no route to host")
+    )
+
+    with TestClient(app) as client:
+        with pytest.raises(Exception):
+            _complete_callback(client)
+
+
+def test_the_callback_without_a_code_is_refused_before_anything_is_exchanged(mocked_github) -> None:
+    mock, _ = mocked_github
+    token_route = mock.post("https://github.com/login/oauth/access_token")
+
+    with TestClient(app) as client:
+        login = client.get("/auth/github", follow_redirects=False)
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        response = client.get(f"/auth/github/callback?state={state}", follow_redirects=False)
+
+    assert response.status_code == 400
+    assert token_route.call_count == 0
+
+
+def test_a_forged_state_is_refused_before_anything_is_exchanged(mocked_github) -> None:
+    mock, _ = mocked_github
+    token_route = mock.post("https://github.com/login/oauth/access_token")
+
+    with TestClient(app) as client:
+        client.get("/auth/github", follow_redirects=False)
+        response = client.get(
+            "/auth/github/callback?code=the-code&state=forged", follow_redirects=False
+        )
+
+    assert response.status_code == 400
+    assert token_route.call_count == 0, "the code is never sent to GitHub on a bad state"
