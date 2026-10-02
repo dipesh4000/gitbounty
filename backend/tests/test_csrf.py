@@ -145,3 +145,65 @@ def test_an_unauthenticated_write_is_not_blocked_by_csrf_but_by_authentication(
     with TestClient(app) as client:
         response = client.post("/api/me/sync")
     assert response.status_code == 401
+
+
+# --- CORS preflight -------------------------------------------------------
+
+
+def test_every_method_the_app_routes_survives_a_cors_preflight() -> None:
+    """The browser asks before sending anything but a simple request. If a method is missing from the
+    allowlist the preflight is refused and the feature simply does not work -- which is what happened to
+    PATCH /api/maintainer/bounties/... while every server-side test passed, because TestClient does not
+    preflight.
+    """
+    from app.main import app, declared_methods
+
+    routed = {
+        method
+        for route in app.routes
+        for method in (getattr(route, "methods", None) or ())
+        if method not in {"HEAD", "OPTIONS"}
+    }
+    allowed = set(declared_methods())
+
+    assert routed, "the app routes something"
+    assert routed <= allowed, f"not allowed through CORS: {sorted(routed - allowed)}"
+    assert "OPTIONS" in allowed, "preflight itself must be answerable"
+    assert "PATCH" in routed, "the bounty-edit route exists; this guard is about it"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PATCH"])
+def test_a_preflight_from_an_allowed_origin_is_accepted(method: str) -> None:
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/maintainer/bounties/owner/name/1",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "content-type,x-gitbounty-csrf",
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert method in response.headers["access-control-allow-methods"]
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-credentials"] == "true"
+    # The CSRF header must be permitted, or no write can carry it.
+    assert "x-gitbounty-csrf" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_a_preflight_from_an_unlisted_origin_is_refused() -> None:
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/maintainer/bounties",
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+    assert "access-control-allow-origin" not in response.headers

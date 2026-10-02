@@ -59,21 +59,41 @@ app.add_middleware(
     https_only=settings.cookies_secure,
     max_age=settings.session_max_age_seconds,
 )
+app.include_router(auth_router)
+app.include_router(merged_prs_router)
+app.include_router(points_router)
+app.include_router(issues_router)
+app.include_router(maintainer_router)
+
+
+def declared_methods() -> list[str]:
+    """Every HTTP method the app actually routes, plus OPTIONS for preflight.
+
+    Derived rather than written out. The hard-coded list said ["GET", "POST"], and when
+    PATCH /api/maintainer/bounties/... was added the browser preflight for it started returning 400 --
+    so editing, unpublishing, republishing and archiving a bounty could not work from the website at all,
+    while every server-side test passed because TestClient does not preflight. Deriving it means a new
+    route cannot reintroduce that.
+    """
+    methods = {"OPTIONS"}
+    for route in app.routes:
+        methods.update(getattr(route, "methods", None) or ())
+    methods.discard("HEAD")  # implied by GET; listing it adds nothing
+    return sorted(methods)
+
+
 # The website is a separate origin from this API, so the browser needs to be told it may call it. Listed
 # origins only -- never "*", which would let any page on the internet make calls as a signed-in user.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origin_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=declared_methods(),
+    # The CSRF token header has to survive preflight. "*" is echoed back by Starlette rather than sent
+    # literally, so it stays compatible with allow_credentials.
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(merged_prs_router)
-app.include_router(points_router)
-app.include_router(issues_router)
-app.include_router(maintainer_router)
 
 
 @app.get("/health")
