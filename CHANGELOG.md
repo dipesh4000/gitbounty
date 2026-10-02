@@ -71,6 +71,14 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 - Thirteen unused components, and the three lint exclusions two of them were the reason for.
 - `backend/dev/schema.sql`, a second copy of the schema that had already drifted from the migrations.
 
+### Investigated, not changed
+
+- A build-toolchain dependency upgrade (vite, wrangler, @cloudflare/vite-plugin, vinext,
+  @vitejs/plugin-rsc). It installs and builds, but `vinext start` then fails with
+  `ERR_UNSUPPORTED_ESM_URL_SCHEME: cloudflare:`, so it was reverted in full. Production dependencies have
+  no known vulnerabilities; the 11 findings are development-only. Recorded, with a safe upgrade path, in
+  `docs/known-limitations.md` — nothing is suppressed.
+
 ### Fixed
 
 - `GET /api/issues` passed asyncpg `Record`s to a Pydantic model, which does not coerce them — a 500

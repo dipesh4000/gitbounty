@@ -26,6 +26,7 @@ true first, so the decision can be made with open eyes.
 | Metrics for the signals below | None are emitted today |
 | A real synchronisation worker | Background tasks die with the process. A restart mid-sync leaves a `running` row, released after 30 minutes |
 | Frontend component tests | There is no test runner for `frontend/web` |
+| Upgrade the build toolchain | 11 dev-only audit findings. Production dependencies are clean. The upgrade breaks `vinext start`; the path is in [`known-limitations.md`](known-limitations.md) |
 | An end-to-end test | Sign in → publish → merge → award → leaderboard |
 
 ### Metrics worth having
