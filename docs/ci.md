@@ -8,7 +8,7 @@ does not deploy anything and never touches a shared database.
 | **Backend** | Starts Postgres 17, creates the two test databases, bootstraps the schema **from `migrations/` alone**, runs `pytest` | A test fails, the bootstrap fails, or **any test skips** |
 | **Website** | `npm ci`, lint, typecheck, **component tests** (vitest, 59), production build, `npm audit --omit=dev --audit-level=high` | Any of them fails |
 | **Extension** | `npm ci`, `npm run check` (syntax check plus 39 tests), manifest JSON validity, audit | Any of them fails |
-| **End to end** | Starts Postgres, the fake GitHub, the backend and the production website build, then drives one full journey in Chromium: publish a bounty, see it in the explorer, move a pull request through its states, merge it, award once, check the leaderboard | The journey breaks anywhere. Traces and screenshots are uploaded on failure |
+| **End to end** | 22 accessibility checks (axe-core over every page, plus keyboard, focus, reduced motion and reflow), and starts Postgres, the fake GitHub, the backend and the production website build, then drives one full journey in Chromium: publish a bounty, see it in the explorer, move a pull request through its states, merge it, award once, check the leaderboard | The journey breaks anywhere. Traces and screenshots are uploaded on failure |
 | **Secret scan** | gitleaks over the working tree and the whole history, plus a dependency-free check for a tracked `.env` and for credential-shaped strings | Anything is found |
 | **Migration validation** | Naming, consecutive numbering, and a `Depends on:` header on every file | Any file breaks a rule |
 

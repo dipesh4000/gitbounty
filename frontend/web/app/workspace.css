@@ -31,6 +31,12 @@
 .app-select { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
 .app-select span { color: var(--text-muted); font-size: 12px; }
 .app-select select { padding: 0 10px; }
+/* A bare <button> in a toolbar had no rule of its own, so it took the browser's default button face --
+   a light background under inherited light text, which axe measured as a serious contrast failure. */
+.app-toolbar > button { min-height: 40px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--surface); color: var(--text-secondary); font: 600 12px/1 var(--font-body); cursor: pointer; }
+.app-toolbar > button:hover:not(:disabled) { border-color: var(--signal); color: var(--text); }
+.app-toolbar > button:disabled { opacity: .5; cursor: not-allowed; }
+.app-toolbar > button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .app-table { border: 1px solid var(--line); background: var(--canvas); }
 .app-table-head, .app-table-row { display: grid; align-items: center; column-gap: 24px; }
 .app-table-head { min-height: 40px; border-bottom: 1px solid var(--line); color: var(--text-muted); font: 500 9px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }

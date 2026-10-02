@@ -71,7 +71,7 @@ and no error-reporting integration. `/ready` is the only operational signal.
 | Backend: 277 tests — unit, API integration, auth, CSRF, migrations, idempotency, mocked GitHub, leaderboards | |
 | Extension: 35 tests — logic plus jsdom DOM-injection against GitHub-shaped fixtures | |
 | Browser: the landing page's live data, and the extension badging a real github.com issue list, both verified in real Chrome | **Frontend component tests: none.** No test runner for `frontend/web`. The website is covered only by lint, typecheck, build and manual browsing |
-| | **No automated accessibility checks.** Keyboard, focus, labels, contrast and reduced motion were written for, not measured |
+| 22 automated accessibility checks (axe-core, WCAG 2.0/2.1 A and AA) over every user-facing page, plus keyboard operation, visible focus, heading structure, accessible names, reduced motion and reflow — see [`accessibility.md`](accessibility.md) | **No screen reader has been used**, and no disabled user has tested it. axe finds roughly a third to a half of WCAG issues. Four known defects are listed in that document, including focus not being managed in the edit and history panels |
 | | **No end-to-end test** driving a browser through sign-in → publish → merge → award |
 
 A real OAuth sign-in has **not** been completed end to end in this environment: it needs a human at

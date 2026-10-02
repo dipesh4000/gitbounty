@@ -210,6 +210,11 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
         </label>
       </div>
 
+      <p className="sr-only" aria-live="polite">
+        {loading ? "Loading published bounties." : error ? `Could not load published bounties. ${error}`
+          : `${issues.length} published ${issues.length === 1 ? "bounty" : "bounties"}.`}
+      </p>
+
       <div className="app-table app-issues-table">
         <div className="app-table-head">
           <span>Issue</span><span>Published by</span><span>Repository</span><span>Category</span><span>Points</span>
@@ -338,7 +343,9 @@ function MyPullRequests({
     <section aria-label="My pull requests">
       <SyncBar sync={result?.sync ?? points?.sync ?? null} loading={loading && !result} onDone={refresh} />
 
-      <div className="app-summary-line">
+      {/* Announced, not only drawn: the counts arrive after the page does, and a screen-reader user
+          otherwise has no way to know the table has filled in or that a filter changed it. */}
+      <div className="app-summary-line" aria-live="polite" aria-atomic="true">
         <span><strong>{result ? result.total : "…"}</strong> pull requests</span>
         <span><strong>{counts.merged ?? 0}</strong> merged</span>
         <span>
@@ -575,6 +582,12 @@ function PointsHistory() {
         </div>
       )}
 
+      <p className="sr-only" aria-live="polite">
+        {loading ? "Loading your points history."
+          : error ? `Could not load your points history. ${error}`
+          : `${result?.entries.length ?? 0} entries shown.`}
+      </p>
+
       <div className="app-table app-history-table">
         <div className="app-table-head">
           <span>Entry</span><span>Source</span><span>Category</span><span>When</span><span>Points</span>
@@ -683,6 +696,12 @@ function Leaderboard({ login }: { login: string }) {
           </button>
         ))}
       </div>
+
+      <p className="sr-only" aria-live="polite">
+        {loading ? "Loading the leaderboard."
+          : error ? `Could not load the leaderboard. ${error}`
+          : `${result?.entries.length ?? 0} contributors shown.`}
+      </p>
 
       <div className="app-table app-leaderboard-table">
         <div className="app-table-head">

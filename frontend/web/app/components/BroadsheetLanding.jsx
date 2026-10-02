@@ -89,7 +89,12 @@ function unmount(c) { c._gbOff && c._gbOff(); }
 function vals(c, live) {
   const s = c.gb; if (!s) return {};
   const set = c.gbSet, wide = s.w >= 900;
-  const op = i => s.stage >= i ? '1' : '0.14';
+  /* The un-reached steps of the hero sequence are dimmed, not hidden. 0.14 made their text unreadable --
+     axe measured it as a serious contrast failure on the live page, and 0.62 still failed. 0.85 keeps
+     the sequence readable as a sequence while leaving every step above the 4.5:1 threshold -- the
+     progression is carried by the status line, the progress bar and the lit cell background as well, so
+     it does not depend on the text fading to be legible. */
+  const op = i => s.stage >= i ? '1' : '0.85';
   const hero = {o1:op(1),o2:op(2),o3:op(3),o4:op(4),o5:op(5),pts:'+' + s.pts,progressScale:s.stage/5,
     status:['ISSUE OPEN','BRANCH PUSHED','DIFF +18 −4','PR OPEN · CHECKS 12/12','MERGED · VERIFYING','VERIFIED · RECORDED'][s.stage],
     statusFg: s.stage >= 4 ? G : 'var(--text-secondary)', mergeBg: s.stage >= 4 ? G : 'var(--line)', totalBg: s.stage >= 5 ? 'var(--signal-dark)' : 'transparent'};
@@ -115,8 +120,12 @@ function vals(c, live) {
   }));
   const cats = CATS.map(k => { const on = s.cat === k; return {label:k, count: k === 'All' ? all.length : all.filter(i => categoryLabel(i.category) === k).length, pressed: on ? 'true' : 'false', bg: on ? 'var(--signal-dark)' : 'transparent', fg: on ? G : 'var(--text-secondary)', bd: on ? G : 'var(--line)', onClick: () => set({cat:k})}; });
   const hs = s.step;
-  const steps = STEPS.map((x,i) => ({n:x[0], k:x[1], title:x[2], pressed: i === hs ? 'true' : 'false', op: i === hs ? '1' : '0.4', nFg: i <= hs ? G : 'var(--text-muted)', dot: i <= hs ? G : 'var(--line)', bd: i === hs ? G : 'var(--line)', onClick: () => set({step:i, tab:i})}));
-  const how = {progressScale: (typeof document !== 'undefined' && document.getElementById('how-track')) ? s.prog : hs/3, a1: hs >= 1 ? '1' : '0.12', a2: hs >= 2 ? '1' : '0.12', a3: hs >= 3 ? '1' : '0.12',
+  /* These are real tabs, not decoration. They used to be dimmed to 0.4 when not selected, which axe
+     measured at 1.95:1 -- a control nobody can read is worse than one that looks less prominent. The
+     selected state is carried by the border, the number's colour and the dot, all of which already
+     change, so the text stays at full opacity. */
+  const steps = STEPS.map((x,i) => ({n:x[0], k:x[1], title:x[2], pressed: i === hs ? 'true' : 'false', op: '1', nFg: i <= hs ? G : 'var(--text-muted)', dot: i <= hs ? G : 'var(--line)', bd: i === hs ? G : 'var(--line)', onClick: () => set({step:i, tab:i})}));
+  const how = {progressScale: (typeof document !== 'undefined' && document.getElementById('how-track')) ? s.prog : hs/3, a1: hs >= 1 ? '1' : '0.85', a2: hs >= 2 ? '1' : '0.85', a3: hs >= 3 ? '1' : '0.85',
     status:['OPEN · UNASSIGNED','IN PROGRESS · PR #1910','MERGED · VERIFIED','+45 RECORDED'][hs], statusFg: hs >= 2 ? G : 'var(--text-secondary)', rowBg: hs >= 3 ? 'var(--signal-dark)' : 'transparent', big:['FIND','BUILD','MERGE','EARN'][hs], num:STEPS[hs][0]};
   /* The real leaderboard, for the selected window and category. There is no movement arrow: GitBounty
      does not store a previous ranking, so an up/down indicator could only be invented. */

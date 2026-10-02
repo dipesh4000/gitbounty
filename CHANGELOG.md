@@ -88,6 +88,12 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 
 ### Fixed
 
+- **Three measured accessibility failures.** The "How it works" step tabs were dimmed to 0.4 opacity and
+  measured at 1.95:1 contrast; the hero sequence's un-reached steps were at 0.14 and effectively
+  invisible; and a toolbar button had no styling at all, falling through to the browser's light default
+  under inherited light text. Also added `aria-live` summaries to the three views that fill in
+  asynchronously.
+
 - **CORS refused PATCH**, so no bounty could be edited, unpublished, republished or archived from the
   website. The allowed-method list is now derived from the app's own routes.
 - **A bounty published after the merge was awarded but not shown.** `recent_merges` read the bounty from
