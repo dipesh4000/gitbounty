@@ -51,6 +51,8 @@ See [`deployment-readiness.md`](deployment-readiness.md). The current owner has 
 | [ ] | **Backups** | Who takes them, where they live, who can restore. Restore one to prove it works |
 | [ ] | **Monitoring** | None exists. [`deployment-readiness.md`](deployment-readiness.md) |
 | [ ] | **A security contact** | None exists. Needed before anybody else uses it |
+| [ ] | **A real GitHub OAuth authorization** | Never performed; it needs a human at github.com. [`oauth-verification.md`](oauth-verification.md) is a twenty-minute checklist |
+| [ ] | **`ADMIN_GITHUB_IDS`** | Empty, so nobody can moderate. Set it to the stable GitHub numeric ids of whoever should be able to withdraw an award |
 
 ## Third-party services
 

@@ -142,6 +142,9 @@ Everything above runs in CI on every push and pull request — see
 | [`docs/deployment-readiness.md`](docs/deployment-readiness.md) | What must be true before deploying |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | When something does not work |
 | [`docs/known-limitations.md`](docs/known-limitations.md) | What is not built and not defended against |
+| [`docs/oauth-verification.md`](docs/oauth-verification.md) | **Owner checklist**: verifying GitHub OAuth for real |
+| [`docs/observability.md`](docs/observability.md) | Logging, events and rate limiting |
+| [`docs/accessibility.md`](docs/accessibility.md) | What was measured, and what it does not establish |
 | [`docs/handoff.md`](docs/handoff.md) | Ownership-transfer checklist |
 | [`docs/future-paid-bounties.md`](docs/future-paid-bounties.md) | A future proposal. Not current, not built |
 | [`docs/original-money-pitch.md`](docs/original-money-pitch.md) | The original escrow pitch, kept as history |
