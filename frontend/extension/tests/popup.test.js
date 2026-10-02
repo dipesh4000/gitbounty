@@ -67,3 +67,43 @@ test("refresh and sign out drop the background worker's cached bounties", () => 
   const invalidations = popupJs.match(/gitbounty:invalidate-cache/g) || [];
   assert.equal(invalidations.length, 2, "once for Refresh, once for Sign out");
 });
+
+
+// --- disconnected and error states ------------------------------------------
+
+test("the popup tells apart signed-out, unconfigured, unreachable and other failures", () => {
+  const popupJs = read("popup/popup.js");
+
+  // Each of the four has its own branch, and none of them shows a points figure.
+  assert.match(popupJs, /error\.status === 401[\s\S]{0,160}show\("signed-out-state"\)/);
+  assert.match(popupJs, /error\.status === 503[\s\S]{0,200}not configured yet/);
+  assert.match(popupJs, /error\.status === 0[\s\S]{0,160}is not running on/);
+  assert.match(popupJs, /The GitBounty API answered \$\{error\.status\}/);
+});
+
+test("a network failure is reported as the API not running, with its address", () => {
+  const popupJs = read("popup/popup.js");
+
+  // fetch only rejects for a network-level problem; that must not surface as an unhandled rejection.
+  assert.match(popupJs, /try \{[\s\S]{0,200}await fetch\([\s\S]{0,200}\} catch \{/);
+  assert.match(popupJs, /error\.status = 0/);
+  assert.match(popupJs, /\$\{API_BASE\}/);
+});
+
+test("the content script answers nothing rather than guessing when the worker cannot be reached", () => {
+  const contentJs = read("src/content.js");
+
+  // No chrome.runtime at all (a plain page load), or a failed message, both resolve to an empty list.
+  assert.match(contentJs, /if \(!globalThis\.chrome\?\.runtime\?\.sendMessage\) \{\s*resolve\(\[\]\);/);
+  assert.match(contentJs, /chrome\.runtime\.lastError \|\| !response\?\.ok[\s\S]{0,200}resolve\(\[\]\)/);
+  // And a failure is not remembered, so one blip does not hide every badge until a reload.
+  assert.match(contentJs, /bountyRequests\.delete\(key\)/);
+});
+
+test("the background worker reports a failure instead of inventing an empty success", () => {
+  const backgroundJs = read("src/background.js");
+
+  assert.match(backgroundJs, /return \{ ok: false, items: \[\], viewer, status: error\.status \|\| 0 \}/);
+  // A failure is never written to the cache.
+  assert.match(backgroundJs, /\/\/ Not cached[\s\S]{0,160}return \{ ok: false/);
+});

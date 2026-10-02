@@ -95,6 +95,8 @@ jobs:
         run: npm run lint
       - name: Type check
         run: npm run typecheck
+      - name: Component tests
+        run: npm test
       - name: Production build
         run: npm run build
       - name: Dependency audit

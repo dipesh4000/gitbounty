@@ -32,6 +32,8 @@ type Tab = "publish" | "published";
 type Draft = { selected: boolean; points: string; category: BountyCategory };
 
 const MIN_POINTS = 1;
+/** Only reached if an issue vanishes from the list mid-edit; "other" is the safe category to fall back on. */
+const BLANK_DRAFT: Draft = { selected: false, points: "", category: "other" };
 const MAX_POINTS = 1000;
 
 function message(error: unknown) {
@@ -200,8 +202,21 @@ function IssuePicker({
     return !Number.isInteger(points) || points < MIN_POINTS || points > MAX_POINTS;
   }), [drafts, selected]);
 
+  /*
+    Seed from draftFor() when there is no stored draft yet.
+
+    `draft()` above *reads* through to draftFor() without storing, so the first edit to an issue used to
+    spread `...undefined` and produce a draft holding only the field that was touched. Ticking the
+    checkbox therefore gave `{ selected: true }` with no category, and the publish payload carried
+    `category: undefined`, which JSON.stringify drops -- so the API rejected the request as invalid for
+    every maintainer who did not happen to open the category dropdown.
+  */
   function update(number: number, patch: Partial<Draft>) {
-    setDrafts((current) => ({ ...current, [number]: { ...current[number], ...patch } }));
+    const issue = result?.items.find((candidate) => candidate.number === number);
+    setDrafts((current) => ({
+      ...current,
+      [number]: { ...(current[number] ?? (issue ? draftFor(issue) : BLANK_DRAFT)), ...patch },
+    }));
   }
 
   async function publish() {

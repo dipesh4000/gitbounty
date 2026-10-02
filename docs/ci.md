@@ -6,8 +6,8 @@ does not deploy anything and never touches a shared database.
 | Job | Does | Fails when |
 |---|---|---|
 | **Backend** | Starts Postgres 17, creates the two test databases, bootstraps the schema **from `migrations/` alone**, runs `pytest` | A test fails, the bootstrap fails, or **any test skips** |
-| **Website** | `npm ci`, lint, typecheck, production build, `npm audit --omit=dev --audit-level=high` | Any of them fails |
-| **Extension** | `npm ci`, `npm run check` (syntax check plus 35 tests), manifest JSON validity, audit | Any of them fails |
+| **Website** | `npm ci`, lint, typecheck, **component tests** (vitest, 59), production build, `npm audit --omit=dev --audit-level=high` | Any of them fails |
+| **Extension** | `npm ci`, `npm run check` (syntax check plus 39 tests), manifest JSON validity, audit | Any of them fails |
 | **Secret scan** | gitleaks over the working tree and the whole history, plus a dependency-free check for a tracked `.env` and for credential-shaped strings | Anything is found |
 | **Migration validation** | Naming, consecutive numbering, and a `Depends on:` header on every file | Any file breaks a rule |
 
@@ -36,6 +36,6 @@ See [`handoff.md`](handoff.md).
 
 ```bash
 cd backend && . .venv/bin/activate && pytest
-cd frontend/web && npm run lint && npm run typecheck && npm run build && npm audit --omit=dev
+cd frontend/web && npm run lint && npm run typecheck && npm test && npm run build && npm audit --omit=dev
 cd frontend/extension && npm run check
 ```
