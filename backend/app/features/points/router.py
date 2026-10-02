@@ -19,11 +19,19 @@ from ...auth import (
 from ...db import DatabaseNotConfigured, pool
 from ..merged_prs.github import GitHubAuthError, GitHubError, GitHubRateLimited
 from ..merged_prs.models import Category
-from ..merged_prs.service import detect_merges
+from ..merged_prs.models import PullRequestState
+from ..merged_prs.service import (
+    DetectedMerge,
+    DetectionResult,
+    detect_merges,
+    detect_pull_requests,
+)
 from . import sync_state
 from .rules import FLAT_POINTS_PER_MERGE, MAX_ISSUE_POINTS, MIN_ISSUE_POINTS, RULE_VERSION
 from .store import (
     leaderboard,
+    list_pull_requests,
+    record_pull_requests,
     leaderboard_position,
     points_history,
     published_bounties,
@@ -178,7 +186,13 @@ def _sync_status(run: sync_state.SyncRun | None) -> SyncStatusResponse:
 # --- synchronisation ------------------------------------------------------
 
 
-async def run_sync(user: CurrentUser, *, inspect_files: bool = True, full: bool = False) -> None:
+async def run_sync(
+    user: CurrentUser,
+    *,
+    inspect_files: bool = True,
+    inspect_reviews: bool = True,
+    full: bool = False,
+) -> None:
     """Fetch this user's merged pull requests from GitHub and write what they earned.
 
     Runs as a background task: a full history import makes one GitHub request per pull request, which is
@@ -201,14 +215,39 @@ async def run_sync(user: CurrentUser, *, inspect_files: bool = True, full: bool 
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            result = await detect_merges(
+            # One pass over every pull request this user has authored, in whatever state. The award path
+            # then takes only the merged, eligible subset -- a pull request being open, approved or closed
+            # changes what the contributor is *shown*, never what they are paid.
+            lifecycle = await detect_pull_requests(
                 client,
                 user.github_login,
                 user.github_token,
                 inspect_files=inspect_files,
+                inspect_reviews=inspect_reviews,
                 published_bounties=bounties,
                 author_user_id=user_row_id,
                 since=since,
+            )
+            result = DetectionResult(
+                merges=[
+                    DetectedMerge(
+                        pr=item.pr.as_merged(),
+                        inferred_category=item.category,
+                        closed_issues=tuple(item.pr.closed_issues),
+                        bounty=item.bounty,
+                        baseline_eligible=item.baseline_eligible,
+                    )
+                    for item in lifecycle.merged
+                    # Self-merges are dropped, as they always were -- they are reported as skipped rather
+                    # than recorded. Everything else merged is recorded, including a merge that earns
+                    # nothing: "we have seen this pull request" and "this pull request was awarded
+                    # something" are different facts, and record_merges writes a ledger entry only where
+                    # there is something to award.
+                    if not item.pr.is_self_merge
+                ],
+                self_merges_skipped=sum(
+                    1 for item in lifecycle.merged if item.pr.is_self_merge
+                ),
             )
     except GitHubRateLimited as error:
         async with db_pool.acquire() as connection:
@@ -233,13 +272,20 @@ async def run_sync(user: CurrentUser, *, inspect_files: bool = True, full: bool 
             await sync_state.fail(connection, run_id, error="The sync failed unexpectedly. Try again.")
         return
 
-    newest = max((merge.pr.merged_at for merge in result.merges), default=None)
+    newest = max(
+        (item.pr.updated_at or item.pr.merged_at for item in lifecycle.tracked if item.pr.updated_at or item.pr.merged_at),
+        default=None,
+    )
     async with db_pool.acquire() as connection:
         async with connection.transaction():
+            # The lifecycle cache and the awards are written together: a contributor must never see a
+            # pull request marked merged with no award beside it because one write landed and the other
+            # did not.
+            await record_pull_requests(connection, user_row_id, lifecycle.tracked)
             outcome = await record_merges(connection, user_row_id, result.merges)
         await sync_state.succeed(
             connection, run_id,
-            prs_seen=len(result.merges),
+            prs_seen=len(lifecycle.tracked),
             self_merges_skipped=result.self_merges_skipped,
             newly_counted=outcome.newly_counted,
             points_awarded=outcome.points_awarded,
@@ -253,6 +299,7 @@ async def start_sync(
     background: BackgroundTasks,
     user: Annotated[CurrentUser, Depends(get_current_user_with_token)],
     inspect_files: Annotated[bool, Query(description="Look at each pull request's files for a better category.")] = True,
+    inspect_reviews: Annotated[bool, Query(description="Look up review state for open pull requests.")] = True,
     full: Annotated[bool, Query(description="Re-walk the whole history instead of continuing from the last sync.")] = False,
 ) -> SyncStartedResponse:
     """Start a synchronisation and return immediately.
@@ -268,7 +315,9 @@ async def start_sync(
     if existing is not None and existing.status == "running":
         return SyncStartedResponse(state="already-running", message="A sync is already running.")
 
-    background.add_task(run_sync, user, inspect_files=inspect_files, full=full)
+    background.add_task(
+        run_sync, user, inspect_files=inspect_files, inspect_reviews=inspect_reviews, full=full
+    )
     return SyncStartedResponse(state="running", message="Reading your merged pull requests from GitHub.")
 
 
@@ -350,6 +399,92 @@ async def my_points_history(
             min_bounty_points=MIN_ISSUE_POINTS,
             max_bounty_points=MAX_ISSUE_POINTS,
         ),
+    )
+
+
+class PullRequestOut(BaseModel):
+    """One pull request as the website lists it, in whatever state it is in."""
+
+    github_pr_id: int
+    repo_full_name: str
+    number: int
+    title: str
+    url: str
+    state: PullRequestState
+    is_draft: bool
+    category: Category
+    category_source: Literal["maintainer", "inferred"]
+
+    bounty_repo_full_name: str | None
+    bounty_issue_number: int | None
+    bounty_points: int | None
+    """What the related bounty is worth now. May differ from what was awarded; both are shown."""
+
+    baseline_eligible: bool
+    """Whether this repository takes part in GitBounty at all."""
+    eligible: bool
+    ineligible_reason: str | None
+    expected_points: int
+    """What this would earn if merged as it stands. A forecast: a bounty is awarded once, to one person."""
+    awarded_points: int
+    """What the ledger has actually credited for this pull request."""
+
+    pr_created_at: datetime | None
+    pr_updated_at: datetime | None
+    merged_at: datetime | None
+    closed_at: datetime | None
+
+
+class PullRequestList(BaseModel):
+    github_login: str
+    items: list[PullRequestOut]
+    page: int
+    per_page: int
+    total: int
+    has_more: bool
+    counts: dict[str, int]
+    """How many pull requests are in each state, for the filter chips. Unfiltered by `state`."""
+    sync: SyncStatusResponse
+
+
+@router.get("/me/pull-requests", response_model=PullRequestList)
+async def my_pull_requests(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    state: Annotated[
+        list[PullRequestState] | None,
+        Query(description="Restrict to these states. Repeat the parameter for more than one."),
+    ] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    per_page: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> PullRequestList:
+    """Every pull request this user has authored, in whatever state GitHub reports.
+
+    Reads what the last sync stored; it does not call GitHub. `expected_points` is a forecast and
+    `awarded_points` is what the ledger actually holds -- an open pull request has an expectation and no
+    award, and only an eligible merged one ever gets both.
+    """
+    _require_database()
+
+    async with pool().acquire() as connection:
+        user_row_id = await upsert_user(connection, user.github_id, user.github_login, user.avatar_url)
+        rows, total, counts = await list_pull_requests(
+            connection,
+            user_row_id,
+            states=[str(value) for value in state] if state else None,
+            limit=per_page,
+            offset=(page - 1) * per_page,
+        )
+        run = await sync_state.latest(connection, user_row_id)
+
+    return PullRequestList(
+        github_login=user.github_login,
+        items=[PullRequestOut(**vars(row)) for row in rows],
+        page=page,
+        per_page=per_page,
+        total=total,
+        has_more=page * per_page < total,
+        counts=counts,
+        sync=_sync_status(run),
     )
 
 

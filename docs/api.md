@@ -67,6 +67,7 @@ Only bounties with `status = 'published'` are ever returned.
 | `GET /api/me/points` | Totals, this week, per category, recent merges with what each actually earned, and the sync status (`never`/`running`/`succeeded`/`failed`, with the reason and any `retry_after_seconds`) |
 | `GET /api/me/points/history` | Every ledger entry, newest first, paged. Each names its kind, signed points, category and its source, rule version, reason, pull request, bounty and the bounty's value at the time. Also returns the current `rules` |
 | `GET /api/points/rules` | The rule version, baseline, and bounty bounds. **Public** |
+| `GET /api/me/pull-requests` | Every pull request this user has authored, in whatever state. `state` (repeatable), `page`, `per_page`. Each item carries the state, the related bounty, the category and its source, timestamps, `expected_points` (a forecast) and `awarded_points` (what the ledger holds), plus `ineligible_reason` where it applies. `counts` gives the per-state totals, unfiltered |
 | `GET /api/me/merged-prs` | Live from GitHub; stores nothing. Reports what each merge is *eligible* to earn. **What it earned is in the ledger** |
 
 ## Leaderboards

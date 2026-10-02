@@ -83,6 +83,20 @@ Constraints that carry the rules:
 | `points_ledger_reason_check` | a correction always has a reason |
 | `points_ledger_category_check` | the nine-category vocabulary, shared with `issues` |
 
+## pull_requests — 0011
+
+Every pull request a user has authored, in whatever state. A **cache of GitHub**, not a ledger: unlike
+`points_ledger` it is deliberately mutable, because a pull request's state is whatever GitHub says today.
+
+| Column | Notes |
+|---|---|
+| `(user_id, github_pr_id)` | **unique.** GitHub's immutable id, so a re-sync updates a row rather than adding one |
+| `state` | one of seven, by check constraint: `draft`, `open`, `in_review`, `changes_requested`, `approved`, `merged`, `closed_unmerged` |
+| `eligible`, `ineligible_reason` | **check:** an ineligible row must carry a reason. "Ineligible, with no reason" is not an answer a contributor can act on |
+| `merged_at` | **check:** `(state = 'merged') = (merged_at is not null)` |
+| `bounty_*`, `baseline_eligible` | what it would earn. What it *did* earn is the ledger's answer and is never stored here |
+| `first_seen_at` | the one column a re-sync never updates |
+
 ## sync_runs — 0009
 
 One row per synchronisation attempt: status, start and finish, what it saw, what it awarded, the cursor for

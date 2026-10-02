@@ -95,6 +95,59 @@ export type MergeSummary = {
   points: number;
 };
 
+export const PR_STATES = [
+  "draft", "open", "in_review", "changes_requested", "approved", "merged", "closed_unmerged",
+] as const;
+
+export type PullRequestState = (typeof PR_STATES)[number];
+
+export const PR_STATE_LABELS: Record<PullRequestState, string> = {
+  draft: "Draft",
+  open: "Open",
+  in_review: "In review",
+  changes_requested: "Changes requested",
+  approved: "Approved",
+  merged: "Merged",
+  closed_unmerged: "Closed",
+};
+
+export type TrackedPullRequest = {
+  github_pr_id: number;
+  repo_full_name: string;
+  number: number;
+  title: string;
+  url: string;
+  state: PullRequestState;
+  is_draft: boolean;
+  category: BountyCategory;
+  category_source: "maintainer" | "inferred";
+  bounty_repo_full_name: string | null;
+  bounty_issue_number: number | null;
+  bounty_points: number | null;
+  baseline_eligible: boolean;
+  eligible: boolean;
+  ineligible_reason: string | null;
+  /** What this would earn if merged as it stands. A forecast: a bounty is awarded once, to one person. */
+  expected_points: number;
+  /** What the ledger has actually credited. */
+  awarded_points: number;
+  pr_created_at: string | null;
+  pr_updated_at: string | null;
+  merged_at: string | null;
+  closed_at: string | null;
+};
+
+export type PullRequestList = {
+  github_login: string;
+  items: TrackedPullRequest[];
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+  counts: Partial<Record<PullRequestState, number>>;
+  sync: SyncStatus;
+};
+
 export type MyPointsResponse = {
   github_login: string;
   total_points: number;

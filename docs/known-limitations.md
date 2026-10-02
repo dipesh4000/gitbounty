@@ -19,12 +19,22 @@ page claims otherwise. This is the owner's current choice, not an oversight.
 
 ## Pull request lifecycle
 
-Only **merged** pull requests are tracked. GitBounty does not show open, draft, in-review,
-changes-requested, approved or closed-without-merge pull requests. "My PRs" distinguishes what a recorded
-merge earned — a bounty, the baseline, or nothing, with the reason — but every row in it is merged.
+All seven states GitHub gives evidence for are tracked: draft, open, in review, changes requested,
+approved, merged, and closed without merging — plus "ineligible, with a reason". Each is derived from
+something GitHub reports (the draft flag, the open/closed state, the merge timestamp, the reviews
+endpoint), never guessed.
 
-Adding the open states means fetching authored pull requests regardless of state plus their review status,
-and a `pull_requests` table. The schema does not have one.
+What is **not** modelled:
+
+- **Review requests with no review yet.** A pull request with a requested reviewer who has not responded
+  reads as `open`, not `in_review`. The search result does not carry requested reviewers, and fetching
+  them would cost a second request per pull request for a distinction nobody asked for.
+- **Merge conflicts, failing checks, or a stale base branch.** All of these are things GitHub shows and
+  GitBounty does not.
+- **Review state for closed, merged or draft pull requests.** Reviews are looked up only for work still in
+  flight, because that is one request per pull request. A merged pull request's state is already decided.
+- **Push-time updates.** Nothing happens until a sync runs; there are no webhooks (see
+  [`architecture.md`](architecture.md) for why).
 
 ## Issues linked outside the pull request text
 

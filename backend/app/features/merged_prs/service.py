@@ -22,33 +22,21 @@ import httpx
 
 from ..points.rules import baseline_award
 from .categorise import categorise
-from .github import fetch_changed_paths, fetch_merged_prs
+from .github import fetch_authored_prs, fetch_changed_paths, fetch_merged_prs, fetch_review_state
 from .issue_links import IssueReference
-from .models import Category, MergedPR
+from .lifecycle import TrackedPullRequest, assess
+from .models import (
+    AuthoredPR,
+    Category,
+    MergedPR,
+    PublishedBounties,
+    PublishedBounty,
+    PullRequestState,
+)
 
 # How many extra lookups to run at once. GitHub's ordinary limit is 5000 requests an hour, so the cap is
 # politeness rather than necessity: don't open a hundred sockets at a stranger's API.
 _CONCURRENT_REQUESTS = 8
-
-
-@dataclass(frozen=True)
-class PublishedBounty:
-    """A bounty a verified maintainer published on GitBounty. The only thing that awards its value."""
-
-    repo_full_name: str
-    issue_number: int
-    points: int
-    category: Category
-    #: The GitBounty user who published it. None when the row predates that column being populated.
-    maintainer_user_id: int | None
-
-    @property
-    def key(self) -> tuple[str, int]:
-        return (self.repo_full_name.casefold(), self.issue_number)
-
-
-# Keyed by (lowercased repo full name, issue number), which is how a closing reference is matched.
-PublishedBounties = Mapping[tuple[str, int], PublishedBounty]
 
 
 @dataclass(frozen=True)
@@ -110,7 +98,7 @@ class DetectionResult:
 
 
 async def _changed_paths(
-    client: httpx.AsyncClient, pr: MergedPR, token: str, semaphore: asyncio.Semaphore
+    client: httpx.AsyncClient, pr: MergedPR | AuthoredPR, token: str, semaphore: asyncio.Semaphore
 ) -> list[str]:
     """A pull request's changed files, or nothing if they can't be read.
 
@@ -214,3 +202,84 @@ async def detect_merges(
         )
     )
     return DetectionResult(merges=merges, self_merges_skipped=self_merges_skipped)
+
+
+# --- the whole lifecycle, not only the merged part --------------------------
+
+
+@dataclass(frozen=True)
+class LifecycleResult:
+    """Every pull request this user has authored, with its state."""
+
+    tracked: list[TrackedPullRequest]
+
+    @property
+    def merged(self) -> list[TrackedPullRequest]:
+        return [item for item in self.tracked if item.state is PullRequestState.MERGED]
+
+
+async def _review_for(
+    client: httpx.AsyncClient,
+    pr: AuthoredPR,
+    token: str,
+    semaphore: asyncio.Semaphore,
+):
+    """A pull request's review state, or None when it was not or could not be looked up.
+
+    Only open, non-draft pull requests are asked about: a merged or closed one's state is already decided,
+    and a draft is a draft whatever anybody has said. That keeps the extra requests proportional to the
+    work actually in flight rather than to the whole history.
+
+    A failure yields None rather than an exception. Not knowing the review state costs the contributor a
+    more precise label; it must not cost them the pull request.
+    """
+    if pr.merged_at is not None or pr.is_closed or pr.is_draft:
+        return None
+    try:
+        async with semaphore:
+            return await fetch_review_state(client, pr.repo_full_name, pr.number, token)
+    except Exception:
+        return None
+
+
+async def detect_pull_requests(
+    client: httpx.AsyncClient,
+    login: str,
+    token: str,
+    *,
+    inspect_files: bool = True,
+    inspect_reviews: bool = True,
+    published_bounties: PublishedBounties | None = None,
+    author_user_id: int | None = None,
+    since: object = None,
+) -> LifecycleResult:
+    """Find every pull request `login` has authored and work out where each one stands.
+
+    Self-merges are **kept** here, unlike `detect_merges`, and marked ineligible with the reason. Dropping
+    them silently is right for the award path and wrong for the contributor's own list: somebody whose
+    work does not appear deserves to be told why rather than left wondering.
+    """
+    all_prs = await fetch_authored_prs(client, login, token, since=since)
+    if author_user_id is not None:
+        all_prs = [pr.with_author_user_id(author_user_id) for pr in all_prs]
+
+    published = published_bounties or {}
+    tracked_repositories = frozenset(repo for repo, _ in published)
+    semaphore = asyncio.Semaphore(_CONCURRENT_REQUESTS)
+
+    async def one(pr: AuthoredPR) -> TrackedPullRequest:
+        review = await _review_for(client, pr, token, semaphore) if inspect_reviews else None
+        paths = (
+            await _changed_paths(client, pr, token, semaphore)
+            if inspect_files
+            else []
+        )
+        return assess(
+            pr,
+            review=review,
+            inferred_category=categorise(pr, paths),
+            published=published,
+            tracked_repositories=tracked_repositories,
+        )
+
+    return LifecycleResult(tracked=list(await asyncio.gather(*(one(pr) for pr in all_prs))))

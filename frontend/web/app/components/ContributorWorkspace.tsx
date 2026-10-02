@@ -16,7 +16,11 @@ import {
   type IssueList,
   type LeaderboardPeriod,
   type LeaderboardResponse,
-  type MergeSummary,
+  PR_STATES,
+  PR_STATE_LABELS,
+  type PullRequestList,
+  type PullRequestState,
+  type TrackedPullRequest,
   type MyPointsResponse,
   type PointsHistoryResponse,
   type SyncStatus,
@@ -39,7 +43,7 @@ type View = "issues" | "maintain" | "pulls" | "history" | "leaderboard";
 const VIEWS: Array<{ id: View; label: string; title: string; lede: string }> = [
   { id: "issues", label: "Opportunities", title: "Opportunities", lede: "Bounties published by repository maintainers." },
   { id: "maintain", label: "My repositories", title: "Maintainer workspace", lede: "Publish bounties on repositories you manage, and look after the ones you have published." },
-  { id: "pulls", label: "My PRs", title: "My pull requests", lede: "Merged work GitBounty has counted, and what each contribution earned." },
+  { id: "pulls", label: "My PRs", title: "My pull requests", lede: "Every pull request you have authored, what state it is in, and what it has earned or stands to earn." },
   { id: "history", label: "Points", title: "Points history", lede: "Every entry behind your total, with where it came from." },
   { id: "leaderboard", label: "Leaderboard", title: "Leaderboard", lede: "Points earned from merged open-source work." },
 ];
@@ -54,14 +58,14 @@ export function ContributorWorkspace() {
   const [view, setView] = useState<View>("issues");
   const [points, setPoints] = useState<MyPointsResponse | null>(null);
   const [pointsLoading, setPointsLoading] = useState(true);
-  const [pointsError, setPointsError] = useState("");
 
+  /* The header's points figure. A failure here degrades to an em dash rather than taking over the page:
+     every view that needs this data reports its own failure in its own place. */
   const loadPoints = useCallback(async () => {
-    setPointsError("");
     try {
       setPoints(await api<MyPointsResponse>("/api/me/points"));
-    } catch (caught) {
-      setPointsError(message(caught));
+    } catch {
+      setPoints(null);
     } finally {
       setPointsLoading(false);
     }
@@ -79,7 +83,7 @@ export function ContributorWorkspace() {
     let active = true;
     api<MyPointsResponse>("/api/me/points")
       .then((result) => { if (active) setPoints(result); })
-      .catch((caught: unknown) => { if (active) setPointsError(message(caught)); })
+      .catch(() => { if (active) setPoints(null); })
       .finally(() => { if (active) setPointsLoading(false); });
     return () => { active = false; };
   }, [user]);
@@ -155,9 +159,8 @@ export function ContributorWorkspace() {
         {view === "pulls" && (
           <MyPullRequests
             points={points}
-            loading={pointsLoading}
-            error={pointsError}
-            onReload={() => { setPointsLoading(true); void loadPoints(); }}
+            pointsLoading={pointsLoading}
+            onSynced={() => { void loadPoints(); }}
           />
         )}
         {view === "history" && <PointsHistory />}
@@ -264,53 +267,99 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
 // --- my pull requests -----------------------------------------------------
 
 /*
-  What a recorded merge's status actually is. GitBounty records merged pull requests, so every row here is
-  merged -- but whether it earned a bounty, only the baseline, or nothing at all is a real distinction and
-  the one a contributor cares about. Saying "Merged" and nothing else, as this used to, hid it.
+  My pull requests.
+
+  Every state GitHub gives us evidence for, not only merged work. The two point figures are deliberately
+  separate: `expected_points` is what this would earn if merged as it stands, and `awarded_points` is what
+  the ledger has actually credited. An open pull request has the first and not the second, and conflating
+  them would promise something GitBounty cannot promise -- a bounty is awarded once, to one person.
 */
-function mergeStatus(merge: MergeSummary): { label: string; className: string; detail: string } {
-  if (merge.points === 0) {
-    return {
-      label: "No award",
-      className: "is-ineligible",
-      detail: "This repository has no published GitBounty bounties, so the merge earns nothing.",
-    };
+
+const STATE_CLASS: Record<PullRequestState, string> = {
+  draft: "is-draft",
+  open: "is-open",
+  in_review: "is-in-review",
+  changes_requested: "is-changes-requested",
+  approved: "is-approved",
+  merged: "is-merged",
+  closed_unmerged: "is-closed",
+};
+
+/** The filter chips, in the order work moves through them. */
+const STATE_FILTERS: Array<{ id: PullRequestState | "all"; label: string }> = [
+  { id: "all", label: "All" },
+  ...PR_STATES.map((state) => ({ id: state, label: PR_STATE_LABELS[state] })),
+];
+
+function whenLabel(pull: TrackedPullRequest): string {
+  if (pull.merged_at) return `merged ${timeAgo(pull.merged_at)}`;
+  if (pull.closed_at) return `closed ${timeAgo(pull.closed_at)}`;
+  if (pull.pr_updated_at) return `updated ${timeAgo(pull.pr_updated_at)}`;
+  return pull.pr_created_at ? `opened ${timeAgo(pull.pr_created_at)}` : "";
+}
+
+/** The one-line explanation under the title. Never a guess: it reports what the API said. */
+function detailFor(pull: TrackedPullRequest): string {
+  if (!pull.eligible) return pull.ineligible_reason ?? "Not eligible for points.";
+  if (pull.bounty_issue_number !== null) {
+    const bounty = `${pull.bounty_repo_full_name}#${pull.bounty_issue_number}`;
+    return pull.state === "merged"
+      ? `Closed the bounty on ${bounty}.`
+      : `Closes the bounty on ${bounty} — worth ${formatPoints(pull.bounty_points ?? 0)} if this merges.`;
   }
-  if (merge.bounty_issue_number !== null) {
-    return {
-      label: "Bounty awarded",
-      className: "is-merged",
-      detail: `Closed the bounty on ${merge.bounty_repo_full_name}#${merge.bounty_issue_number}.`,
-    };
-  }
-  return {
-    label: "Baseline awarded",
-    className: "is-baseline",
-    detail: "Merged in a participating repository, with no bounty on the issue it closed.",
-  };
+  return pull.state === "merged"
+    ? "Merged in a participating repository, with no bounty on the issue it closed."
+    : "No bounty on the issue this closes; the baseline applies if it merges.";
 }
 
 function MyPullRequests({
   points,
-  loading,
-  error,
-  onReload,
+  pointsLoading,
+  onSynced,
 }: {
   points: MyPointsResponse | null;
-  loading: boolean;
-  error: string;
-  onReload: () => void;
+  pointsLoading: boolean;
+  onSynced: () => void;
 }) {
-  const merges = points?.recent_merges ?? [];
+  const [state, setState] = useState<PullRequestState | "all">("all");
+  const [page, setPage] = useState(1);
+
+  const params = new URLSearchParams({ page: String(page), per_page: "25" });
+  if (state !== "all") params.set("state", state);
+  const { resource, reload } = useApiResource<PullRequestList>(`/api/me/pull-requests?${params}`);
+  const result = resource.data;
+  const loading = resource.status === "loading";
+  const error = resource.error;
+
+  const refresh = useCallback(() => { reload(); onSynced(); }, [onSynced, reload]);
+  const counts = result?.counts ?? {};
 
   return (
     <section aria-label="My pull requests">
-      <SyncBar sync={points?.sync ?? null} loading={loading} onDone={onReload} />
+      <SyncBar sync={result?.sync ?? points?.sync ?? null} loading={loading && !result} onDone={refresh} />
 
       <div className="app-summary-line">
-        <span><strong>{loading ? "…" : points ? points.total_merges : "—"}</strong> merged</span>
-        <span><strong>{loading ? "…" : points ? formatPoints(points.total_points) : "—"}</strong> points earned</span>
-        <span><strong>{loading ? "…" : points ? formatPoints(points.week_points) : "—"}</strong> this week</span>
+        <span><strong>{result ? result.total : "…"}</strong> pull requests</span>
+        <span><strong>{counts.merged ?? 0}</strong> merged</span>
+        <span>
+          <strong>{pointsLoading ? "…" : points ? formatPoints(points.total_points) : "—"}</strong> points earned
+        </span>
+      </div>
+
+      <div className="app-category-filter" role="group" aria-label="Filter by state">
+        {STATE_FILTERS.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            aria-pressed={state === item.id}
+            onClick={() => { setPage(1); setState(item.id); }}
+          >
+            {item.label}
+            {item.id !== "all" && counts[item.id as PullRequestState]
+              ? ` ${counts[item.id as PullRequestState]}`
+              : ""}
+          </button>
+        ))}
       </div>
 
       <div className="app-table app-pulls-table">
@@ -322,47 +371,73 @@ function MyPullRequests({
           <div className="app-empty">
             <strong>Couldn’t load your pull requests.</strong>
             <span>{error}</span>
-            <button type="button" onClick={onReload}>Try again</button>
+            <button type="button" onClick={reload}>Try again</button>
           </div>
         )}
-        {!loading && !error && merges.map((merge) => {
-          const status = mergeStatus(merge);
-          return (
-            <div className="app-table-row" key={merge.github_pr_id}>
-              <div className="app-primary-cell">
-                <small>#{merge.number} · merged {timeAgo(merge.merged_at)}</small>
-                <a href={merge.url} target="_blank" rel="noreferrer">{merge.title}</a>
-                <span>{status.detail}</span>
-              </div>
-              <div className="app-repo" data-label="Repository">github.com/{merge.repo_full_name}</div>
-              <div data-label="Category"><span className="app-category">{categoryLabel(merge.category)}</span></div>
-              <div data-label="Status"><span className={`app-status ${status.className}`}>{status.label}</span></div>
-              <div className="app-points" data-label="Points">
-                {merge.points > 0 ? `+${formatPoints(merge.points)}` : "0"}
-              </div>
+        {!loading && !error && result?.items.map((pull) => (
+          <div className="app-table-row" key={pull.github_pr_id}>
+            <div className="app-primary-cell">
+              <small>#{pull.number} · {whenLabel(pull)}</small>
+              <a href={pull.url} target="_blank" rel="noreferrer">{pull.title}</a>
+              <span>{detailFor(pull)}</span>
             </div>
-          );
-        })}
-        {!loading && !error && merges.length === 0 && <EmptyMerges sync={points?.sync ?? null} />}
+            <div className="app-repo" data-label="Repository">github.com/{pull.repo_full_name}</div>
+            <div data-label="Category"><span className="app-category">{categoryLabel(pull.category)}</span></div>
+            <div data-label="Status">
+              <span className={`app-status ${STATE_CLASS[pull.state]}`}>{PR_STATE_LABELS[pull.state]}</span>
+            </div>
+            <div className="app-points" data-label="Points">
+              {pull.awarded_points > 0
+                ? <><strong>+{formatPoints(pull.awarded_points)}</strong><small>awarded</small></>
+                : pull.expected_points > 0
+                  ? <><span className="app-points-expected">+{formatPoints(pull.expected_points)}</span><small>if merged</small></>
+                  : <span className="app-points-none">—</span>}
+            </div>
+          </div>
+        ))}
+        {!loading && !error && result && result.items.length === 0 && (
+          <EmptyPullRequests sync={result.sync} filtered={state !== "all"} onClear={() => setState("all")} />
+        )}
       </div>
+
+      {result && result.total > result.per_page && (
+        <Pager page={result.page} perPage={result.per_page} total={result.total} onPage={setPage} />
+      )}
     </section>
   );
 }
 
-/** Four different kinds of nothing, told apart. */
-function EmptyMerges({ sync }: { sync: SyncStatus | null }) {
+/** Five different kinds of nothing, told apart. */
+function EmptyPullRequests({
+  sync,
+  filtered,
+  onClear,
+}: {
+  sync: SyncStatus | null;
+  filtered: boolean;
+  onClear: () => void;
+}) {
+  if (filtered) {
+    return (
+      <div className="app-empty">
+        <strong>No pull requests in that state.</strong>
+        <span>Your other pull requests are still there.</span>
+        <button type="button" onClick={onClear}>Show all</button>
+      </div>
+    );
+  }
   if (!sync || sync.state === "never") {
     return (
       <div className="app-empty">
         <strong>GitBounty hasn’t looked at your GitHub activity yet.</strong>
-        <span>Use Sync GitHub above to read your merged pull requests.</span>
+        <span>Use Sync GitHub above to read the pull requests you have authored.</span>
       </div>
     );
   }
   if (sync.state === "running") {
     return (
       <div className="app-empty" aria-live="polite">
-        <strong>Reading your merged pull requests from GitHub…</strong>
+        <strong>Reading your pull requests from GitHub…</strong>
         <span>This can take a moment the first time.</span>
       </div>
     );
@@ -377,10 +452,10 @@ function EmptyMerges({ sync }: { sync: SyncStatus | null }) {
   }
   return (
     <div className="app-empty">
-      <strong>No merged pull requests found.</strong>
+      <strong>No pull requests found.</strong>
       <span>
-        GitBounty counts pull requests you authored that have been merged into repositories you don’t own.
-        Open one against a repository with a published bounty and sync again.
+        GitBounty lists pull requests you authored. Open one against a repository with a published bounty
+        and sync again.
       </span>
     </div>
   );

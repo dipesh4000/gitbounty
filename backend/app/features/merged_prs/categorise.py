@@ -20,7 +20,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 
-from .models import Category, MergedPR
+from .models import AuthoredPR, Category, MergedPR
 
 # --- File-path evidence ------------------------------------------------------------------------------------
 
@@ -242,8 +242,12 @@ def _from_text(labels: Sequence[str], title: str) -> Category | None:
 
 # --- The one function callers use --------------------------------------------------------------------------
 
-def categorise(pr: MergedPR, file_paths: Sequence[str] | None = None) -> Category:
-    """Categorise a merged PR, preferring the files it changed over what it calls itself.
+def categorise(pr: MergedPR | AuthoredPR, file_paths: Sequence[str] | None = None) -> Category:
+    """Categorise a pull request, preferring the files it changed over what it calls itself.
+
+    Takes either shape: only `.labels` and `.title` are read, which both have. An unmerged pull request is
+    categorised the same way a merged one is, so the label a contributor sees while the work is in flight
+    is the label it will be awarded under.
 
     `file_paths` is optional because fetching it costs one GitHub request per PR. Without it the answer is a
     guess from labels and title, and `OTHER` when even that says nothing -- never a wrong confident answer.

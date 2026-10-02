@@ -17,6 +17,7 @@ from datetime import datetime
 import asyncpg
 
 from ..merged_prs.models import Category
+from ..merged_prs.lifecycle import TrackedPullRequest
 from ..merged_prs.service import DetectedMerge, PublishedBounty
 from .rules import RULE_VERSION, baseline_award
 
@@ -618,3 +619,178 @@ async def points_history(
         ],
         total,
     )
+
+
+# --- the pull-request lifecycle ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class PullRequestRow:
+    """One tracked pull request, with what it is expected to earn and what it has actually earned."""
+
+    github_pr_id: int
+    repo_full_name: str
+    number: int
+    title: str
+    url: str
+    state: str
+    is_draft: bool
+    category: str
+    category_source: str
+    bounty_repo_full_name: str | None
+    bounty_issue_number: int | None
+    bounty_points: int | None
+    baseline_eligible: bool
+    eligible: bool
+    ineligible_reason: str | None
+    expected_points: int
+    awarded_points: int
+    pr_created_at: datetime | None
+    pr_updated_at: datetime | None
+    merged_at: datetime | None
+    closed_at: datetime | None
+
+
+async def record_pull_requests(
+    connection: asyncpg.Connection,
+    user_id: int,
+    tracked: Sequence[TrackedPullRequest],
+) -> int:
+    """Store what GitHub currently says about each pull request. Returns how many rows were written.
+
+    Unlike the ledger this table is **mutable on purpose**: it is a cache of GitHub, and a pull request's
+    state is whatever GitHub says today. A draft becomes open, an approval becomes a merge, a review is
+    withdrawn. `on conflict do update` is therefore correct here and would be wrong one table over.
+
+    `first_seen_at` is the one column never updated, so "when did GitBounty first see this?" survives.
+    Nothing here awards anything: only `record_merges` writes to points_ledger.
+    """
+    if not tracked:
+        return 0
+
+    for item in tracked:
+        pr = item.pr
+        await connection.execute(
+            """
+            insert into pull_requests (
+                user_id, github_pr_id, repo_full_name, number, title, url, author_login,
+                state, is_draft, category, category_source,
+                bounty_repo_full_name, bounty_issue_number, bounty_points, baseline_eligible,
+                eligible, ineligible_reason,
+                pr_created_at, pr_updated_at, merged_at, closed_at, last_synced_at
+            ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21, now())
+            on conflict (user_id, github_pr_id) do update set
+                repo_full_name = excluded.repo_full_name,
+                number = excluded.number,
+                title = excluded.title,
+                url = excluded.url,
+                state = excluded.state,
+                is_draft = excluded.is_draft,
+                category = excluded.category,
+                category_source = excluded.category_source,
+                bounty_repo_full_name = excluded.bounty_repo_full_name,
+                bounty_issue_number = excluded.bounty_issue_number,
+                bounty_points = excluded.bounty_points,
+                baseline_eligible = excluded.baseline_eligible,
+                eligible = excluded.eligible,
+                ineligible_reason = excluded.ineligible_reason,
+                pr_updated_at = excluded.pr_updated_at,
+                merged_at = excluded.merged_at,
+                closed_at = excluded.closed_at,
+                last_synced_at = now()
+            """,
+            user_id, pr.github_pr_id, pr.repo_full_name, pr.number, pr.title, pr.url, pr.author_login,
+            str(item.state), pr.is_draft, str(item.category), item.category_source,
+            item.bounty.repo_full_name if item.bounty else None,
+            item.bounty.issue_number if item.bounty else None,
+            item.bounty.points if item.bounty else None,
+            item.baseline_eligible, item.eligible, item.ineligible_reason,
+            pr.created_at, pr.updated_at, pr.merged_at, pr.closed_at,
+        )
+    return len(tracked)
+
+
+async def list_pull_requests(
+    connection: asyncpg.Connection,
+    user_id: int,
+    *,
+    states: Sequence[str] | None = None,
+    limit: int = 25,
+    offset: int = 0,
+) -> tuple[list[PullRequestRow], int, dict[str, int]]:
+    """A user's pull requests, newest activity first, with the per-state counts for the filter chips.
+
+    `awarded_points` comes from the ledger, never from this table: what was actually credited is the
+    ledger's answer, and a cache of GitHub has no business claiming it.
+    """
+    counts = {
+        row["state"]: row["count"]
+        for row in await connection.fetch(
+            "select state, count(*)::int as count from pull_requests where user_id = $1 group by state",
+            user_id,
+        )
+    }
+
+    rows = await connection.fetch(
+        """
+        select p.github_pr_id, p.repo_full_name, p.number, p.title, p.url, p.state, p.is_draft,
+               p.category, p.category_source,
+               p.bounty_repo_full_name, p.bounty_issue_number, p.bounty_points,
+               p.baseline_eligible, p.eligible, p.ineligible_reason,
+               p.pr_created_at, p.pr_updated_at, p.merged_at, p.closed_at,
+               coalesce((
+                   select sum(l.points)::int from points_ledger l
+                   where l.user_id = p.user_id and l.github_pr_id = p.github_pr_id
+               ), 0) as awarded_points,
+               count(*) over () as total
+        from pull_requests p
+        where p.user_id = $1
+          and ($2::text[] is null or p.state = any($2::text[]))
+        order by coalesce(p.merged_at, p.closed_at, p.pr_updated_at, p.pr_created_at) desc nulls last,
+                 p.github_pr_id desc
+        limit $3 offset $4
+        """,
+        user_id,
+        list(states) if states else None,
+        limit,
+        offset,
+    )
+
+    total = rows[0]["total"] if rows else 0
+    return (
+        [
+            PullRequestRow(
+                github_pr_id=row["github_pr_id"],
+                repo_full_name=row["repo_full_name"],
+                number=row["number"],
+                title=row["title"],
+                url=row["url"],
+                state=row["state"],
+                is_draft=row["is_draft"],
+                category=row["category"],
+                category_source=row["category_source"],
+                bounty_repo_full_name=row["bounty_repo_full_name"],
+                bounty_issue_number=row["bounty_issue_number"],
+                bounty_points=row["bounty_points"],
+                baseline_eligible=row["baseline_eligible"],
+                eligible=row["eligible"],
+                ineligible_reason=row["ineligible_reason"],
+                expected_points=_expected(row),
+                awarded_points=row["awarded_points"],
+                pr_created_at=row["pr_created_at"],
+                pr_updated_at=row["pr_updated_at"],
+                merged_at=row["merged_at"],
+                closed_at=row["closed_at"],
+            )
+            for row in rows
+        ],
+        total,
+        counts,
+    )
+
+
+def _expected(row: asyncpg.Record) -> int:
+    """What a pull request would earn if merged as it stands. Zero when it is not eligible."""
+    if not row["eligible"]:
+        return 0
+    return (row["bounty_points"] or 0) + (baseline_award() if row["baseline_eligible"] else 0)

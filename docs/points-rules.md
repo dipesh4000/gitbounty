@@ -58,6 +58,23 @@ A merged pull request into *any* repository used to earn the baseline. That was 
 repository and a second account. The baseline now needs the repository to have at least one published
 bounty, which means a verified maintainer with admin or maintain permission on it chose to take part.
 
+## When points are awarded, and when they are not
+
+**Only an eligible merged pull request awards anything.** Not an approval, not a closed issue, not a closed
+pull request, and not a pull request merely existing. GitBounty tracks all seven lifecycle states so a
+contributor can see where their work stands, and `expected_points` on an open pull request is a forecast —
+a bounty is awarded once, to one person, so somebody else's merge can still get there first.
+
+| State | Awards |
+|---|---|
+| draft, open, in review, changes requested, approved | nothing |
+| closed without merging | nothing |
+| merged, but ineligible | nothing, and the reason is shown |
+| merged and eligible | the bounty's value if it closes one, plus the baseline |
+
+A pull request that is merged, reopened and merged again is awarded once: GitHub's pull-request id does not
+change, and `points_ledger_baseline_once` and `points_ledger_bounty_once` are keyed on it.
+
 ## Who receives the points
 
 **The pull request's author.** Not whoever clicked Merge. Synchronisation queries GitHub as the signed-in

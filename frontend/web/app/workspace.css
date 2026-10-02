@@ -65,9 +65,18 @@
 .app-category-filter button[aria-pressed="true"] { border-color: var(--signal); background: var(--signal); color: var(--signal-ink); }
 .app-status { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .app-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.app-status.is-merged, .app-status.is-published { color: var(--status); }
+.app-status.is-merged, .app-status.is-published, .app-status.is-approved { color: var(--status); }
+.app-status.is-open, .app-status.is-in-review { color: var(--signal); }
+.app-status.is-changes-requested { color: var(--danger); }
 .app-status.is-baseline { color: var(--text-secondary); }
+.app-status.is-draft, .app-status.is-closed { color: var(--text-muted); }
 .app-status.is-ineligible, .app-status.is-unpublished { color: var(--text-muted); }
+
+/* Two point figures that must not be confused: what the ledger credited, and what a merge would earn.
+   The awarded one carries the signal colour; the forecast is quieter and labelled. */
+.app-points small { display: block; margin-top: 2px; color: var(--text-muted); font: 500 8px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
+.app-points-expected { color: var(--text-secondary); }
+.app-points-none { color: var(--text-muted); }
 .app-status.is-archived { color: var(--text-muted); opacity: .75; }
 
 /* Paging. Deliberately plain: it is navigation, not a feature. */

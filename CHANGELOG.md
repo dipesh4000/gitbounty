@@ -20,6 +20,13 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 
 ### Added
 
+- **The whole pull-request lifecycle**, not only merged work: draft, open, in review, changes requested,
+  approved, merged, closed without merging, and ineligible-with-a-reason. Every state is derived from
+  something GitHub reports — the draft flag, the open/closed state, the merge timestamp, and the reviews
+  endpoint, using GitHub's own rule that only a reviewer's most recent decisive review counts. Nothing is
+  guessed. `GET /api/me/pull-requests` lists them with filters and per-state counts, and "My PRs" shows
+  `expected_points` (a forecast) separately from `awarded_points` (what the ledger holds).
+
 - An append-only `points_ledger`. Every award and correction names its pull request, bounty, the bounty's
   value at the time, the category and who chose it, the rule version and a reason. A total is always the
   sum of its entries.
