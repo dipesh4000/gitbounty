@@ -100,3 +100,20 @@ keeps `bounty_points_at_award`.
 GitBounty does not rate-limit its own API. It is not deployed, and a limiter tuned against no traffic is a
 guess. This is listed in [`deployment-readiness.md`](deployment-readiness.md) as a prerequisite for
 deploying. GitHub's limits are respected and surfaced as `429` with `Retry-After`.
+
+
+## Moderation
+
+Reporting is open to anyone signed in. Reviewing and resolving require an administrator — a GitHub numeric
+id listed in `ADMIN_GITHUB_IDS`, which is **empty by default**, so these answer `403` until an owner
+configures it.
+
+| | |
+|---|---|
+| `POST /api/moderation/flags` | Report a `bounty`, `pull_request` or `ledger_entry` with a reason of at least 10 characters. Changes nothing by itself |
+| `GET /api/moderation/flags` | The reports, newest first. `status`, `page`, `per_page`. **Admin** |
+| `POST /api/moderation/flags/{id}/resolve` | `dismissed`, `upheld` or `award_withdrawn`, with a reason. **Admin** |
+
+`award_withdrawn` requires a flag against a specific `ledger_entry` and writes a new `void` entry for the
+negation of that award. It never edits or deletes the original. `409` if that award has already been
+withdrawn, or the flag already resolved.

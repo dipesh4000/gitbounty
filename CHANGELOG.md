@@ -20,6 +20,12 @@ Version numbers follow semantic versioning, applied to the **API contract** in
 
 ### Added
 
+- **Moderation**: report a bounty, a contribution or a specific award; review the reports; dismiss, uphold
+  or withdraw. Withdrawing writes a new append-only `void` entry naming the moderator, the flag and the
+  reason — it never edits or deletes the award. Administrators are a configured list of stable GitHub
+  numeric ids, **empty by default**, and an empty list means nobody: every moderation endpoint fails
+  closed until an owner configures it.
+
 - **Rate limiting** on every endpoint group, by user identity where there is one and client address
   otherwise, returning 429 with `Retry-After` and a body naming the actual limit. `/health` and `/ready`
   are never limited.

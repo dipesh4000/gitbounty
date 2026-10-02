@@ -11,10 +11,10 @@ page claims otherwise. This is the owner's current choice, not an oversight.
 
 | | |
 |---|---|
-| **Two cooperating accounts** | **Not solved.** A publishes a bounty on their repository, B fixes it, B is credited; they swap next time. The self-merge rule does not catch it. The 1000-point ceiling makes it slow rather than impossible. Candidate mitigations — minimum repository age or stars, a per-pair rate limit, a cap on points from one maintainer, review of outliers — are none of them built |
+| **Two cooperating accounts** | **Not detected.** Moderation can now withdraw an award once a person notices, but nothing finds one. A publishes a bounty on their repository, B fixes it, B is credited; they swap next time. The self-merge rule does not catch it. The 1000-point ceiling makes it slow rather than impossible. Candidate mitigations — minimum repository age or stars, a per-pair rate limit, a cap on points from one maintainer, review of outliers — are none of them built |
 | **Low-value merges** | A typo fix in a participating repository earns the same baseline as a real fix |
 | **Reverted merges** | Not detected. The correction mechanism exists (`record_adjustment`) but nothing calls it automatically |
-| **Moderation** | No endpoint and no UI. An adjustment can only be written from code |
+| **Moderation** | Three endpoints exist (report, review, resolve) and withdrawing an award writes an append-only `void` entry. **There is no UI for any of it**, no queue, no assignment, and no notification — a moderator works through the API. Nothing *detects* abuse; a person still has to notice |
 | **Renamed or transferred repositories** | A bounty stops matching new pull requests after a rename. Matching is case-insensitive but not rename-aware |
 
 ## Pull request lifecycle

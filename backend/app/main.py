@@ -26,6 +26,7 @@ from .features.merged_prs.router import router as merged_prs_router
 from .features.points.router import router as points_router
 from .routes.issues import router as issues_router
 from .routes.maintainer import router as maintainer_router
+from .routes.moderation import router as moderation_router
 
 configure_logging(settings.log_level, json_logs=settings.json_logs)
 
@@ -71,6 +72,7 @@ app.include_router(merged_prs_router)
 app.include_router(points_router)
 app.include_router(issues_router)
 app.include_router(maintainer_router)
+app.include_router(moderation_router)
 # Mounted only in a test environment. In any other configuration the path is not routed at all, so it
 # cannot be reached even with the right header.
 if test_auth_enabled():

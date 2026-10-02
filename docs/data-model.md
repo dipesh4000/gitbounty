@@ -105,6 +105,18 @@ the next run, and — on failure — a message safe to show a user plus GitHub's
 `sync_runs_one_running_per_user` is a partial unique index allowing one running sync per user, which is what
 makes a double-clicked Sync button harmless.
 
+## moderation_flags — 0012
+
+A report, and what a moderator did about it.
+
+| Column | Notes |
+|---|---|
+| `subject_kind` | `bounty`, `pull_request` or `ledger_entry`, with a check that the matching columns identify one |
+| `reason` | **check:** non-empty. A report without a reason is not a report |
+| `status` | `open`, `upheld` or `dismissed` |
+| `resolution_ledger_entry_id` | the `void` entry written when an award was withdrawn — never a reference to an edited row, because there are none |
+| resolution columns | **check:** anything not `open` must name the moderator, the time, the resolution and a reason |
+
 ## schema_migrations — 0006
 
 Which migration files have been applied, with the sha256 of each one's contents at the time. Written by

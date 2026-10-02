@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     # Two weeks. A session cookie is a bearer credential, so this is a real expiry, not a formality.
     session_max_age_seconds: int = 60 * 60 * 24 * 14
 
+    # Who may review and resolve moderation flags, as a comma-separated list of **stable GitHub numeric
+    # ids** -- not logins, which a person can change, and not internal row ids, which differ per database.
+    #
+    # Empty by default, and an empty list means **nobody is an administrator**. GitBounty has no
+    # trustworthy administrator model of its own -- no roles table, no invitation flow, no way to verify
+    # that whoever first signed in should have power over everybody else's points -- so the honest
+    # arrangement is a list the owner writes down, and failing closed when they have not.
+    admin_github_ids: str = ""
+
     #: Log level for everything GitBounty logs.
     log_level: str = "INFO"
     #: One JSON object per line. Turn it off locally if a human is reading the terminal.
@@ -67,6 +76,20 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def admin_github_id_list(self) -> frozenset[int]:
+        """The administrators, as GitHub numeric ids. Anything unparseable is dropped, not guessed.
+
+        A malformed entry must never widen the set: an id that cannot be read as an integer is ignored,
+        so `ADMIN_GITHUB_IDS="12,,oops,34"` grants 12 and 34 and nothing else.
+        """
+        found: set[int] = set()
+        for part in self.admin_github_ids.split(","):
+            part = part.strip()
+            if part.isdigit():
+                found.add(int(part))
+        return frozenset(found)
 
     @property
     def github_api(self) -> str:

@@ -126,8 +126,27 @@ edit:
 
 A user whose entries net to zero or less drops off the leaderboard rather than sitting at the bottom of it.
 
-`POST` endpoints for moderation are **not built**; `record_adjustment` is called from code and tests only.
-That is the honest state: the ledger supports corrections, and there is no UI for making one.
+### Moderation
+
+Three endpoints, no dashboard:
+
+| | |
+|---|---|
+| `POST /api/moderation/flags` | Report a bounty, a contribution or a specific award, with a reason. **Any signed-in person may report.** A report changes nothing by itself — no points move, nothing is hidden — because an automatic consequence for an unreviewed report would be a denial-of-service tool pointed at other contributors |
+| `GET /api/moderation/flags` | The reports. **Administrators only** |
+| `POST /api/moderation/flags/{id}/resolve` | Dismiss, uphold, or withdraw an award. **Administrators only** |
+
+**Withdrawing an award never edits or deletes it.** It writes a new `void` entry for the negation of the
+original value, naming the moderator, the flag and the reason. Both rows stay, and the contributor sees
+both in their points history. An award cannot be withdrawn twice, and a withdrawal cannot itself be
+withdrawn.
+
+**Who is an administrator.** A configured list of **stable GitHub numeric ids** (`ADMIN_GITHUB_IDS`) — not
+logins, which a person can change. It is **empty by default, and an empty list means nobody**: every
+moderation endpoint answers 403 until the owner writes the list down. GitBounty has no trustworthy
+administrator model of its own — no roles table, no invitation flow, no way to verify that whoever first
+signed in should have power over everybody else's points — so failing closed is the only safe arrangement.
+There is no UI for any of this.
 
 ## Where a bounty's value and category are fixed
 

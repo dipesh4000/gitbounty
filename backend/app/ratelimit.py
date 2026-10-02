@@ -50,6 +50,8 @@ RULES: tuple[tuple[str, Limit], ...] = (
     ("/api/issues/sync", Limit(6, 60)),
     ("/api/maintainer/bounties", Limit(30, 60)),
     ("/api/maintainer/repositories", Limit(60, 60)),
+    # Reporting is cheap but a flood of reports is its own kind of abuse.
+    ("/api/moderation/flags", Limit(20, 60)),
     ("/auth/github", Limit(20, 60)),
     ("/test-auth/", Limit(60, 60)),
     ("/api/leaderboard", Limit(120, 60)),
