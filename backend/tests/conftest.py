@@ -7,16 +7,43 @@ fail, when it isn't running: someone reviewing the pure logic shouldn't need Doc
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
 
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
+
+# Run against the declared defaults, not against whoever's machine this is. `app.config` reads
+# backend/.env by default, so without this a developer's own ALLOWED_ORIGINS, DATABASE_URL or OAuth
+# credentials leak into the suite and a test can pass here and fail in CI (or the reverse). This has to
+# happen before anything imports `app`, which is why it sits at module scope in conftest.
+os.environ["GITBOUNTY_ENV_FILE"] = ""
+for _leaked in (
+    "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_CALLBACK_URL", "FRONTEND_URL",
+    "SESSION_SECRET", "TOKEN_ENCRYPTION_KEY", "DATABASE_URL", "ALLOWED_ORIGINS",
+    "DEV_LOGIN_STUB_ENABLED", "DEV_GITHUB_LOGIN", "DEV_GITHUB_TOKEN", "DEV_GITHUB_ID",
+):
+    os.environ.pop(_leaked, None)
+
 DEV_DATABASE_URL = "postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev"
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEV_DATABASE_URL)
 
-SCHEMA = Path(__file__).resolve().parent.parent / "dev" / "schema.sql"
+MIGRATIONS = sorted((Path(__file__).resolve().parents[2] / "migrations").glob("*.sql"))
+
+
+async def apply_migrations(connection: asyncpg.Connection) -> None:
+    """Build the schema from migrations/, which is the only description of it.
+
+    Previously this applied backend/dev/schema.sql: a second, hand-maintained copy of the same tables
+    that could drift from the files actually applied to the real database. Bootstrapping from the
+    migrations means the suite is also a clean-database bootstrap test (rules.md section 4).
+    """
+    for path in MIGRATIONS:
+        await connection.execute(path.read_text())
 
 
 @pytest.fixture
@@ -27,13 +54,16 @@ async def db() -> AsyncIterator[asyncpg.Connection]:
     except Exception as error:  # not running, wrong port, no such database
         pytest.skip(f"No local database at {TEST_DATABASE_URL} ({type(error).__name__}). See backend/dev/README.md")
 
-    await connection.execute(SCHEMA.read_text())
+    await apply_migrations(connection)
 
     transaction = connection.transaction()
     await transaction.start()
     # Start from empty inside the transaction, so a test sees only its own rows even when the development
     # database has data in it. The rollback puts that data back; nothing is actually deleted.
-    await connection.execute("truncate merged_prs, issue_points, users restart identity cascade")
+    await connection.execute(
+        "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+        "issues, repositories, users restart identity cascade"
+    )
     try:
         yield connection
     finally:
@@ -46,3 +76,70 @@ async def user_id(db: asyncpg.Connection) -> int:
     from app.features.points.store import upsert_user
 
     return await upsert_user(db, github_id=1, github_login="aastha-malik")
+
+
+# --- the API client, against a real database --------------------------------
+
+API_TEST_DATABASE_URL = os.environ.get(
+    "API_TEST_DATABASE_URL",
+    "postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_api_test",
+)
+
+#: The login the development stub authenticates as in API tests.
+DEV_LOGIN = "aastha-malik"
+
+TRUNCATE_ALL = (
+    "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+    "issues, repositories, users restart identity cascade"
+)
+
+
+@pytest.fixture
+def api(monkeypatch: pytest.MonkeyPatch) -> Iterator["TestClient"]:
+    """A TestClient with the database connected and the development login stub on.
+
+    Its own database (`gitbounty_api_test`), never the dev one, because it clears tables between tests and
+    nothing that clears tables should point anywhere near data someone is using. The schema is built from
+    migrations/, so this works on a machine where the database exists but is empty.
+    """
+    import asyncio
+
+    from fastapi.testclient import TestClient
+
+    from app.config import settings
+    from app.main import app
+
+    async def prepare() -> None:
+        connection = await asyncpg.connect(API_TEST_DATABASE_URL, timeout=3)
+        try:
+            await apply_migrations(connection)
+            await connection.execute(TRUNCATE_ALL)
+        finally:
+            await connection.close()
+
+    try:
+        asyncio.run(prepare())
+    except Exception as error:
+        pytest.skip(f"No API test database ({type(error).__name__}). See backend/dev/README.md")
+
+    monkeypatch.setattr(settings, "database_url", API_TEST_DATABASE_URL)
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", True)
+    monkeypatch.setattr(settings, "dev_github_login", DEV_LOGIN)
+    monkeypatch.setattr(settings, "dev_github_token", "not-a-real-token")
+
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Every test starts with an empty counter.
+
+    The limiter is per process and keyed by caller; a whole suite running as one caller would otherwise
+    trip it, and a test would fail because of what an earlier test did rather than because of itself.
+    """
+    from app.ratelimit import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()

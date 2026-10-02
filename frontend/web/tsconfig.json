@@ -26,9 +26,13 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  /* This app is built by vinext, not `next build`. Anything `next dev` happens to have left in .next/
+     is stale generated output -- typechecking it reported three errors in a file nobody wrote. */
+  /* vitest.config.ts is excluded: it imports vitest's own bundled vite, which is a different
+     rollup/rolldown build from the one this app uses, and typechecking the two together produces a
+     conflict in node_modules rather than in any code anybody wrote. The tests themselves under tests/
+     are still typechecked. */
+  "exclude": ["node_modules", ".next", ".vinext", "dist", "vitest.config.ts"]
 }

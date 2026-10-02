@@ -16,6 +16,7 @@ from ..models import (
     ISSUE_LIST_COLUMNS,
     CategoryCounts,
     IssueList,
+    IssueOut,
     SyncResult,
 )
 from ..services.issue_sync import run_sync
@@ -42,6 +43,7 @@ async def browse_issues(
     category: str | None = Query(default=None, description="frontend, backend, fullstack or docs"),
     language: str | None = Query(default=None),
     q: str | None = Query(default=None, description="search the issue title"),
+    repository: str | None = Query(default=None, description="exact owner/repository name"),
     sort: str = Query(default="updated", description="updated or stars"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=25, ge=1, le=100),
@@ -63,26 +65,40 @@ async def browse_issues(
             select {ISSUE_LIST_COLUMNS}
             from issues i
             join repositories r on r.id = i.repository_id
-            join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+            join issue_points ip
+                 on lower(ip.repo_full_name) = lower(r.full_name)
+                and ip.issue_number = i.number
+                and ip.status = 'published'
             left join users u on u.id = ip.set_by_user_id
             where i.state = 'open'
               and ($1::text is null or i.category = $1)
               and ($2::text is null or lower(i.language) = lower($2))
               and ($3::text is null or i.title ilike '%' || $3 || '%')
+              and ($4::text is null or lower(r.full_name) = lower($4))
             order by {order_by}
-            limit $4 offset $5
+            limit $5 offset $6
             """,
             category,
             language,
             q,
+            repository,
             per_page + 1,
             (page - 1) * per_page,
         )
     except asyncpg.UndefinedTableError as error:
-        raise HTTPException(status_code=503, detail="Bounty publishing is awaiting database migration 0004.") from error
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The database is missing a table this needs. Apply the migrations: "
+                "`python dev/migrate.py up` (see migrations/README.md)."
+            ),
+        ) from error
 
+    # asyncpg returns Record objects, which Pydantic will not coerce into a model -- it accepts a dict or
+    # an instance, and a Record is neither. Passing rows straight through made this endpoint fail with a
+    # 500 against a real database while every mocked test (which handed it dicts) passed.
     return IssueList(
-        items=rows[:per_page],
+        items=[IssueOut(**dict(row)) for row in rows[:per_page]],
         page=page,
         per_page=per_page,
         sort=sort,
@@ -99,11 +115,20 @@ async def category_counts() -> CategoryCounts:
             select category, count(*) as count
             from issues i
             join repositories r on r.id = i.repository_id
-            join issue_points ip on ip.repo_full_name = r.full_name and ip.issue_number = i.number
+            join issue_points ip
+                 on lower(ip.repo_full_name) = lower(r.full_name)
+                and ip.issue_number = i.number
+                and ip.status = 'published'
             where i.state = 'open'
             group by category
             """
         )
     except asyncpg.UndefinedTableError as error:
-        raise HTTPException(status_code=503, detail="Bounty publishing is awaiting database migration 0004.") from error
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The database is missing a table this needs. Apply the migrations: "
+                "`python dev/migrate.py up` (see migrations/README.md)."
+            ),
+        ) from error
     return CategoryCounts(**{row["category"]: row["count"] for row in rows})

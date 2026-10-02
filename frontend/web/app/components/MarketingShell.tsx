@@ -19,8 +19,10 @@ const footerGroups = [
 ] as const;
 
 export function MarketingShell({ children, current }: { children: React.ReactNode; current?: string }) {
-  const { user, loading, connect } = useAuth();
+  const { user, status, signIn, signOut } = useAuth();
+  const loading = status === "loading";
   const authLabel = user ? `@${user.github_login}` : "Connect GitHub";
+  const onAccountButton = () => (user ? signOut() : signIn());
 
   return (
     <div className="mp-site">
@@ -39,7 +41,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
           </nav>
           <div className="mp-actions">
             <Link className="mp-button mp-button-quiet" href="/extension">Get extension</Link>
-            <button className="mp-button mp-button-primary" type="button" disabled={loading} title={user ? "Sign out" : undefined} onClick={() => connect("nav")}>{authLabel}</button>
+            <button className="mp-button mp-button-primary" type="button" disabled={loading} title={user ? "Sign out" : undefined} onClick={onAccountButton}>{authLabel}</button>
           </div>
           <details className="mp-mobile-menu">
             <summary>Menu</summary>
@@ -47,7 +49,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
               {primaryLinks.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
               <Link href="/extension">Get extension</Link>
               <Link href="https://github.com/dipesh4000/gitbounty">GitHub ↗</Link>
-              <button type="button" disabled={loading} onClick={() => connect("nav")}>{authLabel}</button>
+              <button type="button" disabled={loading} onClick={onAccountButton}>{authLabel}</button>
             </nav>
           </details>
         </div>

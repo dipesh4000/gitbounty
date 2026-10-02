@@ -52,5 +52,22 @@
     return Number(points).toLocaleString("en-US");
   }
 
-  return { closingIssueNumbers, parsePointsLabel, parseIssueLocation, parsePullLocation, formatPoints };
+  function findPublishedBounty(items, repository, number) {
+    if (!Array.isArray(items)) return null;
+    const expectedRepository = String(repository || "").toLowerCase();
+    const expectedNumber = Number(number);
+    const match = items.find((item) =>
+      String(item?.repository || "").toLowerCase() === expectedRepository &&
+      Number(item?.number) === expectedNumber &&
+      Number.isFinite(Number(item?.points))
+    );
+    if (!match) return null;
+    return {
+      points: Number(match.points),
+      category: String(match.category || "other").toLowerCase(),
+      title: String(match.title || "Tracked issue"),
+    };
+  }
+
+  return { closingIssueNumbers, findPublishedBounty, parsePointsLabel, parseIssueLocation, parsePullLocation, formatPoints };
 });

@@ -8,10 +8,9 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
-  globalIgnores([
-    ".next/**", "dist/**", "out/**", "build/**", "next-env.d.ts",
-    "app/components/AuthProvider.tsx", "app/components/BountyBoard.tsx", "app/components/SiteFooter.tsx",
-  ]),
+  // Build output and generated files only. No application file is excluded: the three that used to be
+  // here were dead components, and they have been deleted rather than hidden from the linter.
+  globalIgnores([".next/**", ".vinext/**", "dist/**", "out/**", "build/**", "next-env.d.ts"]),
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   react.configs.flat.recommended,

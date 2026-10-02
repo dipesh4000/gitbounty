@@ -1,0 +1,246 @@
+name: CI
+
+# Every push and every pull request. Nothing here deploys anything, and nothing here touches a shared
+# database: the Postgres below is a service container that exists for the length of one job.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gitbounty
+          POSTGRES_PASSWORD: gitbounty_local_dev
+          POSTGRES_DB: gitbounty_dev
+        ports: ["5440:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitbounty"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+
+      - name: Create the test databases
+        env:
+          PGPASSWORD: gitbounty_local_dev
+        run: |
+          psql -h localhost -p 5440 -U gitbounty -d postgres \
+            -c "create database gitbounty_api_test" \
+            -c "create database gitbounty_bootstrap_test"
+
+      # Proves migrations/ is a complete description of the schema, from nothing.
+      - name: Bootstrap a clean database from the migrations
+        working-directory: backend
+        run: |
+          python dev/migrate.py up \
+            --database-url postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev
+          python dev/migrate.py status \
+            --database-url postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev
+
+      - name: Tests
+        working-directory: backend
+        # No skips: the databases above exist, so every database-backed test must actually run.
+        run: pytest -q -p no:randomly
+
+      - name: Fail if any test skipped
+        working-directory: backend
+        run: |
+          pytest -q 2>&1 | tee result.txt
+          if grep -qE "[0-9]+ skipped" result.txt; then
+            echo "::error::Tests skipped in CI. A skip here means a dependency the job should have provided."
+            exit 1
+          fi
+
+  frontend:
+    name: Website
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/web
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/web/package-lock.json
+
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Component tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Dependency audit
+        # Advisory for development-only findings; a production-dependency vulnerability fails the job.
+        run: npm audit --omit=dev --audit-level=high
+
+  extension:
+    name: Extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/extension
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/extension/package-lock.json
+
+      - run: npm ci
+      - name: Syntax check and tests
+        run: npm run check
+      - name: Manifest is valid JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8'))"
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: End to end
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gitbounty
+          POSTGRES_PASSWORD: gitbounty_local_dev
+          POSTGRES_DB: gitbounty_dev
+        ports: ["5440:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitbounty"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Backend dependencies
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements-dev.txt
+
+      - name: Website dependencies
+        working-directory: frontend/web
+        run: npm ci
+
+      - name: End-to-end dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      # Drives the real backend, a real Postgres and the production build of the website.
+      # Only github.com is substituted, by a local server. Nothing shared is touched.
+      - name: Run
+        working-directory: e2e
+        run: npm test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-failure
+          path: e2e/test-results/
+          retention-days: 7
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # gitleaks scans the working tree and the whole history. No licence key is needed for a public repo;
+      # on a private repo it runs in a reduced mode, which is still better than nothing.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # A cheap, dependency-free backstop for the two mistakes most likely here, so this job is still
+      # useful if the action above is unavailable.
+      - name: No .env file is tracked
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example'; then
+            echo "::error::An .env file is tracked. See rules.md section 5."
+            exit 1
+          fi
+      - name: No obvious credential in a tracked file
+        run: |
+          python - <<'PY'
+          import re, subprocess, sys
+
+          # Shapes that would be a real leak.
+          PATTERNS = [
+              (re.compile(r"gh[pousr]_[A-Za-z0-9]{36}"), "a GitHub token"),
+              (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "a private key"),
+              (re.compile(r"postgres(?:ql)?://[^\s\"']*:[^\s\"']*@([^\s\"'/:]+)"), "a database URL with a password"),
+          ]
+
+          # Hosts that cannot be a real credential: the documented local throwaway container, and the
+          # reserved example/invalid names used in tests. Anything else is reported.
+          LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+          FAKE_SUFFIXES = (".example.com", ".invalid", ".example", ".test")
+
+          files = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split()
+          findings = []
+          for name in files:
+              if name.endswith((".png", ".jpg", ".jpeg", ".zip", ".svg", ".woff2")):
+                  continue
+              try:
+                  text = open(name, encoding="utf-8", errors="ignore").read()
+              except OSError:
+                  continue
+              for pattern, what in PATTERNS:
+                  for match in pattern.finditer(text):
+                      host = match.group(1) if match.groups() else ""
+                      if host and (host in LOCAL_HOSTS or host.endswith(FAKE_SUFFIXES)):
+                          continue
+                      line = text[: match.start()].count("\n") + 1
+                      findings.append(f"{name}:{line}: {what}")
+
+          for finding in findings:
+              print(f"::error::{finding}")
+          print(f"{len(files)} tracked files scanned, {len(findings)} findings")
+          sys.exit(1 if findings else 0)
+          PY

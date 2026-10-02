@@ -1,4 +1,5 @@
 # Secrets. Never commit these. See rules.md section 5.
+.env
 *.env
 .env.*
 !.env.example
@@ -15,3 +16,6 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# Node
+node_modules/

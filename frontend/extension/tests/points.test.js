@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   closingIssueNumbers,
+  findPublishedBounty,
   formatPoints,
   parseIssueLocation,
   parsePointsLabel,
@@ -15,6 +16,16 @@ test("parses the shared gitbounty points label without confusing similar labels"
   assert.equal(parsePointsLabel("gitbounty:80 points"), 80);
   assert.equal(parsePointsLabel("gitbounty-ready"), null);
   assert.equal(parsePointsLabel("bounty:40"), null);
+});
+
+test("finds a website-published bounty by repository and issue number", () => {
+  const items = [{ repository: "aasha-malik/gitbounty", number: 42, points: 40, category: "frontend", title: "Fix focus" }];
+  assert.deepEqual(findPublishedBounty(items, "AASHA-MALIK/GITBOUNTY", 42), {
+    points: 40,
+    category: "frontend",
+    title: "Fix focus",
+  });
+  assert.equal(findPublishedBounty(items, "aasha-malik/gitbounty", 43), null);
 });
 
 test("recognises issue lists and issue detail paths only", () => {

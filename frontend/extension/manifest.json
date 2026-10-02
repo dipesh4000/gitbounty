@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
   "name": "GitBounty Issue Points",
-  "description": "Shows GitBounty issue points, contribution activity, and merge rewards on GitHub.",
-  "version": "0.2.0",
-  "permissions": ["activeTab"],
-  "host_permissions": ["http://localhost:8001/*"],
+  "description": "Shows published GitBounty point values and categories beside GitHub issues and pull requests.",
+  "version": "0.4.0",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://localhost:8001/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
   "action": {
     "default_title": "GitBounty",
     "default_popup": "popup/popup.html"
@@ -17,13 +24,20 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*"],
+      "matches": [
+        "https://github.com/*"
+      ],
       "include_globs": [
         "https://github.com/*/*/issues*",
         "https://github.com/*/*/pull*"
       ],
-      "js": ["src/points.js", "src/content.js"],
-      "css": ["styles/content.css"],
+      "js": [
+        "src/points.js",
+        "src/content.js"
+      ],
+      "css": [
+        "styles/content.css"
+      ],
       "run_at": "document_idle"
     }
   ]

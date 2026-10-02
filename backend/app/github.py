@@ -12,6 +12,10 @@ from typing import Any
 
 import httpx
 
+from .config import settings
+
+#: The real GitHub API. Read through `settings.github_api` at call time so the
+#: end-to-end test can point it at a local stand-in; see app/config.py.
 GITHUB_API_URL = "https://api.github.com"
 
 _TIMEOUT = httpx.Timeout(15.0)
@@ -65,7 +69,7 @@ async def search_issues(token: str, query: str, per_page: int = 50, page: int = 
     """
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(
-            f"{GITHUB_API_URL}/search/issues",
+            f"{settings.github_api}/search/issues",
             headers=_headers(token),
             params={
                 "q": query,
@@ -86,7 +90,7 @@ async def get_repo(token: str, full_name: str) -> dict[str, Any] | None:
     """Fetch one repository's metadata. Returns None if it is gone or private."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(
-            f"{GITHUB_API_URL}/repos/{full_name}", headers=_headers(token)
+            f"{settings.github_api}/repos/{full_name}", headers=_headers(token)
         )
     if response.status_code in (404, 403):
         return None
@@ -106,7 +110,7 @@ async def list_user_repositories(
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for page in range(1, max_pages + 1):
             response = await client.get(
-                f"{GITHUB_API_URL}/users/{username}/repos",
+                f"{settings.github_api}/users/{username}/repos",
                 headers=_headers(token),
                 params={
                     "type": "owner",
@@ -133,7 +137,7 @@ async def list_repo_issues(token: str, full_name: str, *, max_pages: int = 5) ->
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for page in range(1, max_pages + 1):
             response = await client.get(
-                f"{GITHUB_API_URL}/repos/{full_name}/issues",
+                f"{settings.github_api}/repos/{full_name}/issues",
                 headers=_headers(token),
                 params={"state": "open", "per_page": 100, "page": page, "sort": "created"},
             )
@@ -146,3 +150,70 @@ async def list_repo_issues(token: str, full_name: str, *, max_pages: int = 5) ->
             if len(page_items) < 100:
                 break
     return found
+
+
+async def list_authorized_repositories(
+    token: str,
+    *,
+    max_pages: int = 10,
+) -> list[dict[str, Any]]:
+    """Every repository the signed-in user can administer or maintain, personal or organisation.
+
+    `GET /user/repos` is used rather than `GET /users/{login}/repos` for one reason: it returns a
+    `permissions` object for the authenticated user on each repository. That is what makes organisation
+    support possible without guessing -- GitHub states whether this person has `admin` or `maintain` on the
+    repository, so GitBounty does not have to assume that every member of an organisation may publish
+    bounties on its repositories.
+
+    `affiliation` asks for repositories the user owns, collaborates on, or reaches through an organisation
+    team. Filtering down to admin/maintain happens in `can_publish_bounties`, which is the one place that
+    decides, so there is a single definition to read and test.
+    """
+    found: list[dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        for page in range(1, max_pages + 1):
+            response = await client.get(
+                f"{settings.github_api}/user/repos",
+                headers=_headers(token),
+                params={
+                    "affiliation": "owner,collaborator,organization_member",
+                    "sort": "updated",
+                    "direction": "desc",
+                    "per_page": 100,
+                    "page": page,
+                },
+            )
+            if response.status_code in (403, 429):
+                raise RateLimited(_retry_after_seconds(response))
+            if response.status_code == 401:
+                raise GitHubError("GET /user/repos returned 401")
+            if response.status_code != 200:
+                raise GitHubError(f"GET /user/repos returned {response.status_code}")
+            page_items = response.json()
+            found.extend(page_items)
+            if len(page_items) < 100:
+                break
+    return found
+
+
+def can_publish_bounties(repo: dict[str, Any], github_login: str) -> bool:
+    """Whether this person may publish a GitBounty bounty on this repository.
+
+    One definition, used by both the listing and every write, so a repository that cannot be listed also
+    cannot be published to by a hand-made request.
+
+    The rule: GitHub must say they have `admin` or `maintain` on the repository, or they must be its
+    personal owner. `push` is deliberately not enough -- a contributor with write access can merge, and
+    somebody who can both set a bounty's value and merge the pull request that claims it is the collusion
+    case with only one person in it.
+
+    GitHub's own `permissions` object is the source of truth. The client never gets to assert ownership.
+    """
+    owner = repo.get("owner") or {}
+    permissions = repo.get("permissions") or {}
+    if permissions.get("admin") or permissions.get("maintain"):
+        return True
+    return (
+        owner.get("type") == "User"
+        and str(owner.get("login", "")).casefold() == github_login.casefold()
+    )

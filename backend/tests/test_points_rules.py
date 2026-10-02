@@ -1,8 +1,19 @@
-"""How many points a merged PR is worth."""
+"""The points rules: what a merged pull request is worth, and the bounds on a published bounty."""
 
 import pytest
 
-from app.features.points.rules import FLAT_POINTS_PER_MERGE, award_for_merge, points_from_labels
+from app.features.points.rules import (
+    FLAT_POINTS_PER_MERGE,
+    MAX_ISSUE_POINTS,
+    MIN_ISSUE_POINTS,
+    RULE_VERSION,
+    PointsOutOfRange,
+    baseline_award,
+    is_valid_bounty_points,
+    points_from_labels,
+    suggested_bounty_points,
+    validate_bounty_points,
+)
 
 
 @pytest.mark.parametrize(
@@ -30,22 +41,41 @@ def test_points_from_labels(labels: tuple[str, ...], expected: int | None) -> No
     assert points_from_labels(labels) == expected
 
 
-def test_the_highest_label_wins_when_a_creator_left_an_old_one_behind() -> None:
+def test_the_highest_label_wins_when_a_maintainer_left_an_old_one_behind() -> None:
     assert points_from_labels(("gitbounty:10", "gitbounty:30")) == 30
 
 
-def test_an_unmarked_merge_still_earns_the_flat_amount() -> None:
-    assert award_for_merge(None) == FLAT_POINTS_PER_MERGE
+def test_the_baseline_is_a_fixed_documented_amount() -> None:
+    assert baseline_award() == FLAT_POINTS_PER_MERGE == 5
 
 
-def test_a_marked_issue_adds_its_value_on_top() -> None:
-    assert award_for_merge(40) == FLAT_POINTS_PER_MERGE + 40
+def test_a_bounty_value_is_bounded_at_both_ends() -> None:
+    """MAX_ISSUE_POINTS used to be None, with a comment admitting that was the known way to cheat."""
+    assert MIN_ISSUE_POINTS == 1
+    assert MAX_ISSUE_POINTS == 1000
+
+    assert is_valid_bounty_points(1)
+    assert is_valid_bounty_points(1000)
+    assert not is_valid_bounty_points(0)
+    assert not is_valid_bounty_points(-5)
+    assert not is_valid_bounty_points(1001)
+    assert not is_valid_bounty_points(100_000)
 
 
-def test_zero_points_is_honoured_not_treated_as_unset() -> None:
-    """A creator who says an issue is worth 0 has said something; it isn't the same as saying nothing."""
-    assert award_for_merge(0) == FLAT_POINTS_PER_MERGE
+def test_validate_names_the_bounds_in_its_error() -> None:
+    assert validate_bounty_points(40) == 40
+    for rejected in (0, -1, 1001, 100_000):
+        with pytest.raises(PointsOutOfRange, match="between 1 and 1000"):
+            validate_bounty_points(rejected)
 
 
-def test_a_negative_value_is_ignored_rather_than_subtracting() -> None:
-    assert award_for_merge(-50) == FLAT_POINTS_PER_MERGE
+def test_a_label_suggestion_is_clamped_rather_than_dropped() -> None:
+    """`gitbounty:5000` means "a lot"; showing the maintainer 1000 beats showing them nothing."""
+    assert suggested_bounty_points(("gitbounty:40",)) == 40
+    assert suggested_bounty_points(("gitbounty:5000",)) == MAX_ISSUE_POINTS
+    assert suggested_bounty_points(("gitbounty:0",)) == MIN_ISSUE_POINTS
+    assert suggested_bounty_points(("bug",)) is None
+
+
+def test_the_rule_version_is_recorded_so_old_awards_stay_explainable() -> None:
+    assert RULE_VERSION == "points-v1"
