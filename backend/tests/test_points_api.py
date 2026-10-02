@@ -429,3 +429,32 @@ def test_the_website_origin_is_allowed_but_a_stranger_is_not(api: TestClient) ->
 
     stranger = api.get("/api/leaderboard", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in stranger.headers
+
+
+@respx.mock
+def test_the_pull_request_list_agrees_with_the_award_after_a_late_publish(api: TestClient) -> None:
+    """End to end for the publish-after-merge case, through the API the website actually reads.
+
+    The award is written on the second sync. If the pull-request row still said "no bounty" the website
+    would show "Baseline awarded" next to a figure of 45 -- two statements that cannot both be true.
+    """
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"items": [
+            search_item(pr_id=1, repo="org/a", number=1, author=DEV_LOGIN, body="Closes #12"),
+        ]})
+    )
+    respx.get(files_url("org/a", 1)).mock(return_value=httpx.Response(200, json=[]))
+
+    first = sync(api)
+    assert first["recent_merges"][0]["points"] == 0
+    assert first["recent_merges"][0]["bounty_issue_number"] is None
+
+    publish_bounty("org/a", 12, 40, category="docs")
+    second = sync(api, full=True)
+
+    merge = second["recent_merges"][0]
+    assert merge["points"] == 45
+    assert merge["bounty_repo_full_name"] == "org/a"
+    assert merge["bounty_issue_number"] == 12
+    assert merge["bounty_points"] == 40
+    assert merge["category"] == "docs", "the maintainer's category, now that there is a bounty"

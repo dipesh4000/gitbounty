@@ -491,3 +491,23 @@ async def test_only_published_bounties_are_offered_to_the_sync(db: asyncpg.Conne
     assert offered.points == 40
     assert offered.category == Category.DOCS, "the maintainer's category, not an inferred one"
     assert offered.maintainer_user_id == maintainer
+
+
+async def test_a_bounty_published_after_the_merge_shows_on_the_pull_request(
+    db: asyncpg.Connection, user_id: int
+) -> None:
+    """The realistic order of events: the contributor syncs, then the maintainer publishes the bounty.
+
+    The award is written on the next sync. What a contributor is *shown* for that pull request has to agree
+    with it -- saying "baseline awarded" next to a row worth 45 would be its own kind of lie.
+    """
+    await record_merges(db, user_id, [merge(1)])                       # no bounty yet
+    assert (await recent_merges(db, user_id))[0].points == FLAT_POINTS_PER_MERGE
+
+    await record_merges(db, user_id, [merge(1, on_bounty=bounty(points=40))])   # published since
+
+    row = (await recent_merges(db, user_id))[0]
+    assert row.points == 40 + FLAT_POINTS_PER_MERGE
+    assert row.bounty_repo_full_name == "org/project"
+    assert row.bounty_issue_number == 12
+    assert row.bounty_points == 40

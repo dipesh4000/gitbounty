@@ -517,16 +517,33 @@ async def recent_merges(
                m.number,
                m.title,
                m.url,
-               m.category,
+               -- The ledger decides, where it has an opinion. A bounty published *after* the merge was
+               -- first seen is awarded on the next sync, but the merged_prs row is inserted once and
+               -- never updated -- so reading the bounty from it showed "no bounty" next to a row worth
+               -- 45, which contradicts the award beside it.
+               coalesce(award.category, m.category)        as category,
                m.merged_at,
-               m.closed_issue_repo   as bounty_repo_full_name,
-               m.closed_issue_number as bounty_issue_number,
-               m.issue_points        as bounty_points,
-               coalesce((
-                   select sum(l.points)::int from points_ledger l
-                   where l.user_id = m.user_id and l.github_pr_id = m.github_pr_id
-               ), 0) as points
+               coalesce(award.bounty_repo, m.closed_issue_repo)     as bounty_repo_full_name,
+               coalesce(award.bounty_number, m.closed_issue_number) as bounty_issue_number,
+               coalesce(award.bounty_points, m.issue_points)        as bounty_points,
+               coalesce(ledger.points, 0)                           as points
         from merged_prs m
+        left join lateral (
+            select sum(l.points)::int as points
+            from points_ledger l
+            where l.user_id = m.user_id and l.github_pr_id = m.github_pr_id
+        ) ledger on true
+        left join lateral (
+            select l.bounty_repo_full_name  as bounty_repo,
+                   l.bounty_issue_number    as bounty_number,
+                   l.bounty_points_at_award as bounty_points,
+                   l.category               as category
+            from points_ledger l
+            where l.user_id = m.user_id
+              and l.github_pr_id = m.github_pr_id
+              and l.kind = 'bounty_award'
+            limit 1
+        ) award on true
         where m.user_id = $1
         order by m.merged_at desc
         limit $2
