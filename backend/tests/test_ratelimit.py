@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import settings
+from app.config import Settings, settings
 from app.main import app
 from app.ratelimit import RULES, FixedWindowLimiter, Limit, caller_for, limiter, rule_for
 
@@ -185,3 +185,32 @@ def test_a_preflight_is_never_rate_limited(client: TestClient) -> None:
             headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"},
         )
         assert response.status_code != 429
+
+
+# --- the test-environment multiplier --------------------------------------
+
+
+def test_the_multiplier_is_ignored_outside_a_test_environment() -> None:
+    """A knob that could loosen production limits from the environment would defeat having them."""
+    assert Settings().rate_limit_multiplier == 1
+    assert Settings(rate_limit_scale=1000).rate_limit_multiplier == 1
+    assert Settings(rate_limit_scale=1000, GITBOUNTY_ENVIRONMENT="production").rate_limit_multiplier == 1
+    assert Settings(rate_limit_scale=1000, GITBOUNTY_ENVIRONMENT="Test").rate_limit_multiplier == 1
+
+
+def test_the_multiplier_applies_in_a_test_environment() -> None:
+    assert Settings(rate_limit_scale=50, GITBOUNTY_ENVIRONMENT="test").rate_limit_multiplier == 50
+    # It can only ever loosen, never tighten to nothing.
+    assert Settings(rate_limit_scale=0, GITBOUNTY_ENVIRONMENT="test").rate_limit_multiplier == 1
+    assert Settings(rate_limit_scale=-5, GITBOUNTY_ENVIRONMENT="test").rate_limit_multiplier == 1
+
+
+def test_a_scaled_limit_still_refuses_eventually(client: TestClient, monkeypatch) -> None:
+    """Scaled is not disabled. The limiter must still be the thing that stops a runaway caller."""
+    monkeypatch.setattr(settings, "environment", "test")
+    monkeypatch.setattr(settings, "rate_limit_scale", 2)
+    limit = dict(RULES)["/api/me/sync"]
+
+    statuses = [client.post("/api/me/sync").status_code for _ in range(limit.requests * 2 + 2)]
+
+    assert 429 in statuses, "the limit still exists, it is merely larger"

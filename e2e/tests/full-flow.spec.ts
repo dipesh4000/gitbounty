@@ -268,3 +268,35 @@ test("the test sign-in path is the only way in, and it needs the secret", async 
 
   await context.close();
 });
+
+
+test("rate limiting is in force, not disabled, in the harness", async ({ browser }) => {
+  /*
+    The harness scales the limits so one journey can run nine syncs in a few seconds. "Scaled" must not
+    quietly mean "off": if it did, every other run of this suite would be testing an app with no limiter.
+
+    Checked against the sync endpoint, which has the tightest limit, and **unauthenticated** -- those are
+    counted against the client address rather than a user id, so this cannot exhaust the budget of the
+    journey above. The requests are refused for want of a session long before they do any work.
+  */
+  const context = await browser.newContext();
+  const syncLimitPerMinute = 6 * 5;  // the rule, times the harness's RATE_LIMIT_SCALE
+
+  let sawTooMany = false;
+  for (let attempt = 0; attempt < syncLimitPerMinute + 10 && !sawTooMany; attempt += 1) {
+    const response = await context.request.post(`${API_URL}/api/me/sync`);
+    if (response.status() === 429) {
+      sawTooMany = true;
+      expect(Number(response.headers()["retry-after"])).toBeGreaterThan(0);
+      const body = await response.json();
+      expect(body.detail).toContain("Too many requests");
+      expect(body.retry_after_seconds).toBeGreaterThan(0);
+    } else {
+      // Until the limiter steps in, these are refused for want of a session -- never silently accepted.
+      expect(response.status()).toBe(401);
+    }
+  }
+
+  expect(sawTooMany, "the limiter never refused anything").toBe(true);
+  await context.close();
+});

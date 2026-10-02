@@ -102,6 +102,7 @@ Measured 2026-10-02 on Linux 7.0.0-34-generic, Node v22.23.0, npm 10.9.8.
 cd frontend/web       && npm audit --omit=dev   # found 0 vulnerabilities
 cd frontend/extension && npm audit --omit=dev   # found 0 vulnerabilities
 cd frontend/extension && npm audit              # found 0 vulnerabilities
+cd e2e                && npm audit              # found 0 vulnerabilities
 ```
 
 Nothing that ships to a browser or runs in production has a known advisory. `frontend/web` ships `react`
@@ -111,8 +112,8 @@ pinned exactly in `backend/requirements.txt` (seven packages, all permissive lic
 
 ### Development toolchain: 11 findings, not fixable without breaking the build
 
-`npm audit` in `frontend/web` reports **11 vulnerabilities (1 low, 10 high)**, every one of them in the
-build toolchain. None of these packages runs in production, and none is reachable by a visitor.
+`npm audit` in `frontend/web` reports **13 vulnerabilities (1 low, 2 moderate, 10 high)**, every one of
+them in the build or test toolchain (the two moderate ones arrived with vitest and its dependencies). None of these packages runs in production, and none is reachable by a visitor.
 
 | Package | Severity | Direct? | Reached through |
 |---|---|---|---|

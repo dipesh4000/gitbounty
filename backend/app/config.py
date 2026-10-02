@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     # arrangement is a list the owner writes down, and failing closed when they have not.
     admin_github_ids: str = ""
 
+    # Multiplies every rate limit. **Only honoured when GITBOUNTY_ENVIRONMENT is "test"**, and 1 anywhere
+    # else whatever this says -- a knob that could loosen production limits from the environment would
+    # defeat the point of having them. The end-to-end test needs it because one journey legitimately runs
+    # nine synchronisations in a few seconds, which a person never would.
+    rate_limit_scale: int = 1
+
     #: Log level for everything GitBounty logs.
     log_level: str = "INFO"
     #: One JSON object per line. Turn it off locally if a human is reading the terminal.
@@ -90,6 +96,13 @@ class Settings(BaseSettings):
             if part.isdigit():
                 found.add(int(part))
         return frozenset(found)
+
+    @property
+    def rate_limit_multiplier(self) -> int:
+        """How much to multiply every rate limit by. Always 1 outside a test environment."""
+        if self.environment == "test":
+            return max(1, self.rate_limit_scale)
+        return 1
 
     @property
     def github_api(self) -> str:

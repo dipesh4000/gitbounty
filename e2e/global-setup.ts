@@ -138,8 +138,11 @@ asyncio.run(main())
       // These two together mount the test sign-in path, and nothing else does.
       GITBOUNTY_ENVIRONMENT: "test",
       GITBOUNTY_TEST_AUTH_SECRET: TEST_AUTH_SECRET,
-      // Only honoured because GITBOUNTY_ENVIRONMENT is "test".
+      // Both only honoured because GITBOUNTY_ENVIRONMENT is "test".
       GITHUB_API_URL: FAKE_GITHUB_URL,
+      // One journey legitimately runs nine synchronisations in a few seconds, which a person never
+      // would. The limiter is still in force -- tests/full-flow.spec.ts asserts it still refuses.
+      RATE_LIMIT_SCALE: "5",
       GITHUB_CLIENT_ID: "e2e-client-id",
       GITHUB_CLIENT_SECRET: "e2e-client-secret",
       DEV_LOGIN_STUB_ENABLED: "false",

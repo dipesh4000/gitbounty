@@ -25,6 +25,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from .config import settings
+
 logger = logging.getLogger("gitbounty.ratelimit")
 
 
@@ -151,6 +153,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         prefix, limit = rule
+        # Scaled only in a test environment; `rate_limit_multiplier` is 1 anywhere else whatever the
+        # setting says. A journey that runs nine syncs in a few seconds is a test, not a person.
+        multiplier = settings.rate_limit_multiplier
+        if multiplier > 1:
+            limit = Limit(limit.requests * multiplier, limit.window_seconds)
         caller = caller_for(request)
         retry_after = self.limiter.check(prefix, caller, limit)
         if retry_after is None:

@@ -103,6 +103,14 @@ unless a proxy is known to rewrite it, and trusting it would let anybody reset t
 appear to come from the proxy and share one bucket. This is in
 [`deployment-readiness.md`](deployment-readiness.md).
 
+### In tests
+
+`RATE_LIMIT_SCALE` multiplies every limit, and is **only honoured when `GITBOUNTY_ENVIRONMENT` is
+`"test"`** — it is 1 anywhere else whatever the variable says, because a knob that could loosen production
+limits from the environment would defeat having them. The end-to-end harness sets it to 5, because one
+journey legitimately runs nine synchronisations in a few seconds. "Scaled" is not "off": a test in that
+suite asserts the limiter still refuses.
+
 ### The limitation that matters
 
 The counter is a fixed window **held in this process**. That is honest for what GitBounty is today — one
