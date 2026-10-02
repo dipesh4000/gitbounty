@@ -77,17 +77,29 @@ async def _upsert_repository(repo: dict[str, Any]) -> int:
     return row["id"]
 
 
+# The category inserted here is *inferred* -- classify() reading the repository's language and the issue's
+# labels. A maintainer publishing a bounty chooses one deliberately and it is stored with
+# category_source = 'maintainer'.
+#
+# So this update must not touch category when the existing row says a maintainer chose it. It used to:
+# `category = excluded.category` ran unconditionally, so refreshing the issue board silently reclassified
+# a published bounty and left category_source saying 'maintainer', which made the row lie about where its
+# own category came from. An inference may fill in a blank; it may not overrule a person.
 _ISSUE_UPSERT_SQL = """
     insert into issues (
         github_id, repository_id, number, title, html_url, state,
-        category, language, labels, comments_count,
+        category, category_source, language, labels, comments_count,
         issue_created_at, issue_updated_at, fetched_at
     )
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+    values ($1, $2, $3, $4, $5, $6, $7, 'inferred', $8, $9, $10, $11, $12, now())
     on conflict (github_id) do update set
         title            = excluded.title,
         state            = excluded.state,
-        category         = excluded.category,
+        category         = case
+                               when issues.category_source = 'maintainer' then issues.category
+                               else excluded.category
+                           end,
+        category_source  = issues.category_source,
         language         = excluded.language,
         labels           = excluded.labels,
         comments_count   = excluded.comments_count,
