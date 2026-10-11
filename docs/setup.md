@@ -250,6 +250,46 @@ For the Docker alternative, use `docker stop gitbounty_dev_db`. Stop any webhook
 
 For credential changes and database recovery, use [security and operations](security.md).
 
+## Deployed GitHub configuration
+
+For the current deployment, use these exact URLs in GitHub's application settings:
+
+| Setting | URL |
+|---|---|
+| OAuth App homepage | `https://gitbounty-web.vercel.app` |
+| OAuth App authorization callback | `https://gitbounty-web.vercel.app/auth/github/callback` |
+| GitHub App webhook | `https://gitbounty-web.vercel.app/webhooks/github` |
+
+Set the backend's Vercel production environment variables to match:
+`FRONTEND_URL=https://gitbounty-web.vercel.app`,
+`GITHUB_CALLBACK_URL=https://gitbounty-web.vercel.app/auth/github/callback`,
+`ALLOWED_ORIGINS=https://gitbounty-web.vercel.app`, and `SECURE_COOKIES=true`.
+Use the OAuth App's client ID and client secret for sign-in. The separate GitHub App needs its
+own App ID, installation configuration, accessible private key and matching webhook secret.
+Subscribe that App to pull-request events with read access to issues, pull requests and metadata.
+Redeploy after updating environment variables. Test sign-in in a browser; HTTP readiness does not
+verify GitHub authorization or actual webhook processing.
+
+On 2026-10-11, a read-only check of the deployed `/auth/github` redirect showed
+`redirect_uri=http://localhost:8001/auth/github/callback` and a session cookie without `Secure`.
+The environment values above must be corrected in the deployed backend; a local source edit cannot
+replace Vercel environment variables. Match the GitHub OAuth App callback to the production URL too.
+
+If `/ready` reports `database: unreachable`, inspect the backend log's
+`Could not open the database pool (ExceptionName)` entry without sharing credentials.
+Check that the Vercel backend has the correct production `DATABASE_URL`, the database is active,
+the password is URL-encoded, TLS is configured, and network restrictions allow the deployment.
+For Supabase on an IPv4-only network, use its **Session pooler** connection string (port 5432),
+which supports this app's prepared statements. Transaction pooling requires additional driver
+configuration; do not switch to it blindly. See [Supabase connection options](https://supabase.com/docs/guides/database/connecting-to-postgres).
+No schema changes are needed to resolve a connection failure. Missing tables produce a different
+readiness result; shared migrations still require owner approval.
+
+The deployed multi-service setup returned 404 for `/_next/image` while public PNGs returned 200.
+Next's image optimization is disabled in `frontend/web/next.config.ts`, so images use static asset
+URLs. Landing artwork is extracted from the supplied preview and rendered directly, without waiting
+for a script to assign image sources.
+
 ## Avalanche payments through SmoothSend
 
 Payments execute only on Avalanche C-Chain (43114) or Fuji (43113), through SmoothSend. The current

@@ -1,79 +1,368 @@
 "use client";
 
-import React from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth, loginHref } from "./AuthProvider";
 import { useApiResource } from "../lib/useApiResource";
 import { formatPoints } from "../lib/api";
 
-const steps = [
-  ["01", "Pick an issue", "Maintainers choose an open issue in a repository they manage."],
-  ["02", "Publish a reward", "Set the category and points. The bounty appears on the public board."],
-  ["03", "Ship the fix", "Contributors open a pull request that closes the rewarded issue."],
-  ["04", "Keep the credit", "After an eligible merge, points follow the PR author's GitHub identity."],
-];
+const flows=[['01 / Published bounty','A clear issue. A visible reward.','Published by a maintainer through the GitBounty GitHub App. Read the requirements and discuss your approach before you start.','acme/webkit #128\nMake keyboard navigation work for everyone','Frontend · Accessibility','40 bounty points'],['02 / Pull request','Your code. Their review.','Open a pull request that closes the issue and go through the normal GitHub review process. No GitBounty account needed yet — eligibility follows the PR.','feat: add keyboard focus to filter menu\nCloses #128 · PR #142 by @sam-dev','Review and merge on GitHub','Contribution in progress'],['03 / Contribution recorded','Merged work. Lasting credit.','GitHub sends a webhook when the PR merges. GitBounty checks it against eligibility rules, then allocates points to the author’s GitHub ID — even before they’ve signed up.','@sam-dev · acme/webkit #142\n40 bounty points + 5 baseline points','Recorded for the PR author','45 points to claim']];
+const roles={contributor:[['01 / CONNECT','Bring your GitHub identity.','Sign in to explore bounties and keep your work connected to your account.'],['02 / CONTRIBUTE','Find something you can fix.','Choose an issue, follow the contribution guide, and open your pull request.'],['03 / BUILD YOUR RECORD','Make the merge count.','After an eligible merge, claim your allocated points and see the contribution in your history.']],maintainer:[['01 / CONNECT','Bring your project.','Sign in with GitHub, then connect the GitBounty GitHub App to a public repository you administer or maintain.'],['02 / PUBLISH','Point to the work that matters.','Choose an open issue, set a category and point reward, then review and publish.'],['03 / REVIEW','Keep your GitHub workflow.','Review the contribution and merge when ready. Connect the GitHub App for automatic merge processing.']]};
+const colors=["#242032","#392347","#593073","#8550b2","#bd8af0"];
+
+function onTabKey(event) {
+  const tabs=Array.from(event.currentTarget.querySelectorAll("[role=tab]"));
+  const current=tabs.indexOf(document.activeElement);
+  let next;
+  if (["ArrowRight","ArrowDown"].includes(event.key)) next=(current+1)%tabs.length;
+  else if (["ArrowLeft","ArrowUp"].includes(event.key)) next=(current-1+tabs.length)%tabs.length;
+  else if (event.key === "Home") next=0;
+  else if (event.key === "End") next=tabs.length-1;
+  else return;
+  event.preventDefault(); tabs[next].focus(); tabs[next].click();
+}
 
 export default function BroadsheetLanding() {
-  const { user, error, signOut } = useAuth();
-  const { resource, reload } = useApiResource("/api/issues?per_page=4&sort=updated");
-  const issues = resource.data?.items ?? [];
-  return <div className="reward-site">
-    <a className="skip" href="#top">Skip to main content</a>
-    <div className="ann"><a href="/extension">The GitBounty extension puts rewards inside GitHub →</a></div>
-    <header><div className="w sn">
-      <a className="brand" href="/"><Image src="/icon-192.png" width={34} height={34} alt="" />GitBounty</a>
-      <nav className="nl" aria-label="Primary"><a className="nb" href={user ? "/explore" : loginHref("/explore")}>Explore bounties</a><a className="nb" href="#how">How it works</a><a className="nb" href="/docs">Docs</a></nav>
-      <div className="na">
-        {user ? <React.Fragment><a className="si" href={user ? "/explore" : loginHref("/explore")}>@{user.github_login}</a><button className="b s" onClick={signOut}>Sign out</button></React.Fragment>
-          : <a className="b s" href={loginHref()}>Sign in with GitHub</a>}
-        <a className="b s p" href={user ? "/maintainers" : loginHref("/maintainers")}>Create a bounty</a>
-      </div>
-    </div></header>
-    {error && <p className="w auth-notice" role="status">{error}</p>}
-    <main id="top">
-      <section className="sh"><div className="w">
-        <p className="hero-eyebrow"><i /> Built for the work worth shipping</p>
-        <h1>Turn GitHub issues into <span>opportunities.</span></h1>
-        <p className="lead">Point rewards for GitHub issues, and a contribution history that follows the PR author.</p>
-        <div className="cta"><a className="b p" href={user ? "/explore" : loginHref("/explore")}>Explore bounties</a><a className="b" href={user ? "/maintainers" : loginHref("/maintainers")}>Create a bounty</a></div>
-        <div className="stage"><div className="win" aria-label="Illustrative reward example">
-          <div className="bar"><span className="dots"><i /><i /><i /></span><span className="url">github.com/acme/webkit/issues/3847</span><span className="xt">GitBounty</span></div>
-          <div className="gh"><div className="ghm">
-            <h2>Task queue stalls when concurrency exceeds worker count <small>#3847</small></h2>
-            <p className="m"><span className="open">Open</span> kenji-r opened this issue · 3 comments</p>
-            <div className="cm"><b>kenji-r</b><p>Once in-flight tasks pass the worker pool size, the queue stops draining. Repro: <code>bench/queue.test.ts</code></p></div>
-            <ul className="tl"><li><i /><span><b>mira-dev</b> opened pull request <u>#412</u> that closes this issue</span></li><li><i /><span><b>kenji-r</b> merged <u>#412</u></span></li><li className="hl"><i /><span><b>GitBounty</b> recorded <b>250 pts</b> for <b>@mira-dev</b></span></li></ul>
-          </div><aside className="ghs"><div><h3>Labels</h3><span className="lb">bug</span><span className="lb">good first issue</span></div><div className="gb"><h3>GitBounty reward</h3><div className="pts">250 <span>pts</span></div><ul><li>Earned after an eligible closing PR merges</li><li>Goes to the PR author&apos;s GitHub account</li></ul></div></aside></div>
-        </div><div className="fl"><b>@mira-dev · Contribution history</b><div className="pts">+250 <span>pts</span></div><small>acme/webkit#412 merged</small></div></div>
-        <p className="cap">Illustrative interface. Names and values are placeholders. Rewards are points.</p>
-        <a className="scroll-cue" href="#how">Discover the workflow <span aria-hidden="true">↓</span></a>
-      </div></section>
-      <div className="reward-trust"><div className="w"><span>Built for open source</span><span>GitHub identities</span><span>Issue rewards</span><span>Merged pull requests</span><span>Contribution history</span></div></div>
-      <section className="s" id="how"><div className="w"><h2>From issue to contribution history.</h2><p className="sub">A familiar GitHub workflow, with a reason to pick up the next issue.</p><div className="reward-steps">{steps.map(([number,title,copy]) => <div className="win pad" key={number}><span className="pt">{number}</span><h3>{title}</h3><p>{copy}</p></div>)}</div></div></section>
-      <section className="s alt" id="contributors"><div className="w sp"><div className="t"><h2>Find work worth your evening.</h2><p className="sub">Browse published bounties, filter by technology and category, and open the issue on GitHub when one fits.</p><a className="b p section-action" href={user ? "/explore" : loginHref("/explore")}>Browse all bounties →</a></div>
-        <div className="win pad" aria-live="polite">
-          <div className="bar">Published bounties</div>
-          {resource.status === "loading" && <p className="em">Loading published bounties…</p>}
-          {resource.error && <div className="em"><p>Published bounties didn’t load. {resource.error}</p><button className="b" onClick={reload}>Retry</button></div>}
-          {resource.status === "ready" && !issues.length && <div className="em"><p>No bounties have been published yet.</p><a className="b" href={user ? "/maintainers" : loginHref("/maintainers")}>Publish the first bounty</a></div>}
-          <ul>{issues.map(issue => <li key={issue.id}><a className="row" href={user ? issue.html_url : loginHref()}><div><b>{issue.title}</b><small>{issue.repository} #{issue.number} · {issue.language || issue.category}</small></div><span className="pt">+{formatPoints(issue.points)}</span></a></li>)}</ul>
-        </div>
-      </div></section>
-      <section className="s" id="maintainers"><div className="w sp r"><div className="t"><h2>Set the reward. Show the rules.</h2><p className="sub">Choose your repository and an open issue, set the points, then review and publish. Manage everything you have published in one place.</p><a className="b p section-action" href={user ? "/maintainers" : loginHref("/maintainers")}>Create a bounty</a></div><div className="win pad"><span className="pt">For repository maintainers</span><div className="big">1–1,000 <span>pts</span></div><ul className="rules"><li>Publish on repositories you administer or maintain</li><li>Rewards follow the eligible closing PR author</li><li>Public issues appear on the website and extension</li><li>Connect the GitHub App for automatic merge processing</li></ul></div></div></section>
-      <section className="s alt" id="extension"><div className="w sp"><div><h2>The reward is already on the issue.</h2><p className="sub">See published point values inside GitHub. Your extension keeps your activity and contribution history one click away.</p><a className="b section-action" href="/extension">Install the extension →</a></div><div className="win pad"><div className="bar"><span className="xt">GitBounty for GitHub</span></div><div className="ir"><i /><span>Task queue stalls when concurrency exceeds worker count</span><span className="pt">★ 250 pts</span></div><p className="cap">Illustrative issue badge. Only published rewards appear in the extension.</p></div></div></section>
-      <section className="s" id="identity"><div className="w sp"><div><p className="section-kicker">A history that stays yours</p><h2>Your work. Your GitHub identity.</h2><p className="sub">Eligible rewards recorded before you join wait under your GitHub account. Sign in and claim them from your points history.</p><a className="b section-action" href={user ? "/leaderboard" : loginHref("/leaderboard")}>See the leaderboard →</a></div>
-        <figure className="heat-card"><div className="heat-heading"><h3>Contribution activity</h3><span>Example profile</span></div>
-          <div className="heat-months" aria-hidden="true"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div>
-          <div className="reward-heatmap" role="img" aria-label="Illustrative contribution graph with purple squares showing different activity levels; not account data.">
-            {Array.from({ length: 36 * 7 }, (_, i) => <i aria-hidden="true" key={i} data-level={Math.floor(((i * 19 + i * i * 5 + 7) % 17) / 4)} />)}
+  const {user,error}=useAuth();
+  const {resource,reload}=useApiResource("/api/issues?per_page=4&sort=updated");
+  const issues=resource.data?.items ?? [];
+  const destination=path => user ? path : loginHref(path);
+  const [flow,setFlow]=useState(0);
+  const [role,setRole]=useState("contributor");
+  const root=useRef(null);
+  useEffect(() => {
+    const element=root.current;
+    const motion=window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let frame;
+    const update=() => {
+      const y=window.scrollY;
+      element.querySelector("#nav").classList.toggle("scrolled",y>10);
+      const max=document.documentElement.scrollHeight-window.innerHeight;
+      element.style.setProperty("--p",max>0 ? String(y/max) : "0");
+      element.querySelectorAll("[data-speed]").forEach(node => {
+        node.style.translate=motion?.matches ? "none" : "0 "+(y*Number(node.dataset.speed))+"px";
+      });
+    };
+    const scroll=() => {cancelAnimationFrame(frame); frame=requestAnimationFrame(update);};
+    const hero=element.querySelector(".hero");
+    const glow=event => {
+      if(motion?.matches) return;
+      const bounds=hero.getBoundingClientRect();
+      hero.style.setProperty("--mx",(event.clientX-bounds.left)+"px");
+      hero.style.setProperty("--my",(event.clientY-bounds.top)+"px");
+    };
+    hero.addEventListener("pointermove",glow);
+    const observer=typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(entries => {
+      entries.forEach(entry => {if(entry.isIntersecting){entry.target.classList.add("in");observer.unobserve(entry.target);}});
+    },{threshold:.12});
+    if(observer){element.classList.add("enhanced");element.querySelectorAll(".reveal").forEach(node => observer.observe(node));}
+    window.addEventListener("scroll",scroll,{passive:true});
+    motion?.addEventListener("change",scroll);
+    update();
+    return () => {window.removeEventListener("scroll",scroll);hero.removeEventListener("pointermove",glow);motion?.removeEventListener("change",scroll);cancelAnimationFrame(frame);observer?.disconnect();element.classList.remove("enhanced");};
+  },[]);
+  return <div className="landing-preview" ref={root}>
+{error && <p role="status" className="wrap">{error}</p>}
+
+<a className="skip" href="#main">Skip to content</a>
+<div className="progress" aria-hidden="true"></div>
+<div className="notice"><b>BUILT FOR OPEN SOURCE</b> &nbsp; / &nbsp; Your GitHub identity. Your contribution history.</div>
+
+<header className="nav" id="nav">
+  <div className="wrap navrow">
+    <a className="brand" href="/"><Image src="/favicon.svg" width={32} height={32} unoptimized alt="" />GitBounty</a>
+    <nav className="navlinks" aria-label="Primary">
+      <a href="#workflow">How it works</a>
+      <a href="#identity">For contributors</a>
+      <a href="#extension">Extension</a>
+    </nav>
+    <div className="actions">
+      <a className="signin btn"  href={user ? "/explore" : loginHref()}>{user ? "@"+user.github_login : "Sign in with GitHub"}</a>
+      <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section className="hero" id="top">
+  <div className="hero-glow" aria-hidden="true"></div>
+  <Image className="hero-mascot hm-left" src="/mascot-backpack_phone.svg" width={270} height={297} unoptimized data-speed="-0.12" alt="" aria-hidden="true" />
+  <div className="wrap hero-inner">
+    <a className="announcement reveal" href="#extension"><span>GITHUB, WITH REWARDS</span> Meet your new sidekick <b aria-hidden="true">→</b></a>
+    <h1 className="reveal">Good work <em>deserves</em><br />to be seen.</h1>
+    <p className="intro reveal">Find an issue worth your time. Ship a pull request.<br />Build a contribution history that speaks for itself.</p>
+    <div className="actions reveal">
+      <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
+      <a className="btn"  href={destination("/maintainers")}>Create a bounty <span aria-hidden="true">→</span></a>
+    </div>
+    <p className="micro reveal">Your GitHub account. Your contributions. Your credit.</p>
+
+    <div className="stage reveal">
+      <div className="window hero-window">
+        <div className="windowbar"><i className="dot"></i><i className="dot"></i><i className="dot"></i><span className="address">github.com / acme / webkit / issues / 128</span><b>GitBounty for GitHub</b></div>
+        <div className="issuebody">
+          <div className="issue-main">
+            <div className="repo"><span>acme</span> / <span>webkit</span> &nbsp; · &nbsp; Public repository</div>
+            <h3>Make keyboard navigation work for everyone <small>#128</small></h3>
+            <div className="meta"><span className="pill">◉ Open</span> opened by alex-dev · 3 comments</div>
+            <div className="comment">
+              <div className="avatar">a</div>
+              <div><b>alex-dev</b><p>The filter menu should be easy to use without a mouse. Let&apos;s make every option reachable with <span className="code">Tab</span>.</p></div>
+            </div>
           </div>
-          <div className="heat-legend" aria-hidden="true"><span>Less</span>{[0,1,2,3,4].map(level => <i key={level} data-level={level} />)}<span>More</span></div>
-          <figcaption>Illustrative activity, not live account data. Your Points workspace records eligible merges, rewards and claims.</figcaption>
-          <div className="heat-note"><span>Linked to your GitHub identity</span><span>Points, always</span></div>
-        </figure>
-      </div></section>
-      <section className="s"><div className="w"><div className="fin"><Image src="/reward-mascot-1.png" width={150} height={169} alt="GitBounty cat holding a reward coin" /><div><h2>Start with one issue.</h2><p className="sub">Publish a reward as a maintainer, or find the next thing worth picking up.</p><div className="cta section-action"><a className="b p" href={user ? "/explore" : loginHref("/explore")}>Explore bounties</a><a className="b" href={user ? "/maintainers" : loginHref("/maintainers")}>Create a bounty</a></div></div></div></div></section>
-    </main>
-    <footer><div className="w"><a className="brand" href="/">GitBounty</a><span>© 2026 GitBounty</span><nav aria-label="Footer"><a href="/docs">Docs</a><a href="https://github.com/dipesh4000/gitbounty">GitHub</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></div></footer>
-  </div>;
+          <aside className="issue-side">
+            <div className="label">On this issue</div>
+            <div className="tags">accessibility &nbsp; · &nbsp; frontend</div>
+            <div className="reward">
+              <div className="eyebrow" style={{"fontSize":"8px"}}>GitBounty reward</div>
+              <strong>40 <small>points</small></strong>
+              <p>For the author of the eligible closing pull request.</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <div className="receipt-float">
+        <span className="check" aria-hidden="true">✓</span>
+        <div><strong>Contribution recognised</strong><p>@sam-dev · Pull request #142 merged</p></div>
+        <span className="number">+45 <small>pts</small></span>
+      </div>
+    </div>
+    <p className="sample">Illustrative interface. Names and values are placeholders. 40 bounty points + 5 baseline points.</p>
+  </div>
+</section>
+
+<section className="showcase" aria-labelledby="showcase-title">
+  <div className="wrap">
+    <div className="showcase-heading reveal">
+      <p className="eyebrow">Everything connected to the work</p>
+      <h2 id="showcase-title">From an issue to<br /><span>your contribution record.</span></h2>
+      <p>A GitHub webhook tells GitBounty when a pull request merges, so credit always lands on the GitHub account that opened it &mdash; verified, not self-reported.</p>
+    </div>
+    <div className="showcase-scene">
+      <div className="showcase-stack">
+        <article className="showcase-card reveal">
+          <small>01 / DISCOVER</small>
+          <strong>Published issues</strong>
+          <div className="showcase-item"><span>◉</span><span>Make keyboard navigation work</span><b>40 pts</b></div>
+          <div className="showcase-item"><span>◉</span><span>Document the setup flow</span><b>20 pts</b></div>
+        </article>
+        <article className="showcase-card reveal">
+          <small>02 / BUILD</small>
+          <strong>A pull request on GitHub</strong>
+          <div className="showcase-code">+ focus-visible support<br />+ keyboard filter controls<br /><span>Closes #128 · PR #142</span></div>
+        </article>
+      </div>
+      <div className="showcase-mascot reveal">
+        <Image className="mascot" src="/mascot-magnifier.svg" width={302} height={298} unoptimized alt="GitBounty mascot inspecting a contribution with a magnifying glass" />
+        <span className="orbit orbit-one" aria-hidden="true">✳</span>
+        <span className="orbit orbit-two" aria-hidden="true">+</span>
+      </div>
+      <article className="showcase-card showcase-result reveal">
+        <small>03 / RECOGNISE</small>
+        <strong>Contribution recorded</strong>
+        <div className="showcase-result-score">+45 <span>points</span></div>
+        <p>For @sam-dev, the author of the eligible merged pull request.</p>
+        <div className="showcase-result-foot"><span>40 bounty + 5 baseline</span><span>✓ Verified work</span></div>
+      </article>
+    </div>
+    <p className="sample">Illustrative product scene · actual awards depend on GitBounty&apos;s eligibility rules</p>
+  </div>
+</section>
+
+<div className="principles" aria-label="GitBounty principles">
+  <div className="ticker">
+    <span>Verified by GitHub webhooks</span><span>Public repositories only</span><span>Points have no cash value</span><span>Credit to the PR author, always</span>
+    <span aria-hidden="true">Verified by GitHub webhooks</span><span aria-hidden="true">Public repositories only</span><span aria-hidden="true">Points have no cash value</span><span aria-hidden="true">Credit to the PR author, always</span>
+  </div>
+</div>
+
+<section className="section" aria-labelledby="published-heading"><div className="wrap"><p className="eyebrow">From the community</p><h2 id="published-heading">Published bounties</h2><div aria-live="polite">{resource.status === "loading" && <p className="api-notice">Loading published bounties…</p>}{resource.error && <div className="api-notice"><p>Published bounties didn’t load. {resource.error}</p><button className="btn" onClick={reload}>Retry</button></div>}{resource.status === "ready" && !issues.length && <div className="api-notice"><p>No bounties have been published yet.</p><a className="btn" href={destination("/maintainers")}>Publish the first bounty</a></div>}<ul className="published-list">{issues.map(issue => <li key={issue.id}><a href={user ? issue.html_url : loginHref()}><div><b>{issue.title}</b><small>{issue.repository} #{issue.number} · {issue.language || issue.category}</small></div><strong>+{formatPoints(issue.points)}</strong></a></li>)}</ul></div></div></section>
+<section className="section">
+  <div className="wrap">
+    <div className="section-head reveal">
+      <div>
+        <p className="eyebrow">A little direction. A lot of possibility.</p>
+        <h2>Less searching.<br />More shipping.</h2>
+      </div>
+      <p>Give meaningful work a place to be discovered. Give the people who do it a record to keep.</p>
+    </div>
+    <div className="cards">
+      <article className="card reveal">
+        <div className="mini">
+          <div className="mini-line"><span>◉ Fix keyboard focus</span><b>40 pts</b></div>
+          <div className="mini-line"><span>◉ Improve the setup guide</span><b>20 pts</b></div>
+          <div className="mini-line"><span>◉ Add regression coverage</span><b>60 pts</b></div>
+        </div>
+        <h3>Find your kind of work.</h3>
+        <p>Browse GitBounty-registered rewards on public repositories. External bounty labels aren&apos;t GitBounty rewards — only what&apos;s published here counts.</p>
+      </article>
+      <article className="card reveal">
+        <div className="mini">
+          <div className="mini-line"><span>Reward for this issue</span><span>↗</span></div>
+          <div className="amount">40 <small>points</small></div>
+          <div className="mini-line"><span className="category">Frontend</span><span>Ready to publish ✓</span></div>
+        </div>
+        <h3>Make priorities visible.</h3>
+        <p>Connect a public repository through the GitBounty GitHub App, choose an issue, set its point reward, and publish.</p>
+      </article>
+      <article className="card reveal">
+        <div className="mini">
+          <div className="mini-line"><span style={{"color":"#b58cfa"}}>⑂ Pull request merged</span><b>+45 pts</b></div>
+          <div className="ruleline"></div>
+          <div className="ruleline short"></div>
+          <div className="mini-line"><span>Recorded for @sam-dev</span><span>✓</span></div>
+        </div>
+        <h3>Keep the credit.</h3>
+        <p>GitHub sends a webhook on merge. GitBounty checks it against eligibility rules, then credits the PR author — not whoever clicked merge.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="workflow" className="section connected">
+  <div className="wrap split">
+    <div className="reveal">
+      <p className="eyebrow">One familiar workflow</p>
+      <h2>From “I can fix that”<br />to “I built that.”</h2>
+      <p className="desc">Maintainers connect a public repository through the GitBounty GitHub App and publish rewards on the issues they choose. The work itself still happens as a normal GitHub pull request.</p>
+      <div className="flowtabs" role="tablist" tabIndex={-1} onKeyDown={onTabKey} aria-label="Contribution workflow" aria-orientation="vertical">
+        <button className="flowtab" id="flow-tab-0" role="tab" aria-selected={flow === 0} aria-controls="flow-panel" data-flow="0" tabIndex={flow === 0 ? 0 : -1} onClick={() => setFlow(0)}><span className="stepnum">01</span>Find a published issue<span className="arr" aria-hidden="true">↗</span></button>
+        <button className="flowtab" id="flow-tab-1" role="tab" aria-selected={flow === 1} aria-controls="flow-panel" data-flow="1" tabIndex={flow === 1 ? 0 : -1} onClick={() => setFlow(1)}><span className="stepnum">02</span>Make your contribution<span className="arr" aria-hidden="true">↗</span></button>
+        <button className="flowtab" id="flow-tab-2" role="tab" aria-selected={flow === 2} aria-controls="flow-panel" data-flow="2" tabIndex={flow === 2 ? 0 : -1} onClick={() => setFlow(2)}><span className="stepnum">03</span>Build your record<span className="arr" aria-hidden="true">↗</span></button>
+      </div>
+    </div>
+    <div className="reveal">
+      <div className="window" id="flow-panel" role="tabpanel" aria-labelledby={"flow-tab-"+flow} tabIndex={0}>
+        <div className="windowbar"><i className="dot"></i><i className="dot"></i><i className="dot"></i><span className="address">The contribution journey</span></div>
+        <div className="flow-preview" id="flow-box">
+          <span className="state" id="flow-state">{flows[flow][0]}</span>
+          <h3 id="flow-title">{flows[flow][1]}</h3>
+          <p id="flow-desc">{flows[flow][2]}</p>
+          <div className="flow-code" id="flow-code">{flows[flow][3]}</div>
+          <div className="flow-footer"><span id="flow-label">{flows[flow][4]}</span><b id="flow-value">{flows[flow][5]}</b></div>
+        </div>
+      </div>
+      <p className="sample">Interactive product illustration · select a step to explore</p>
+    </div>
+  </div>
+</section>
+
+<section id="identity" className="section identity">
+  <div className="wrap split">
+    <div className="reveal">
+      <div className="profile">
+        <div className="profilehead"><div className="avatar">s</div><div><b>Sam Developer</b><p>@sam-dev</p></div><span>Contributor</span></div>
+        <div className="stats"><div><strong>245</strong><small>Points earned</small></div><div><strong>9</strong><small>Merged contributions</small></div></div>
+        <div className="label">A little progress, day after day.</div>
+        <div id="graph" className="graph" role="img" aria-label="Illustrative purple contribution activity over 26 weeks">{Array.from({length:182}, (_,i) => <span className="cell" key={i} style={{background:colors[(i*17+i%9*7)%11<4?0:(i*13)%4+1]}} />)}</div>
+        <div className="legend"><span>Contribution activity</span><span>Less <i style={{"background":"#242032"}}></i><i style={{"background":"#44285f"}}></i><i style={{"background":"#593073"}}></i><i style={{"background":"#bf8bff"}}></i> More</span></div>
+        <div className="activity"><span style={{"color":"#bc8dec"}}>⑂</span><span>Keyboard navigation improved<br /><span style={{"color":"#827d93"}}>acme/webkit · #142</span></span><b>+45 pts</b></div>
+      </div>
+      <p className="sample">Example profile and activity. Not live account data.</p>
+    </div>
+    <div className="reveal">
+      <p className="eyebrow">A record that belongs to you</p>
+      <h2>Your work adds up.<br />Let it show.</h2>
+      <p className="desc">Build a history of the projects you helped move forward, one merged contribution at a time.</p>
+      <ul>
+        <li>Every point traces back to a specific merged pull request.</li>
+        <li>Rewards follow your GitHub numeric ID, not your username &mdash; a handle change never breaks a claim.</li>
+        <li>Points earned before you had an account stay allocated and wait for you to claim.</li>
+      </ul>
+      <a className="btn"  href={destination("/leaderboard")} style={{"marginTop":"28px"}}>Meet the contributors <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="extension" className="extension">
+  <div className="wrap split">
+    <div className="reveal">
+      <p className="eyebrow">Right where you already work</p>
+      <h2>A sidekick for<br />your next contribution.</h2>
+      <p className="desc">See GitBounty-registered point rewards beside the issue on GitHub &mdash; not just any bounty label someone pasted into the title. Public repositories only.</p>
+      <a className="btn"  href={"/extension"} style={{"marginTop":"28px"}}>Install the extension <span aria-hidden="true">↗</span></a>
+      <p className="micro" style={{"marginTop":"13px","textAlign":"left"}}>Chrome, Edge &amp; Brave · manual developer installation · no sign-in required to browse</p>
+    </div>
+    <div className="ext-box reveal">
+      <div className="repo"><span>⌘ &nbsp; acme / webkit</span><span>Issues</span></div>
+      <div className="ext-row"><span>◉</span><span>Make keyboard navigation<br />work for everyone</span><b>✳ 40 pts</b></div>
+      <div className="ext-row dim"><span>◉</span><span>Update browser support docs</span></div>
+      <div className="ext-row dim"><span>◉</span><span>Improve empty state copy</span></div>
+      <p className="sample">Only GitBounty-registered issues carry a points tag &mdash; the rest show none</p>
+    </div>
+  </div>
+</section>
+
+<section id="start" className="section start">
+  <div className="wrap">
+    <p className="eyebrow reveal">Your next step</p>
+    <h2 className="reveal">Start with what you do best.</h2>
+    <p className="reveal">There’s a place for both sides of a pull request.</p>
+    <Image className="mascot rocket reveal" src="/mascot-rocket.svg" width={252} height={295} unoptimized alt="GitBounty mascot riding a rocket toward the next issue" />
+    <div className="role-switch reveal" role="tablist" tabIndex={-1} onKeyDown={onTabKey} aria-label="Choose your role">
+      <button id="role-contributor" role="tab" aria-selected={role === "contributor"} aria-controls="role-panel" data-role="contributor" tabIndex={role === "contributor" ? 0 : -1} onClick={() => setRole("contributor")}>I want to contribute</button>
+      <button id="role-maintainer" role="tab" aria-selected={role === "maintainer"} aria-controls="role-panel" data-role="maintainer" tabIndex={role === "maintainer" ? 0 : -1} onClick={() => setRole("maintainer")}>I maintain a project</button>
+    </div>
+    <div className="start-steps" id="role-panel" role="tabpanel" aria-labelledby={"role-"+role} tabIndex={0}>{roles[role].map(([number,title,copy]) => <article className="start-step" key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}</div>
+    <a className="btn primary reveal" id="role-cta"  href={role === "maintainer" ? destination("/maintainers") : destination("/explore")}>{role === "maintainer" ? "Publish my first bounty ↗" : "Find my first bounty ↗"}</a>
+  </div>
+</section>
+
+<section className="final">
+  <div className="wrap final-inner">
+    <Image className="mascot reveal" src="/mascot-trophy.svg" width={251} height={280} unoptimized alt="GitBounty mascot holding a golden contribution award" />
+    <div className="reveal">
+      <p className="eyebrow">Small fixes. Lasting contributions.</p>
+      <h2>Your next issue<br />could be the one.</h2>
+      <p>Help a project move forward. Take your credit with you.</p>
+      <div className="actions">
+        <a className="btn primary"  href={destination("/explore")}>Explore bounties ↗</a>
+        <a className="btn"  href={destination("/maintainers")}>Create a bounty →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div className="wrap">
+    <div className="footer-main">
+      <div className="footer-brand">
+        <a className="brand" href="/"><Image src="/favicon.svg" width={32} height={32} unoptimized alt="" />GitBounty</a>
+        <p>Find worthwhile issues. Build a contribution history that follows your GitHub identity.</p>
+        <span className="footer-tag">Open-source work, made visible.</span>
+      </div>
+      <nav className="footer-nav" aria-label="Footer">
+        <div>
+          <h3>Explore</h3>
+          <a href="#workflow">How it works</a>
+          <a href="#identity">Contribution history</a>
+          <a href="#start">Get started</a>
+        </div>
+        <div>
+          <h3>Product</h3>
+          <a href="#extension">Browser extension</a>
+          <a href="#workflow">Points workflow</a>
+          <a href="#start">For maintainers</a>
+        </div>
+        <div>
+          <h3>Information</h3>
+          <a  href={"/docs"}>Docs</a>
+          <a  href={"/privacy"}>Privacy</a>
+          <a  href={"/terms"}>Terms</a>
+        </div>
+      </nav>
+    </div>
+    <div className="footer-bottom">
+      <span>© 2026 GitBounty</span>
+      <span>Points recognise contributions and have no cash value.</span>
+      <a href="#top">Back to top ↑</a>
+    </div>
+  </div>
+</footer>
+
+
+</div>;
 }

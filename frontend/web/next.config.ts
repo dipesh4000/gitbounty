@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Vercel's multi-service deployment serves public files, but /_next/image returns 404.
+  // Use those static files directly for the site's small, already compressed images.
+  images: { unoptimized: true },
   /* There is an unrelated package-lock.json in a parent directory outside this repository, and without this
      Turbopack picks that up as the workspace root. Pin the root to this app. */
   turbopack: {

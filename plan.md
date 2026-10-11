@@ -19,7 +19,17 @@ Product decisions are in [overview.md](overview.md).
 | AVAX | Fixed owner promises, wallet ownership proofs, individual signed payments and receipt verification | Enable after shared migration approval; verify a real wallet/mainnet payment and withdrawal |
 | Operations | Readiness, structured logs, rate limiting, CI and a durable webhook retry worker | Hosting, monitoring and production configuration |
 
-There is no deployed service or extension-store release documented in this repository.
+The website is deployed at `https://gitbounty-web.vercel.app`. On 2026-10-11, its public `/ready`
+reported all checks configured and `database: ok`. The supplied landing design is implemented in
+React with static mascot assets and real navigation. The live image optimizer returned 404 while
+static images returned 200; the local Next configuration now serves images directly. These landing
+and image changes need redeployment. No extension-store release is documented in this repository.
+Local verification for the new landing: production build and TypeScript pass, ESLint is clean,
+all 66 website tests pass, and Chrome checks at 1440/768/375/320px pass for images, keyboard tabs,
+real route links, sticky navigation, overflow, reduced motion and WCAG A/AA accessibility scans.
+Browser API responses were stubbed for these landing checks; they do not prove live OAuth or webhook processing.
+The live OAuth start endpoint still redirects with a localhost callback and sets a session cookie without
+`Secure`. Correct the production backend environment using `docs/setup.md` and redeploy before testing sign-in.
 The extension currently targets localhost. Owner-funded AVAX payment code is present;
 live execution is disabled pending shared migration/configuration. No mainnet payment has been verified.
 
