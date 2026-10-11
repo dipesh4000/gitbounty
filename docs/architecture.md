@@ -85,7 +85,8 @@ Processing path:
 
 GitHub event → signature verification → durable delivery record → worker → verified GitHub data → points transaction.
 
-The receiver accepts `pull_request`, `installation`, `installation_repositories` and `ping` events.
+The receiver accepts `issues`, `pull_request`, `installation`, `installation_repositories` and `ping` events.
+Issue closed/reopened events verify live state and update discovery only; sync recovers missed issue updates.
 Persist a delivery before acknowledging acceptance; track success/failure and retry safely.
 Do not award for a closed issue or an unmerged PR. Verify scope and PR author, and reuse the same award rules
 for webhook processing and reconciliation. Duplicate delivery must not mint another award.
@@ -100,7 +101,32 @@ GitHub does not automatically redeliver failed webhooks; retain recovery/reconci
 See [GitHub's delivery guidance](https://docs.github.com/en/webhooks/using-webhooks/handling-failed-webhook-deliveries)
 and [signature guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
 
-## Extension updates
+## SmoothSend payments
+
+The frontend dynamically loads `@smoothsend/sdk/avax` in `app/lib/wallet.ts`. It checks the network
+and linked payer, quotes the USDC fee with `estimateUserPaysFee`, and submits using
+`submitSponsoredUserOperation` with explicit `mode: "user-pays-erc20"`. Despite the method name,
+this mode charges the owner in USDC; GitBounty does not sponsor fees. Before broadcast, the owner's
+signature and exact operation are saved to the backend. Recovery resubmits that saved operation.
+
+`backend/app/routes/payments.py` resolves claim amount, recipient, network, smart account and nonce
+from authenticated records. `backend/app/smoothsend.py` builds the reward transfer and capped fee
+approval, validates the operation hash/calldata, and checks the EntryPoint event plus the exact token
+Transfer in that operation's log segment. Only verified success becomes paid. Pending/unknown stays
+unpaid; a verified failed operation permits another attempt. Migration 0016 adds SmoothSend fields
+and receipt history on top of 0015's immutable terms, claims and permanent wallet links.
+
+Only the dashboard public key reaches the browser. The optional secret gateway key stays server-side;
+the backend currently falls back to the public key when no secret is configured. Production setup
+should configure both and the exact allowed origin. MCP tools help development; they do not execute
+runtime payouts. No direct-transfer fallback, internal balance or sponsored withdrawal is implemented.
+
+This promotes SmoothSend through a concrete merge-to-payment demonstration: visible provider attribution,
+smart-account funding, a quoted USDC fee, an owner signature and verifiable settlement. It does not imply
+a partnership, free fees or a completed live payout. [Setup](setup.md#avalanche-payments-through-smoothsend)
+and [demo steps](testing-data.md#a-fund-and-pay-through-smoothsend) describe the required configuration.
+
+## Extension refresh behavior
 
 Content scripts decorate GitHub's DOM; the service worker fetches API data and caches repository
 bounties for 30 seconds. The popup reads identity, points and activity.

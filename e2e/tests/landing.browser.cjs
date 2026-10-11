@@ -10,7 +10,7 @@ const { mkdirSync } = require("node:fs");
   const base = process.env.LANDING_TEST_URL || "http://127.0.0.1:3100";
   try {
     mkdirSync(resolve(__dirname, "../test-results"), { recursive: true });
-    for (const width of [1440, 768, 375, 320]) {
+    for (const width of [1920, 1440, 768, 375, 320]) {
       const context = await browser.newContext({ viewport: { width, height: 960 }, reducedMotion: "reduce" });
       const page = await context.newPage();
       const errors = [];
@@ -38,6 +38,17 @@ const { mkdirSync } = require("node:fs");
       const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       assert.deepEqual(audit.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) })), [], `axe at ${width}`);
       await page.evaluate(() => scrollTo(0, 0));
+      const heroLayout = await page.locator(".hero-heading").evaluate(el => {
+        const copy = el.querySelector(".hero-copy").getBoundingClientRect();
+        const mascot = el.querySelector(".hero-mascot");
+        const art = mascot.getBoundingClientRect();
+        const heading = el.querySelector("h1").getBoundingClientRect();
+        return { inside: heading.left >= 0 && heading.right <= innerWidth,
+          separated: getComputedStyle(mascot).display === "none" || art.left >= copy.right };
+      });
+      assert.equal(heroLayout.inside, true, `headline fits at ${width}`);
+      assert.equal(heroLayout.separated, true, `mascot clears hero copy at ${width}`);
+      await page.screenshot({ path: resolve(__dirname, `../test-results/landing-hero-${width}.png`) });
       await page.screenshot({ path: resolve(__dirname, `../test-results/landing-${width}.png`), fullPage: true });
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await page.evaluate(() => scrollTo(0, 800));

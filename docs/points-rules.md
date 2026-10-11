@@ -14,7 +14,9 @@ A renamed GitHub login must not lose ownership; another user cannot claim by sup
 `reward_allocations` stores claimed and unclaimed rewards independently of registered accounts.
 The website shows pending allocations and claims them into the ledger; the extension links to that screen.
 Only claimed points enter public leaderboards. No expiry policy is implemented.
-“Claim” means claiming points, not withdrawing cash.
+In Points, “Claim” credits reserved points. Payments has a separate claim that records a receiving
+wallet for an owner-funded SmoothSend payout; neither action withdraws an internal cash balance.
+An issue closure updates discovery state only and never proves reward eligibility.
 
 ## Rules enforced today
 

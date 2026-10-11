@@ -24,3 +24,11 @@ Small `page.tsx` files are framework route entries. Shared content, metadata and
 
 Use existing styles in `app/globals.css` and API helpers in `app/lib/api.ts`.
 [DESIGN.md](DESIGN.md) is the visual reference; [plan](../../plan.md) is implementation status.
+
+Payments use the dynamically loaded `@smoothsend/sdk/avax` in `app/lib/wallet.ts`.
+`AvaxRewards.tsx` provides external-wallet setup/selection, claim, funding address, USDC fee quote,
+owner review and recovery. The browser signs and submits an owner-paid `user-pays-erc20`
+UserOperation; it saves the signed operation before broadcast. Only the public SmoothSend key
+reaches this client. Contributors receive funds directly in their permanent linked wallet.
+See [SmoothSend architecture](../../docs/architecture.md#smoothsend-payments) and
+[demo walkthrough](../../docs/testing-data.md#a-fund-and-pay-through-smoothsend).

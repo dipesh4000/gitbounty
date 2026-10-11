@@ -1,6 +1,6 @@
 # Security and operations
 
-This is guidance for the current local application. Production readiness is not established.
+This is guidance for local and deployed operation. Deployment does not establish production readiness.
 See [setup](setup.md) for commands and [progress](../plan.md) for outstanding work.
 
 ## Current controls
@@ -30,12 +30,23 @@ This document does not establish whether any particular current secret has alrea
 | `TOKEN_ENCRYPTION_KEY` | Existing encrypted GitHub tokens become unreadable without the old key; users must reauthenticate |
 
 Key rotation does not erase points. A multi-key re-encryption workflow is not implemented.
-Planned GitHub App private keys, installation tokens and webhook secrets must stay server-side.
+GitHub App private keys, installation tokens and webhook secrets must stay server-side.
 Webhook verification must use the raw body, HMAC-SHA256 and constant-time comparison.
 Persist delivery processing state, verify installation scope and prevent duplicate awards.
 
 After rotation, check readiness, a fresh login, sync, and logout.
 Do not share actual cookie/token values as verification evidence.
+
+## Payment trust boundary
+
+SmoothSend is required for owner payouts. The browser receives only `SMOOTHSEND_PUBLIC_KEY`;
+`SMOOTHSEND_SECRET_KEY` stays on the backend. Configure the exact frontend origin in the dashboard.
+Wallet signatures prove permanent links to numeric GitHub identities; they do not grant custody to GitBounty.
+The server derives payment terms, nonce and calldata, verifies the owner's signed operation, and
+independently checks the chain receipt before marking paid. Never mark a submitted operation paid
+from its hash alone. Recovery reuses the saved signature and nonce; verify before retrying.
+The full reward and capped USDC fee approval are separate. There is no escrow, server signing key,
+internal wallet balance or automatic withdrawal. Fuji tokens have no monetary value.
 
 ## Database migrations and recovery
 

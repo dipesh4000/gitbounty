@@ -160,6 +160,15 @@ async def connect_wallet(proof: WalletProof, user: CurrentUser = Depends(get_cur
 async def rewards(page: int = Query(default=1, ge=1), user: CurrentUser = Depends(get_current_user)):
     async with pool().acquire() as connection:
         wallet = await connection.fetchval("select address from wallets where github_id = $1", user.github_id)
+        promises = await connection.fetch(
+            """select b.repo_full_name as repository, b.issue_number, b.status as bounty_status,
+                      t.amount_wei::text, t.chain_id
+               from avax_reward_terms t join issue_points b on b.id = t.bounty_id
+               where t.payer_github_id = $1 and not exists
+                   (select 1 from avax_reward_claims c where c.bounty_id = t.bounty_id)
+               order by b.created_at desc, b.id desc limit 26 offset $2""",
+            user.github_id, (page - 1) * 25,
+        )
         rows = await connection.fetch(
             """select c.allocation_id as id, c.github_id, c.payer_github_id, c.amount_wei::text,
                       c.review_status, c.claimed_at, a.bounty_repo_full_name as repository,
@@ -174,7 +183,10 @@ async def rewards(page: int = Query(default=1, ge=1), user: CurrentUser = Depend
                order by c.created_at desc, c.allocation_id desc limit 26 offset $2""", user.github_id, (page - 1) * 25,
         )
     return {"enabled": payment_config()["enabled"], "wallet": wallet, "chain_id": active_asset()["chain_id"], "payment_config": payment_config(),
-            "page": page, "has_more": len(rows) > 25,
+            "page": page, "has_more": len(rows) > 25 or len(promises) > 25,
+            "owner_promises": [{**dict(row), **asset(row["chain_id"]),
+                                "reward_amount": units_to_amount(int(row["amount_wei"]), asset(row["chain_id"])["decimals"])}
+                               for row in promises[:25]],
             "items": [{**dict(row), **asset(row["chain_id"]), "reward_amount": units_to_amount(int(row["amount_wei"]), asset(row["chain_id"])["decimals"]),
                        "is_payer": row["payer_github_id"] == user.github_id} for row in rows[:25]]}
 

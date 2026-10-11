@@ -27,6 +27,8 @@ in either environment after sign-in and payment configuration are complete.
 1. Use two browser profiles: A signed into GitHub and GitBounty in one, B in the other.
    Switching GitHub accounts alone does not change GitBounty's session. Check each workspace username.
    Select distinct browser-wallet accounts for A and B. Wallet links are permanent.
+   Payments offers a browser-wallet selector and **Connect receiving / payer wallet** before rewards
+   exist. Finish setup/unlock in the chosen wallet first; do not reset an old wallet without its recovery phrase.
 2. For a local run, configure ignored `backend/.env` as described in [setup](setup.md#avalanche-payments-through-smoothsend):
 
    ```dotenv
@@ -140,6 +142,10 @@ receiving wallet needs Fuji AVAX for that separate transaction; sponsored withdr
 6. At 320px and desktop width visit Explore, Create, My PRs, Points, Payments and Leaderboard. Use
    keyboard Tab/Enter, skip link and mobile navigation. Check readable labels/addresses and no page-wide overflow.
 7. If using the extension, reload it and the GitHub issue tab: only published API rewards get badges.
+8. Close an issue without merging a PR, then sync: it leaves Explore and earns zero points. Reopen
+   it and sync: its published bounty returns. With Issues events enabled, repeat using verified
+   webhook delivery. Check sync elapsed/completion seconds and server `sync.succeeded` timing fields.
+   PR/payment reads refresh on focus and every 30 seconds while visible; those reads do not run GitHub sync.
 
 ## Record and stop
 

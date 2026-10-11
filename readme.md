@@ -3,8 +3,9 @@
 Find rewarded GitHub issues, contribute a fix, and earn points for an eligible merged pull request.
 Use the website to discover and manage bounties, or the optional browser extension to see rewards directly on GitHub.
 
-**Current status:** an implemented local points application. Not a deployed service or a payment platform.
-GitHub App webhooks and pre-registration reward claims are implemented but still need live GitHub verification.
+**Current status:** deployed at [GitBounty](https://gitbounty-web.vercel.app), with points bounties and
+owner-funded payments through SmoothSend. The two-account trial reached a verified merge and points
+award; wallet claiming and a live SmoothSend payout remain unverified. See [progress](plan.md).
 
 ## Product direction
 
@@ -12,9 +13,26 @@ GitHub App webhooks and pre-registration reward claims are implemented but still
 - Rewards belong to the pull request author's **stable GitHub numeric ID**, whether or not they have a GitBounty account.
 - A contributor must sign in with that same GitHub account to create their GitBounty account and claim their points.
 - Registration does not determine eligibility or create a second award; the signed-in GitHub identity claims a reserved award once.
-- Optional fixed AVAX promises accompany points bounties. Owners pay each verified claim from a browser wallet;
-  GitBounty does not fund or guarantee payment. Both parties pay gas; points do not convert into money.
-  Live execution requires migration 0015 and the payment configuration in [setup](docs/setup.md).
+- Optional fixed payment promises accompany points bounties. Current testing uses official USDC on
+  Avalanche Fuji; existing mainnet AVAX promises retain their terms. Owners sign through an external
+  browser wallet, fund a SmoothSend smart account, and pay payout fees in USDC. Contributors receive
+  the full reward in their linked external wallet. Points do not convert into money.
+  Execution requires migrations through 0016 and the payment configuration in [setup](docs/setup.md).
+  GitBounty does not fund or guarantee payment.
+
+## Why this demo uses SmoothSend
+
+GitBounty showcases SmoothSend as the execution layer for real contribution rewards: an eligible
+GitHub merge becomes an owner-reviewed payout, with fees paid in USDC through `user-pays-erc20`.
+The owner signs one ERC-4337 UserOperation; SmoothSend estimates fees, supplies paymaster data and
+submits the operation. The contributor receives the full promised amount, with the fee paid separately.
+The payout does not require native AVAX in the owner's signing wallet; funding from an ordinary wallet
+and later sending received funds can still require native gas.
+
+The Payments workflow names SmoothSend, shows its smart-account funding address and fee quote,
+and supports recovery by UserOperation hash. This is the demo's provider integration, not an embedded
+GitBounty wallet or a withdrawal service. See [implementation details](docs/architecture.md#smoothsend-payments)
+and the [two-account demo](docs/testing-data.md#a-fund-and-pay-through-smoothsend).
 
 ## Start here
 
@@ -24,7 +42,7 @@ GitHub App webhooks and pre-registration reward claims are implemented but still
 | [Progress and next steps](plan.md) | What exists, what is unverified, and what to build next |
 | [Local setup](docs/setup.md) | Run the backend, website, extension and checks |
 | [Architecture](docs/architecture.md) | Current code structure and planned integration |
-| [Points rules](docs/points-rules.md) | Current award rules and the pending claim model |
+| [Points rules](docs/points-rules.md) | Current award rules and implemented claim model |
 | [Security and operations](docs/security.md) | Credentials, migrations, recovery and deployment |
 
 ## Implementation today

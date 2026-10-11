@@ -48,7 +48,7 @@ Contributor sync remains available for reconciliation. The complete journey stil
 The current 5-point baseline and 1–1000-point bounty bounds remain in place unless explicitly changed.
 Do not invent expiry rules for unclaimed points, transfer rights, or automatic financial redemption.
 Unclaimed allocations stay off public leaderboards until claimed. The claim screen is in the Points workspace.
-Hosting, stronger collusion controls, retention/deletion policy and licensing remain open.
+Long-term hosting/operations, stronger collusion controls, retention/deletion policy and licensing remain open.
 
 The chosen engineering direction is uv, async SQLAlchemy and GitHub App webhooks.
 Numbered SQL migrations remain the current schema workflow; Alembic has not been selected.
@@ -61,3 +61,7 @@ Wallet links are permanent and keyed by numeric GitHub identity. The server reso
 network and nonce from immutable claims. No direct payout fallback, server signing key or escrow exists.
 Execution requires migrations through 0016, AVAX_PAYMENTS_ENABLED and a configured public SmoothSend key.
 Each owner explicitly reviews and signs the individual UserOperation. Unknown/pending operations stay unpaid.
+
+The demo showcases SmoothSend's owner-paid USDC-fee payout flow from verified GitHub contribution
+to settlement. Provider attribution, smart-account funding and fee review should be visible in the
+payment experience and docs. GitBounty has no embedded wallet, internal cash balance or withdrawal flow.

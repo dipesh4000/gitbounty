@@ -87,16 +87,20 @@ export default function BroadsheetLanding() {
 
 <section className="hero" id="top">
   <div className="hero-glow" aria-hidden="true"></div>
-  <Image className="hero-mascot hm-left" src="/mascot-backpack_phone.svg" width={270} height={297} unoptimized data-speed="-0.12" alt="" aria-hidden="true" />
   <div className="wrap hero-inner">
-    <a className="announcement reveal" href="#extension"><span>GITHUB, WITH REWARDS</span> Meet your new sidekick <b aria-hidden="true">→</b></a>
-    <h1 className="reveal">Good work deserves to be seen.</h1>
-    <p className="intro reveal">Find an issue worth your time. Ship a pull request.<br />Build a contribution history that speaks for itself.</p>
+    <div className="hero-heading">
+    <div className="hero-copy">
+    <a className="announcement reveal" href="#workflow"><span>OPEN SOURCE, WITH REWARDS</span><b aria-hidden="true">→</b></a>
+    <h1 className="reveal">Build open source.<span>Get rewarded.</span></h1>
+    <p className="intro reveal">Find a GitHub issue. Open a pull request. Earn points for an eligible merge, with owner-funded payments on select bounties.</p>
     <div className="actions reveal">
       <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
       <a className="btn"  href={destination("/maintainers")}>Create a bounty <span aria-hidden="true">→</span></a>
     </div>
-    <p className="micro reveal">Your GitHub account. Your contributions. Your credit.</p>
+    <p className="micro reveal">For contributors who build. For maintainers who support them.</p>
+    </div>
+    <Image className="hero-mascot" src="/mascot-backpack_phone.svg" width={270} height={297} unoptimized alt="" aria-hidden="true" />
+    </div>
 
     <div className="stage reveal">
       <div className="window hero-window">

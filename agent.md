@@ -16,6 +16,8 @@ The overview records product intent; the plan distinguishes implemented behavior
   through required SmoothSend; owners fund smart accounts and pay fees in USDC. Current tests use Fuji USDC.
   Points do not convert into money.
   Keep payout amounts and recipients server-resolved, signatures verified and retries idempotent.
+- Current demo documentation must explain SmoothSend's owner-paid USDC fee flow and external
+  receiving wallets. Do not imply embedded wallets, sponsored withdrawals or a verified live payout.
 
 ## Before claiming completion
 

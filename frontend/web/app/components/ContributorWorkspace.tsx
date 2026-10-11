@@ -47,7 +47,7 @@ const VIEWS: Array<{ id: View; label: string; title: string; lede: string }> = [
   { id: "maintain", label: "Create a bounty", title: "Create a bounty", lede: "Publish bounties on repositories you manage, and look after the ones you have published." },
   { id: "pulls", label: "My PRs", title: "My pull requests", lede: "Every pull request you have authored, what state it is in, and what it has earned or stands to earn." },
   { id: "history", label: "Points", title: "Points history", lede: "Every entry behind your total, with where it came from." },
-  { id: "rewards", label: "Payments", title: "Rewards & payments", lede: "Claim a reward, review an owner payment, or verify a transaction." },
+  { id: "rewards", label: "Payments", title: "Payments", lede: "Pay contributors and track rewards owed to you." },
   { id: "leaderboard", label: "Leaderboard", title: "Leaderboard", lede: "Points earned from merged open-source work." },
 ];
 

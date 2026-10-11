@@ -5,8 +5,10 @@ rounded cards, Mona Sans and the supplied cat mascot. The React website and exte
 
 - Website canvas: `#08090d`; surfaces: `#101219`, `#141722`.
 - Main text: `#f4f4f8`; secondary text: `#bcc0ce`; muted text: `#a3a8ba`.
-- Landing primary buttons: `#7150e8` with white text; workspace buttons retain `#7c3aed`.
-  Accents and focus rings: `#c4b5fd`. Extension retains its existing purple surfaces.
+- Landing primary buttons: `#7150e8` with white text and lavender accents. Extension retains purple surfaces.
+- Signed-in workspace uses GitHub-style neutral dark surfaces (`#0d1117`, `#161b22`), blue
+  accents/focus (`#79c0ff`), system typography, 13–16px labels/body text and consistent controls.
+  Open statuses are green; merged statuses are purple. These tokens are scoped to `.app-shell`.
 - Hero preview straightens on scroll using CSS view timelines. Browsers without support show a
   static preview; small screens and reduced-motion preferences disable the transform.
 - Marketing contribution graph uses purple intensity levels, visibly labelled as illustrative.
@@ -38,7 +40,7 @@ This is a visual prototype: sample profiles, activity and rewards are illustrati
 actions still open explanatory dialogs. Production integration must reuse real routes, authentication,
 API data and loading/empty/error states rather than ship those placeholders.
 
-Inside the app, reuse colors, typography, focus treatment and cards with compact task layouts.
+Inside the app, use the scoped workspace tokens and system typography with compact task layouts.
 Keep persistent navigation, readable tables and one clear next action per stage. Reserve hero-scale
 art and scroll effects for marketing; activity and payment screens need stable, predictable controls.
 
@@ -49,8 +51,14 @@ art and scroll effects for marketing; activity and payment screens need stable, 
   and publish → review contributions → open eligible payment → fund the displayed SmoothSend smart
   account for the full reward plus USDC fee → review and sign → follow verification or recovery.
 - Payment review must identify network, recipient, full reward, fee allowance and funding address.
+  Payment lists separate owner payouts from contributor rewards, with merge/claim/payment progress
+  and a role-specific next action. A linked address is not proof of a current browser connection;
+  show these states separately and detect account mismatch without requesting a signature.
   The connected receiving wallet and the owner's SmoothSend smart account are different accounts.
   Missing funds, unavailable provider and pending verification each need a specific next step.
+- Name SmoothSend in payment review and owner-payout guidance, explaining USDC-paid fees and
+  smart-account funding. Do not call it a GitBounty withdrawal, free payment or internal wallet.
+  Keep wallet setup available before a reward exists and payment-workflow help expandable.
 - Extension flow: Discover is the default, with title search and the beginner filter visible.
   Language/category/sort live in expandable filters; paging preserves the query. Issue cards link
   directly to GitHub. Account & wallet holds full balances, network, address and recent activity.

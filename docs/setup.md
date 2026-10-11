@@ -92,7 +92,7 @@ GitHub OAuth app with the same callback URL. Add the backend's other required se
 as Vercel environment variables; do not put secrets in `vercel.json`.
 
 For webhook processing, create a GitHub App with read-only Contents, Issues and Pull requests permissions.
-Subscribe to Pull request events; installation lifecycle events are also handled. Set its webhook URL to
+Subscribe to Pull request and Issues events; installation lifecycle events are also handled. Set its webhook URL to
 `https://<public-api-host>/webhooks/github`. Add these server-only values:
 
 | Setting | Value |
@@ -139,7 +139,8 @@ uv run --locked python -m uvicorn app.main:app --port 8001 --reload
 For a shared Supabase target, the runner requires explicit owner approval:
 `uv run --locked python dev/migrate.py status --i-have-approval`, then, only with that approval,
 `uv run --locked python dev/migrate.py up --i-have-approval`.
-Migrations 0013 and 0014 were applied to the configured Supabase target with owner approval on 2026-10-09.
+Migrations through 0016 were recorded as applied to the configured Supabase target with owner approval
+on 2026-10-10; verify status/checksums for the actual target before use.
 Startup does not apply migrations automatically. `/ready` reports an incomplete rewards schema as 503.
 
 The same uv commands work on POSIX. Production dependency installation uses `uv sync --locked --no-dev`.
@@ -272,9 +273,10 @@ Contributor Sync GitHub also refreshes published issue states to recover missed 
 Redeploy after updating environment variables. Test sign-in in a browser; HTTP readiness does not
 verify GitHub authorization or actual webhook processing.
 
-On 2026-10-11, a read-only check of the deployed `/auth/github` redirect showed
+An earlier 2026-10-11 read-only check of the deployed `/auth/github` redirect showed
 `redirect_uri=http://localhost:8001/auth/github/callback` and a session cookie without `Secure`.
-The environment values above must be corrected in the deployed backend; a local source edit cannot
+The later check recorded in testing-data.md reported the production callback. Recheck after deployment;
+if localhost or missing Secure recurs, correct the environment values above. A local source edit cannot
 replace Vercel environment variables. Match the GitHub OAuth App callback to the production URL too.
 
 If `/ready` reports `database: unreachable`, inspect the backend log's
@@ -308,7 +310,9 @@ separate. GitBounty neither funds nor guarantees an owner's promise; there is no
    Restart the API. Missing/invalid public keys keep execution disabled; secret keys are never exposed.
 3. Publish a fresh issue with an exact USDC promise, up to six decimals. Claim amounts, recipients,
    network and nonce are server-resolved. Old points-only bounties cannot gain money retroactively.
-4. After an eligible verified merge, the contributor opens **Payments**, signs a one-time wallet
+4. Each account can open **Payments** before a merge to select an installed external wallet and
+   choose **Connect receiving / payer wallet**. Finish wallet setup and unlock it first; never reset
+   an old wallet without its recovery phrase. After an eligible verified merge, the contributor signs a one-time wallet
    challenge and claims. One receiving wallet is permanently linked to the numeric GitHub identity.
 5. The owner chooses **Review payment**, connects their payer wallet and funds the displayed SmoothSend
    smart-account address with reward plus fee allowance in Fuji USDC. This differs from their EOA address.

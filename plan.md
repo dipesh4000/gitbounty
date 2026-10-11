@@ -1,6 +1,8 @@
 # Progress and next steps
 
-Updated 2026-10-10 from the source, local git history and verification. This page tracks implementation, not promises.
+Updated 2026-10-11 from source, the two-account UX report and focused local verification.
+This page tracks implementation, not promises. Dated sections retain historical results and decisions;
+later entries supersede earlier payment, framework and deployment descriptions.
 Product decisions are in [overview.md](overview.md).
 
 ## Current implementation
@@ -15,8 +17,8 @@ Product decisions are in [overview.md](overview.md).
 | Extension | Registered-only badges, stale-state refresh, points/activity popup and claim link | Verify current GitHub DOM and live browser behavior |
 | Moderation | Report/review/resolve APIs and award withdrawal | Moderation UI and stronger collusion controls |
 | Python | FastAPI, uv lockfile, async SQLAlchemy issue-board and authentication queries | Migrate remaining asyncpg queries |
-| Database | Numbered SQL migrations 0001–0015; local migration runner | Owner approval to apply 0015 to shared database; remaining SQLAlchemy migration |
-| AVAX | Fixed owner promises, wallet ownership proofs, individual signed payments and receipt verification | Enable after shared migration approval; verify a real wallet/mainnet payment and withdrawal |
+| Database | Numbered SQL migrations 0001–0016; configured Supabase application recorded with owner approval | Verify actual deployment checksums; remaining SQLAlchemy migration |
+| Payments | Fuji USDC testing, immutable promises, browser-wallet proofs, required SmoothSend owner payouts and receipt verification | Resolve live claim blocker and verify a signed SmoothSend payout |
 | Operations | Readiness, structured logs, rate limiting, CI and a durable webhook retry worker | Hosting, monitoring and production configuration |
 
 The website is deployed at `https://gitbounty-web.vercel.app`. On 2026-10-11, its public `/ready`
@@ -28,10 +30,11 @@ Local verification for the new landing: production build and TypeScript pass, ES
 all 66 website tests pass, and Chrome checks at 1440/768/375/320px pass for images, keyboard tabs,
 real route links, sticky navigation, overflow, reduced motion and WCAG A/AA accessibility scans.
 Browser API responses were stubbed for these landing checks; they do not prove live OAuth or webhook processing.
-The live OAuth start endpoint still redirects with a localhost callback and sets a session cookie without
-`Secure`. Correct the production backend environment using `docs/setup.md` and redeploy before testing sign-in.
-The extension currently targets localhost. Owner-funded AVAX payment code is present;
-live execution is disabled pending shared migration/configuration. No mainnet payment has been verified.
+Earlier OAuth redirect/cookie failures were followed by the production-callback check recorded in
+testing-data.md and a signed-in two-account trial. Recheck deployment settings after changes.
+The extension currently targets localhost. The live UX report reached a merged PR and a 25-point award;
+automatic-versus-manual processing remains unproven. Contributor wallet claiming was blocked by the
+browser wallet; no live SmoothSend payout or mainnet payment has been verified.
 
 ## Execution order
 
@@ -202,8 +205,6 @@ live execution is disabled pending shared migration/configuration. No mainnet pa
 - Updated the production E2E launcher to build and serve with the Next CLI. GitHub OAuth still requires a
   deployed manual check with the configured callback URL and credentials.
 
-## Documentation maintenance
-
 ## UX report fixes — 2026-10-11
 
 - Payments now offer persistent external-wallet setup before any reward exists, EIP-6963 wallet
@@ -233,6 +234,29 @@ live execution is disabled pending shared migration/configuration. No mainnet pa
 - Verified 68 website tests, TypeScript and ESLint; focused backend reconciliation, webhook and
   award-detection checks pass. Shared database, live GitHub App settings and wallet settings
   were not changed. Live webhook delivery and manual visual review remain to be verified.
+
+## SmoothSend documentation verification — 2026-10-11
+
+- Rechecked frontend quote/submit/recovery against the installed SDK declarations and backend
+  claim/operation/receipt verification code. Provider attribution and demo value are documented in
+  README and architecture, with role separation, USDC-paid fees and live verification limits.
+- Reviewed all 19 repository Markdown files and checked local links; corrected stale deployment, migration, payment,
+  claim, webhook-event and workspace-design descriptions where applicable. Historical plan entries
+  remain dated rather than presented as current behavior.
+- Focused frontend payment/wallet tests: 6 passed. Backend payment checks: 7 passed, 6 database
+  cases skipped because local test Postgres was unavailable; one existing AnyIO deprecation warning.
+  SDK submission and chain responses are substituted in tests. No live payment or settings changes.
+
+## Documentation maintenance
+
+## Owner payment discovery — 2026-10-11
+
+- Read-only diagnosis of Orbit issue #1 found a 2 Fuji USDC promise by dipesh4000 but no bounty
+  allocation/claim. Public GitHub PR #2 was authored by dipesh-BS and merged with no closing reference in its body;
+  the current text-based matcher cannot associate that contribution with issue #1.
+- Payments now includes paginated owner promises awaiting allocation, clear verification/claim
+  prerequisites, and explicit owner next steps. No reward allocation or transfer was created.
+  Retroactive discretionary rewards and Development-sidebar matching are not implemented.
 
 Keep status here, product decisions in the overview, and runnable instructions in setup.
 Update the relevant page when code changes. Do not add a separate audit, handoff or feature-status document.
@@ -372,3 +396,25 @@ Git history retains superseded plans and historical verification details.
   Chrome recovery/retry/focus/reflow/axe checks passed at 1440/960/320px in development and production.
   The person must reconnect GitHub to obtain a valid credential; automated checks substitute GitHub responses.
   Existing user-started development servers are preserved; the temporary production test server is stopped.
+
+## Landing hero repair — 2026-10-11
+
+- Replaced the oversized headline with “Build open source. Get rewarded.” and clear copy about
+  eligible merged PRs, points and optional owner-funded payments. CTAs keep their real destinations.
+- Mascot occupies its own desktop grid column instead of floating beneath the text. Headline size
+  is bounded and description alignment is explicit; mobile centers the copy without the mascot.
+- Landing component checks, production build/TypeScript and ESLint pass. Production Chrome checks
+  at 1920/1440/768/375/320px pass for assets, overflow, accessibility, navigation, reduced motion
+  and explicit headline/mascot separation. Desktop and mobile screenshots were visually reviewed.
+
+## Payment clarity — 2026-10-11
+
+- Wallet panel separates the permanent GitHub-linked address from the current browser connection.
+  Explicit read-only connection checks show locked/disconnected, matching and mismatched accounts;
+  account-change events invalidate the checked state. Linking retains signature and server verification.
+- Owner payouts and contributor rewards have separate views, role-specific statuses, a three-step
+  progress row and one primary next action. Waiting, submitted, failed, paid and review states explain
+  who acts next. Setup, payment-workflow and recovery details are expandable.
+- Website regression suite: 71 passed; TypeScript, lint and production build passed. Read-only Chrome
+  fixture checks pass at 1440/960/320px for wallet state, role filtering, disabled actions, overflow
+  and accessibility. No live wallet signatures, transfers or deployment were performed.
