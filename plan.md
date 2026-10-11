@@ -204,6 +204,36 @@ live execution is disabled pending shared migration/configuration. No mainnet pa
 
 ## Documentation maintenance
 
+## UX report fixes — 2026-10-11
+
+- Payments now offer persistent external-wallet setup before any reward exists, EIP-6963 wallet
+  discovery/selection, and safe recovery guidance for unavailable or locked wallets. No wallet
+  account requests happen during discovery. Linking remains permanent and requires a signature.
+- Clarified direct contributor receipts versus owner SmoothSend funding, closing-keyword workflow,
+  automatic-reward prerequisites, and bounty-plus-base point totals. PR and payment reads refresh
+  on return to the tab and every 30 seconds while visible; this does not start GitHub reconciliation.
+- GitHub App missing/invalid signing keys, rejected credentials, missing installation and network
+  failures now have actionable responses instead of uncaught key-loading errors. The cause of the
+  deployed connection failure has not been established from server diagnostics.
+- Verified 68 website tests and the focused backend missing-key regression. Live wallet setup,
+  signatures and transfers were not performed. Publication enforcement, closed-issue reconciliation,
+  live webhook-versus-sync provenance remain outstanding.
+
+## Issue reconciliation and workspace readability — 2026-10-11
+
+- Signed issue closed/reopened deliveries now verify the active repository installation and live
+  GitHub issue before updating discovery state. Contributor sync also rechecks published issues,
+  recovering old missed deliveries. Unavailable issues retain their prior state; closure never
+  awards or removes points. Subscribe the deployed GitHub App to issue events (see setup.md).
+- Sync displays elapsed seconds and completed duration. Successful sync logs record GitHub fetch,
+  reconciliation/write and total durations. No schema migration is required.
+- Workspace-only GitHub-style typography, neutral dark surfaces, 13–16px labels/body text,
+  consistent controls, clearer open/merged colors and quieter workflow guidance improve scanning.
+  Payment workflow instructions are expandable. Public landing styles remain independent.
+- Verified 68 website tests, TypeScript and ESLint; focused backend reconciliation, webhook and
+  award-detection checks pass. Shared database, live GitHub App settings and wallet settings
+  were not changed. Live webhook delivery and manual visual review remain to be verified.
+
 Keep status here, product decisions in the overview, and runnable instructions in setup.
 Update the relevant page when code changes. Do not add a separate audit, handoff or feature-status document.
 Git history retains superseded plans and historical verification details.

@@ -14,6 +14,7 @@ from ..features.merged_prs.github import _parse_any_item, fetch_changed_paths
 from ..features.merged_prs.lifecycle import assess
 from ..features.merged_prs.service import DetectedMerge
 from ..features.points.store import published_bounties, record_merges, record_pull_requests
+from .issue_state import store_issue_states
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,12 @@ async def apply_delivery(connection, event: str, payload: dict) -> str:
             installation_id, removed,
         )
         return "processed"
-    if event != "pull_request" or payload.get("action") != "closed":
+    issue_event = event == "issues" and payload.get("action") in {"closed", "reopened"}
+    if not issue_event and (event != "pull_request" or payload.get("action") != "closed"):
         return "ignored"
     sent_pr = payload.get("pull_request") or {}
     repository = payload.get("repository") or {}
-    if not sent_pr.get("merged") or repository.get("private", True):
+    if (not issue_event and not sent_pr.get("merged")) or repository.get("private", True):
         return "ignored"
     connected = await connection.fetchrow(
         "select * from connected_repositories where github_id = $1 and installation_id = $2 and active",
@@ -55,6 +57,13 @@ async def apply_delivery(connection, event: str, payload: dict) -> str:
         repo = await github_app.request(client, "GET", f"/repos/{full_name}", token)
         if repo["id"] != connected["github_id"] or repo.get("private", True):
             return "ignored"
+        if issue_event:
+            sent_issue = payload.get("issue") or {}
+            issue = await github_app.request(client, "GET", f"/repos/{full_name}/issues/{int(sent_issue['number'])}", token)
+            if issue.get("id") != sent_issue.get("id") or "pull_request" in issue or issue.get("state") not in {"open", "closed"}:
+                return "ignored"
+            await store_issue_states(connection, [(full_name, issue["number"], issue["id"], issue["state"])])
+            return "processed"
         number = int(sent_pr["number"])
         pr_data = await github_app.request(client, "GET", f"/repos/{full_name}/pulls/{number}", token)
         author = pr_data["user"]

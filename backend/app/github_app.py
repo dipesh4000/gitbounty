@@ -22,9 +22,12 @@ def configured() -> bool:
 def app_jwt() -> str:
     if not configured():
         raise HTTPException(503, "GitHub App is not configured.")
-    key = serialization.load_pem_private_key(Path(settings.github_app_private_key_path).read_bytes(), None)
+    try:
+        key = serialization.load_pem_private_key(Path(settings.github_app_private_key_path).read_bytes(), None)
+    except (OSError, ValueError, TypeError):
+        raise HTTPException(503, "GitHub App signing key is unavailable or invalid. Ask the server operator to configure the App RSA private key, then retry connecting.") from None
     if not isinstance(key, rsa.RSAPrivateKey):
-        raise ValueError("GitHub App requires an RSA key")
+        raise HTTPException(503, "GitHub App signing key must be RSA. Ask the server operator to correct the App key, then retry.")
     def encode(value: bytes) -> bytes:
         return base64.urlsafe_b64encode(value).rstrip(b"=")
 
@@ -37,8 +40,15 @@ def app_jwt() -> str:
 
 
 async def request(client, method, path, token, **kwargs):
-    response = await client.request(method, settings.github_api + path, headers=_headers(token), **kwargs)
+    try:
+        response = await client.request(method, settings.github_api + path, headers=_headers(token), **kwargs)
+    except httpx.RequestError:
+        raise HTTPException(502, "GitHub App could not reach GitHub. Retry connecting shortly.") from None
     if response.status_code >= 400:
+        if response.status_code == 404 and path.endswith("/installation"):
+            raise HTTPException(409, "Install the GitBounty GitHub App for this repository, then retry Connect automatic rewards.")
+        if response.status_code == 401:
+            raise HTTPException(503, "GitHub rejected the App credentials. Ask the server operator to verify the App ID and RSA signing key, then retry.")
         # Never include a response body, key, token or Authorization header in errors.
         raise HTTPException(502, f"GitHub App request failed ({response.status_code}).")
     return response.json()

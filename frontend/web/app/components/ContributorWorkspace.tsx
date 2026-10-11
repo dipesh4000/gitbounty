@@ -43,7 +43,7 @@ import { AvaxRewards } from "./AvaxRewards";
 type View = "issues" | "maintain" | "pulls" | "history" | "leaderboard" | "rewards";
 
 const VIEWS: Array<{ id: View; label: string; title: string; lede: string }> = [
-  { id: "issues", label: "Explore bounties", title: "Explore bounties", lede: "Bounties published by repository maintainers." },
+  { id: "issues", label: "Explore bounties", title: "Explore bounties", lede: "Open a PR on GitHub and include Closes #<issue number> in its description. The maintainer reviews and merges it; then claim your reward here. Follow the repository’s contribution and check requirements." },
   { id: "maintain", label: "Create a bounty", title: "Create a bounty", lede: "Publish bounties on repositories you manage, and look after the ones you have published." },
   { id: "pulls", label: "My PRs", title: "My pull requests", lede: "Every pull request you have authored, what state it is in, and what it has earned or stands to earn." },
   { id: "history", label: "Points", title: "Points history", lede: "Every entry behind your total, with where it came from." },
@@ -313,7 +313,7 @@ function detailFor(pull: TrackedPullRequest): string {
     const bounty = `${pull.bounty_repo_full_name}#${pull.bounty_issue_number}`;
     return pull.state === "merged"
       ? `Closed the bounty on ${bounty}.`
-      : `Closes the bounty on ${bounty} — worth ${formatPoints(pull.bounty_points ?? 0)} if this merges.`;
+      : `Closes the bounty on ${bounty} — ${formatPoints(pull.bounty_points ?? 0)} bounty + ${formatPoints(Math.max(0, pull.expected_points - (pull.bounty_points ?? 0)))} base = ${formatPoints(pull.expected_points)} points if merged.`;
   }
   return pull.state === "merged"
     ? "Merged in a participating repository, with no bounty on the issue it closed."
@@ -541,12 +541,19 @@ function SyncBar({
 }
 
 function SyncSummary({ sync }: { sync: SyncStatus | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (sync?.state !== "running") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [sync?.state]);
+  const seconds = sync?.started_at ? Math.max(0, Math.round(((sync.finished_at ? Date.parse(sync.finished_at) : now) - Date.parse(sync.started_at)) / 1000)) : null;
   if (!sync || sync.state === "never") return <>Never synced.</>;
-  if (sync.state === "running") return <>Running, started {timeAgo(sync.started_at)}.</>;
+  if (sync.state === "running") return <>Syncing with GitHub · {seconds ?? 0}s elapsed. Fetching PRs and checking rewards; you can keep browsing.</>;
   if (sync.state === "failed") return <>Last attempt failed {timeAgo(sync.finished_at)}: {sync.error}</>;
   return (
     <>
-      Last synced {timeAgo(sync.finished_at)} · {sync.prs_seen} pull{" "}
+      Finished {timeAgo(sync.finished_at)}{seconds !== null && ` in ${seconds}s`} · {sync.prs_seen} pull{" "}
       {sync.prs_seen === 1 ? "request" : "requests"} seen · {sync.newly_counted} new ·{" "}
       {formatPoints(sync.points_awarded)} points awarded
       {sync.self_merges_skipped > 0 && ` · ${sync.self_merges_skipped} self-merge${sync.self_merges_skipped === 1 ? "" : "s"} skipped`}

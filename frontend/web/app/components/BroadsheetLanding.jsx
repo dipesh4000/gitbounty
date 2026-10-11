@@ -90,7 +90,7 @@ export default function BroadsheetLanding() {
   <Image className="hero-mascot hm-left" src="/mascot-backpack_phone.svg" width={270} height={297} unoptimized data-speed="-0.12" alt="" aria-hidden="true" />
   <div className="wrap hero-inner">
     <a className="announcement reveal" href="#extension"><span>GITHUB, WITH REWARDS</span> Meet your new sidekick <b aria-hidden="true">→</b></a>
-    <h1 className="reveal">Good work <em>deserves</em> to be seen.</h1>
+    <h1 className="reveal">Good work deserves to be seen.</h1>
     <p className="intro reveal">Find an issue worth your time. Ship a pull request.<br />Build a contribution history that speaks for itself.</p>
     <div className="actions reveal">
       <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>

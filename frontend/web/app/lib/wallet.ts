@@ -1,6 +1,7 @@
-import { createWalletClient, createPublicClient, custom, http, type EIP1193Provider, type Address, type Hex } from "viem";
+import { createWalletClient, createPublicClient, custom, http, type Address, type Hex } from "viem";
 import { avalanche, avalancheFuji } from "viem/chains";
 import { apiWrite } from "./api";
+import { walletProvider, walletError } from "./walletProviders";
 
 export type SmoothPayment = { claim_id: number; sender: string; recipient: string; nonce: number; amount_wei: string;
   chain_id: number; smart_sender: Address; entry_point: Address; account_factory: Address; paymaster_address: Address;
@@ -8,12 +9,14 @@ export type SmoothPayment = { claim_id: number; sender: string; recipient: strin
   operation: string | Record<string, unknown> | null; status: string; tx_hash: string | null; userop_hash: string | null };
 
 export async function browserWallet(chainId: number = avalanche.id) {
-  const provider = (window as Window & { ethereum?: EIP1193Provider }).ethereum;
+  const provider = walletProvider();
   if (!provider) throw new Error("Install an Avalanche-compatible browser wallet to continue.");
   const chain = chainId === avalancheFuji.id ? avalancheFuji : chainId === avalanche.id ? avalanche : null;
   if (!chain) throw new Error("Only Avalanche mainnet and Fuji are supported.");
   const client = createWalletClient({ chain, transport: custom(provider) });
-  const [account] = await client.requestAddresses();
+  let account: Address | undefined;
+  try { [account] = await client.requestAddresses(); }
+  catch (error) { throw new Error(walletError(error)); }
   if (!account) throw new Error("No wallet account was selected.");
   return { client, account, chain };
 }

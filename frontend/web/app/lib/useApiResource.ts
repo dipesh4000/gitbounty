@@ -44,6 +44,14 @@ export function useApiResource<T>(path: string | null, delay = 0): {
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
+  useEffect(() => {
+    if (!path?.startsWith("/api/me/pull-requests") && !path?.startsWith("/api/avax/rewards")) return;
+    const refresh = () => { if (document.visibilityState === "visible") reload(); };
+    window.addEventListener("focus", refresh);
+    const timer = window.setInterval(refresh, 30000);
+    return () => { window.removeEventListener("focus", refresh); window.clearInterval(timer); };
+  }, [path, reload]);
+
   if (loaded === null || loaded.key !== key) {
     return { resource: { status: "loading", data: null, error: null }, reload };
   }

@@ -266,7 +266,9 @@ Set the backend's Vercel production environment variables to match:
 `ALLOWED_ORIGINS=https://gitbounty-web.vercel.app`, and `SECURE_COOKIES=true`.
 Use the OAuth App's client ID and client secret for sign-in. The separate GitHub App needs its
 own App ID, installation configuration, accessible private key and matching webhook secret.
-Subscribe that App to pull-request events with read access to issues, pull requests and metadata.
+Subscribe that App to pull-request and issue events with read access to issues, pull requests and metadata.
+Closed/reopened issue deliveries refresh discovery state after verification; they never award points.
+Contributor Sync GitHub also refreshes published issue states to recover missed issue deliveries.
 Redeploy after updating environment variables. Test sign-in in a browser; HTTP readiness does not
 verify GitHub authorization or actual webhook processing.
 

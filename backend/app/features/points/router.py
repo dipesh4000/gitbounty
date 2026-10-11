@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
+from ...services.issue_state import reconcile_issues, store_issue_states
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 
@@ -200,6 +202,7 @@ async def run_sync(
     Safe to run repeatedly. Nothing is awarded twice -- the database's partial unique indexes decide that,
     not this function (see store.record_merges).
     """
+    started = perf_counter()
     db_pool = pool()
     async with db_pool.acquire() as connection:
         await sync_state.release_stale(connection)
@@ -247,6 +250,8 @@ async def run_sync(
                     1 for item in lifecycle.merged if item.pr.is_self_merge
                 ),
             )
+            fetched_at = perf_counter()
+            issue_states = await reconcile_issues(client, user.github_token, bounties)
     except GitHubRateLimited as error:
         logger.warning("github rate limit during sync", extra={
             "event": "sync.github_rate_limited", "user_id": user_row_id, "run_id": run_id,
@@ -292,8 +297,12 @@ async def run_sync(
             # did not.
             await record_pull_requests(connection, user_row_id, lifecycle.tracked)
             outcome = await record_merges(connection, user_row_id, result.merges)
+            await store_issue_states(connection, issue_states)
         logger.info("sync finished", extra={
             "event": "sync.succeeded", "user_id": user_row_id, "run_id": run_id,
+            "github_seconds": round(fetched_at - started, 3),
+            "reconcile_seconds": round(perf_counter() - fetched_at, 3),
+            "total_seconds": round(perf_counter() - started, 3),
             "prs_seen": len(lifecycle.tracked),
             "newly_counted": outcome.newly_counted,
             "awards_written": outcome.awards_written,

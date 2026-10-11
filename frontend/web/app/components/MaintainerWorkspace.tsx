@@ -71,6 +71,7 @@ export function MaintainerWorkspace({ onPublished }: { onPublished: () => void }
           My published bounties
         </button>
       </div>
+      <p className="bounty-footnote">Before publishing, install the GitHub App for the repository and connect automatic rewards below. If the connection is not confirmed, contributors must use Sync GitHub after merging; automatic processing is not ready.</p>
       {tab === "publish"
         ? <PublishFlow onPublished={onPublished} />
         : <PublishedBounties onChanged={onPublished} />}

@@ -77,7 +77,7 @@ async def receive_webhook(request: Request):
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(400, "Invalid webhook delivery.") from None
     event = request.headers.get("X-GitHub-Event", "")
-    if event not in {"pull_request", "installation", "installation_repositories", "ping"}:
+    if event not in {"issues", "pull_request", "installation", "installation_repositories", "ping"}:
         return {"status": "ignored"}
     async with pool().acquire() as connection:
         await connection.execute(
