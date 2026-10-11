@@ -16,7 +16,7 @@ rounded cards, Mona Sans and the supplied cat mascot. The React website and exte
 The homepage has two primary actions: **Explore bounties** and **Create a bounty**.
 Explore, Create and Leaderboard open the sign-in page for signed-out visitors. Creating also
 requires repository maintainer permissions. Docs, policies and extension setup stay public.
-Use native anchors for page navigation: the installed vinext beta client link handler fails in production.
+The current native-anchor navigation is intentional and covered by browser tests.
 Use the existing API helpers and task controls rather than duplicate forms in marketing sections.
 
 Marketing examples must visibly say they are illustrative. The published bounty list, account,

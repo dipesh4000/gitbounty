@@ -180,8 +180,17 @@ live execution is disabled pending shared migration/configuration. No mainnet pa
 - Sync jobs are in-process and can be interrupted by a restart; stale runs are released on a later attempt.
 - Rate limiting is per process, so scaling needs a shared strategy.
 - No account deletion/retention workflow, metrics service or moderation UI.
-- Earlier frontend toolchain upgrades broke `vinext start`; verify runtime as well as build when updating dependencies.
+- Frontend toolchain upgrades must verify `next start` as well as `next build`.
   Old audit counts are not current security evidence.
+
+## Standard Next.js runtime — 2026-10-11
+
+- Replaced Vinext and its Cloudflare Vite worker with Next.js 16.4 and React 19.3. The existing App Router
+  pages, metadata and `next/image` usage remain; Next now provides the build, server and image optimizer.
+- Standardized local and CI JavaScript tooling on Node 24 LTS. Vercel's web service now uses the `nextjs`
+  framework preset, while FastAPI remains a separate service behind the existing same-origin rewrites.
+- Updated the production E2E launcher to build and serve with the Next CLI. GitHub OAuth still requires a
+  deployed manual check with the configured callback URL and credentials.
 
 ## Documentation maintenance
 

@@ -20,7 +20,7 @@ const root = resolve(__dirname, "..");
 const backend = join(root, "backend");
 const windows = process.platform === "win32";
 const python = join(backend, ".venv", ...(windows ? ["Scripts", "python.exe"] : ["bin", "python"]));
-const vinext = join(root, "frontend", "web", "node_modules", "vinext", "dist", "cli.js");
+const next = join(root, "frontend", "web", "node_modules", "next", "dist", "bin", "next");
 
 const children: ChildProcess[] = [];
 const stateDir = mkdtempSync(join(tmpdir(), "gitbounty-e2e-"));
@@ -172,14 +172,14 @@ asyncio.run(main())
   // whatever the environment says when it starts. So the site is rebuilt against the harness's API.
   const web = join(root, "frontend", "web");
   log("building the website against the harness API");
-  execFileSync(process.execPath, [vinext, "build"], {
+  execFileSync(process.execPath, [next, "build"], {
     cwd: web,
     env: { ...process.env, NEXT_PUBLIC_GITBOUNTY_API: API_URL },
     stdio: process.env.E2E_VERBOSE ? "inherit" : "ignore",
   });
 
   log("starting the website (production build)");
-  start("web", process.execPath, [vinext, "start", "--port", String(WEB_PORT)], {
+  start("web", process.execPath, [next, "start", "--port", String(WEB_PORT)], {
     cwd: web,
     env: { ...process.env, PORT: String(WEB_PORT), NEXT_PUBLIC_GITBOUNTY_API: API_URL },
   });

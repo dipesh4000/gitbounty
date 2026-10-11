@@ -10,7 +10,7 @@ import tseslint from "typescript-eslint";
 const eslintConfig = defineConfig([
   // Build output and generated files only. No application file is excluded: the three that used to be
   // here were dead components, and they have been deleted rather than hidden from the linter.
-  globalIgnores([".next/**", ".vinext/**", "dist/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", ".vinext/**", ".wrangler/**", "dist/**", "out/**", "build/**", "next-env.d.ts"]),
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   react.configs.flat.recommended,
@@ -20,9 +20,12 @@ const eslintConfig = defineConfig([
   next.configs["core-web-vitals"],
   {
     files: ["app/**/*.{tsx,jsx}"],
-    // vinext 1.0.0-beta.2's production Link handler throws on page navigation.
-    // Native anchors are intentional; browser tests cover the entry flow.
-    rules: { "@next/next/no-html-link-for-pages": "off" },
+    // Full-page navigation is intentional, including same-origin OAuth/logout routes owned by FastAPI.
+    // Browser tests cover the entry flow.
+    rules: {
+      "@next/next/no-html-link-for-pages": "off",
+      "@next/next/no-location-assign-relative-destination": "off",
+    },
   },
   {
     languageOptions: {

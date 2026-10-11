@@ -15,7 +15,7 @@ FastAPI calls GitHub with a signed-in user's OAuth token or a selected repositor
 | Schema | Numbered SQL files and local migration runner | Keep this workflow; no ORM startup schema creation |
 | Authentication | GitHub OAuth, signed session cookies, GitHub App JWT and short-lived installation tokens | Verify production credentials |
 | Repository events | Signed webhooks in a durable inbox plus contributor reconciliation sync | Verify live deliveries and recovery |
-| Frontend | React/TypeScript, Next.js-style app routes using vinext | Continue existing website |
+| Frontend | React/TypeScript, Next.js App Router | Continue existing website |
 | Extension | Manifest V3 content scripts, service worker and popup | Registered-only badges and reliable refresh |
 
 OAuth currently uses the code in `backend/app/github_oauth.py`, not Authlib.

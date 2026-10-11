@@ -31,7 +31,7 @@ GitHub App webhooks and pre-registration reward claims are implemented but still
 
 FastAPI serves GitHub OAuth, issue browsing, maintainer publishing, PR tracking, points history,
 leaderboards and moderation APIs. Postgres stores an append-only points ledger.
-The website uses React/TypeScript with Next.js-style routing through vinext.
+The website uses React/TypeScript with the standard Next.js App Router.
 The Manifest V3 extension adds issue badges and a points popup.
 
 The backend uses **uv** with a committed lockfile. **Async SQLAlchemy** now serves the issue board and authentication;
@@ -40,7 +40,7 @@ Selected public repositories can receive signed GitHub App webhooks; contributor
 
 ## Run locally
 
-Follow [setup](docs/setup.md) for Python 3.12, Node 22.13+, local Postgres and GitHub OAuth configuration.
+Follow [setup](docs/setup.md) for Python 3.12, Node 24 LTS, local Postgres and GitHub OAuth configuration.
 The API runs on port 8001 and the website on port 3000.
 Load `frontend/extension` unpacked in Chrome, Brave or Edge.
 

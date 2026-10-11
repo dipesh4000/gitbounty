@@ -20,6 +20,7 @@
 # production
 /build
 /dist
+# Legacy local output can remain after upgrading from Vinext.
 /.vinext
 /.wrangler
 /.impeccable/review

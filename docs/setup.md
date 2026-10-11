@@ -1,6 +1,6 @@
 # Local setup
 
-Use uv, Python 3.12 (matching CI), Node 22.13+ and local Postgres 17.
+Use uv, Python 3.12 (matching CI), Node 24 LTS and local Postgres 17.
 uv manages Python and dependencies; the SQLAlchemy migration is partially complete.
 Install uv using its official installation guide: https://docs.astral.sh/uv/getting-started/installation/.
 Run npm commands within the relevant project folder.
@@ -83,6 +83,8 @@ The root [vercel.json](../vercel.json) configures `backend` and `web` services. 
 publicly at `/api/*`, `/auth/*`, `/webhooks/github`, `/health`, `/healthz` and `/ready`; the web service
 handles all remaining paths. Browser API calls use those same-origin paths in production, so do not set
 `NEXT_PUBLIC_GITBOUNTY_API` on Vercel. No service binding is needed for the current browser-to-API calls.
+Set the Vercel project's framework to **Services**. The web service uses the `nextjs` preset, runs the
+package's standard `next build`, and selects Node 24 from `frontend/web/package.json`.
 
 In the backend service's Vercel environment, set `FRONTEND_URL` to the canonical HTTPS site origin,
 `GITHUB_CALLBACK_URL` to that origin plus `/auth/github/callback`, and `SECURE_COOKIES=true`. Configure the
