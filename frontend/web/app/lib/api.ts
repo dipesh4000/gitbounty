@@ -7,7 +7,8 @@
   post whether the user meant it or not.
 */
 
-export const API_BASE = (process.env.NEXT_PUBLIC_GITBOUNTY_API || "http://localhost:8001").replace(/\/+$/, "");
+const defaultApiBase = process.env.NODE_ENV === "production" ? "" : "http://localhost:8001";
+export const API_BASE = (process.env.NEXT_PUBLIC_GITBOUNTY_API || defaultApiBase).replace(/\/+$/, "");
 
 const CSRF_HEADER = "X-GitBounty-CSRF";
 
@@ -355,7 +356,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
   } catch {
     // fetch only rejects for network-level problems: the API is not running, or CORS refused the call.
-    throw new ApiError(`Could not reach the GitBounty API at ${API_BASE}.`, 0);
+    throw new ApiError(API_BASE ? `Could not reach the GitBounty API at ${API_BASE}.` : "Could not reach the GitBounty API.", 0);
   }
   if (!response.ok) {
     let message = `Request failed (${response.status})`;

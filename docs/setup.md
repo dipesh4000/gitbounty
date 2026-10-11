@@ -77,6 +77,18 @@ See [GitHub's consent guide](https://docs.github.com/en/apps/oauth-apps/using-oa
 | `TOKEN_ENCRYPTION_KEY` | A generated Fernet key |
 | `SECURE_COOKIES` | `false` for local HTTP; explicitly `true` for deployed HTTPS |
 
+## Vercel multi-service deployment
+
+The root [vercel.json](../vercel.json) configures `backend` and `web` services. The backend is routed
+publicly at `/api/*`, `/auth/*`, `/webhooks/github`, `/health`, `/healthz` and `/ready`; the web service
+handles all remaining paths. Browser API calls use those same-origin paths in production, so do not set
+`NEXT_PUBLIC_GITBOUNTY_API` on Vercel. No service binding is needed for the current browser-to-API calls.
+
+In the backend service's Vercel environment, set `FRONTEND_URL` to the canonical HTTPS site origin,
+`GITHUB_CALLBACK_URL` to that origin plus `/auth/github/callback`, and `SECURE_COOKIES=true`. Configure the
+GitHub OAuth app with the same callback URL. Add the backend's other required secrets and database settings
+as Vercel environment variables; do not put secrets in `vercel.json`.
+
 For webhook processing, create a GitHub App with read-only Contents, Issues and Pull requests permissions.
 Subscribe to Pull request events; installation lifecycle events are also handled. Set its webhook URL to
 `https://<public-api-host>/webhooks/github`. Add these server-only values:

@@ -54,7 +54,9 @@ async function readSession(): Promise<Session> {
       user: null,
       error: caught instanceof ApiError
         ? caught.message
-        : `Could not reach the GitBounty API at ${API_BASE}.`,
+        : API_BASE
+          ? `Could not reach the GitBounty API at ${API_BASE}.`
+          : "Could not reach the GitBounty API.",
     };
   }
 }

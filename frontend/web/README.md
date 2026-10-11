@@ -10,8 +10,10 @@ npm ci
 npm run dev
 ```
 
-The site serves port 3000 and calls the API on port 8001 by default.
-Set `NEXT_PUBLIC_GITBOUNTY_API` before building to override it.
+The site serves port 3000 and calls the API on port 8001 by default during local development.
+On Vercel, API calls use the same-origin `/api` and `/auth` routes configured in the repository-root
+`vercel.json`; leave `NEXT_PUBLIC_GITBOUNTY_API` unset there. Set it only when intentionally targeting
+a separate API origin, such as in end-to-end tests.
 [Local setup](../../docs/setup.md) covers the backend and OAuth.
 
 Checks: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
