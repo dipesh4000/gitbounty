@@ -65,7 +65,7 @@ img{display:block;height:auto}
 .announcement b{display:inline-block;transition:transform .3s var(--ease)}
 .announcement:hover b{transform:translateX(5px)}
 .hero h1{max-width:1200px;margin:38px auto 30px;font-size:clamp(56px,8.3vw,124px);line-height:.97}
-.hero h1 em{display:inline-block;color:#bb86ff;transform:rotate(-7deg);text-shadow:0 12px 55px #9952d97a;animation:landing-headline-pop .9s .25s var(--ease) both}
+.hero h1 em{display:inline-block;white-space:nowrap;color:#bb86ff;transform:rotate(-7deg);text-shadow:0 12px 55px #9952d97a;animation:landing-headline-pop .9s .25s var(--ease) both}
 .hero .intro{font-size:20px;color:#eee8fa}
 .hero .actions{margin-top:36px;justify-content:center}
 .hero .btn{min-height:51px}

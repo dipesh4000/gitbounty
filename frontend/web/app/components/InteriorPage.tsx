@@ -125,12 +125,12 @@ export const pages: Record<PageKey, PageSpec> = {
   status: {
     path: "/status",
     title: "What works. What is next.",
-    lede: "GitBounty runs locally and is not deployed anywhere. This page separates what is built and tested from what still needs an owner decision or external configuration.",
-    status: "Build status · runs locally, not deployed",
-    evidence: [["WEBSITE", "Runs locally"], ["BACKEND", "Runs locally"], ["OAUTH", "Implemented; needs an app"], ["EXTENSION", "Load unpacked"]],
+    lede: "GitBounty is deployed at gitbounty-web.vercel.app. This page separates what is built from the live two-account and wallet flow that still needs verification.",
+    status: "Build status · deployed, live journey pending verification",
+    evidence: [["WEBSITE", "Deployed"], ["BACKEND", "Ready endpoint healthy"], ["OAUTH", "GitHub sign-in starts"], ["EXTENSION", "Load unpacked"]],
     sections: [
       { heading: "Built and tested.", body: "GitHub OAuth, the append-only points ledger with its bounds and anti-double-award constraints, the maintainer publish and lifecycle workflow, merged-pull-request synchronisation with recorded status, category leaderboards, the opportunity explorer, and the browser extension.", items: ["The backend and extension test suites cover these paths.", "Database migrations bootstrap a clean database from scratch.", "Points rules are documented and enforced in both the application and the database."] },
-      { heading: "Not done.", body: "GitBounty is not deployed and this page makes no claim that it is. Private repositories are not supported, collusion between two cooperating accounts is not defended against, and the privacy and terms summaries have not been legally reviewed.", code: "runs locally ≠ deployed" },
+      { heading: "Not done.", body: "The complete live GitHub merge, claim and wallet payment flow still needs a two-account test. Private repositories are not supported, collusion between two cooperating accounts is not defended against, and the privacy and terms summaries have not been legally reviewed.", code: "deployed ≠ verified end to end" },
     ],
     next: [["/extension", "Install the extension"], ["https://github.com/dipesh4000/gitbounty", "Follow development on GitHub ↗"]],
   },

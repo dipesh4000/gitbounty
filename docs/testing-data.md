@@ -4,12 +4,30 @@ Use **A as owner** and **B as contributor** throughout. No third account is need
 The payment test uses official Circle USDC on **Avalanche Fuji, chain 43113**.
 Test tokens have no monetary value. GitBounty never funds or guarantees an owner's promise.
 
+## Choose where to test
+
+The live website is `https://gitbounty-web.vercel.app`. On 2026-10-11, read-only checks confirmed
+`/ready` is healthy, public bounties load, GitHub sign-in starts with the production callback,
+and `/api/avax/config` reports SmoothSend enabled on Avalanche Fuji (43113). These checks do not
+prove that GitHub login completes, webhooks are processed, or a payment succeeds.
+
+For the deployed run, use the live website in both profiles. Allow
+`https://gitbounty-web.vercel.app` as an origin in the SmoothSend dashboard, and set the production
+backend variables described in [deployed GitHub configuration](setup.md#deployed-github-configuration).
+Use a fresh repository and issues; the existing public bounty list contains other real rewards.
+Verify the GitHub App webhook URL and event delivery in GitHub settings before relying on webhooks.
+
+For a local run, use `start.bat`, `http://localhost:3000`, and the ignored `backend/.env` settings
+below. A public HTTPS tunnel is needed for local webhook deliveries. Apply migrations through 0016
+to a local throwaway database; shared targets require owner approval. The manual steps below work
+in either environment after sign-in and payment configuration are complete.
+
 ## Prepare once
 
 1. Use two browser profiles: A signed into GitHub and GitBounty in one, B in the other.
    Switching GitHub accounts alone does not change GitBounty's session. Check each workspace username.
    Select distinct browser-wallet accounts for A and B. Wallet links are permanent.
-2. Configure ignored `backend/.env` as described in [setup](setup.md#avalanche-payments-through-smoothsend):
+2. For a local run, configure ignored `backend/.env` as described in [setup](setup.md#avalanche-payments-through-smoothsend):
 
    ```dotenv
    AVAX_PAYMENTS_ENABLED=true
@@ -19,14 +37,16 @@ Test tokens have no monetary value. GitBounty never funds or guarantees an owner
    ```
 
    Use a public `pk_nogas_…` key and allow the exact website origin `http://localhost:3000` in SmoothSend.
-   The selected mode is **user-pays-erc20**: the owner pays fees in USDC. Apply migrations through 0016
-   before starting; shared targets require approval. Never put a secret key in the browser.
-3. Run `start.bat`, open `http://localhost:3000/explore` in both profiles, and confirm Payments says
+   The selected mode is **user-pays-erc20**: the owner pays fees in USDC. Never put a secret key in the browser.
+   For the deployed run, set corresponding Vercel backend variables and redeploy; use its HTTPS origin
+   in SmoothSend. Do not put these backend settings in `NEXT_PUBLIC_` variables.
+3. Open the chosen website's `/explore` page in both profiles, and confirm Payments says
    **USDC / Avalanche Fuji** and test mode. Missing configuration disables wallet actions.
 4. A creates a fresh public repository `gitbounty-flow-test` with README and Issues enabled. B forks it.
    B authors PRs against A's repository, and A merges into its default branch. Record B's starting points.
 5. For webhook testing, A installs the GitBounty GitHub App and connects this repository in Create a bounty.
-   GitHub needs a public HTTPS webhook URL to reach the local API; see setup. If webhooks are unavailable,
+   GitHub needs a public HTTPS webhook URL; use the deployed URL in setup or a tunnel for a local API.
+   Confirm GitHub shows a successful webhook delivery. If webhooks are unavailable or delayed,
    use **B → My PRs → Sync GitHub** after merging. Automated E2E tests substitute GitHub.
 
 ## Create these issues in A's repository
@@ -124,7 +144,7 @@ receiving wallet needs Fuji AVAX for that separate transaction; sponsored withdr
 Record issue/PR numbers, starting/final points, public wallet addresses, operation hash, explorer link,
 and any failed step. Never record private keys, cookies or tokens. This manual run proves the live
 integration; automated tests simulate wallets/chain responses and do not send money.
-Stop backend/frontend terminals and the webhook tunnel afterward; see [setup](setup.md#stop-after-testing).
+For a local run, stop backend/frontend terminals and the webhook tunnel afterward; see [setup](setup.md#stop-after-testing).
 
 | Problem | Next action |
 |---|---|

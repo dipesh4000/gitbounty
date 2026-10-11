@@ -35,7 +35,7 @@ def payment_config():
             "provider": "smoothsend", "sponsorship_mode": "user-pays-erc20",
             "smoothsend_public_key": settings.smoothsend_public_key if smoothsend.configured() else None,
             "fee_limit_usdc": settings.smoothsend_fee_limit_usdc,
-            "configuration_message": None if smoothsend.configured() else "Set SMOOTHSEND_PUBLIC_KEY to your dashboard public key and allow localhost:3000 in SmoothSend."}
+            "configuration_message": None if smoothsend.configured() else f"Set SMOOTHSEND_PUBLIC_KEY to your dashboard public key and allow {settings.frontend_url} in SmoothSend."}
 
 
 @router.get("/wallet/balance")
