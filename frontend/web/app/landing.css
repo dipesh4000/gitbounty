@@ -80,8 +80,8 @@ img{display:block;height:auto}
 .issuebody{display:grid;grid-template-columns:1fr 240px}
 .issue-main{padding:32px}
 .repo{font-size:12px;color:var(--muted)}
-.issue-main h3{font-size:28px;margin:12px 0 14px}
-.issue-main h3 small{font-size:18px;color:var(--muted);font-weight:400}
+.issue-main h2{font-size:28px;margin:12px 0 14px}
+.issue-main h2 small{font-size:18px;color:var(--muted);font-weight:400}
 .meta{font-size:12px;color:var(--muted);display:flex;align-items:center;flex-wrap:wrap;gap:6px}
 .pill{display:inline-block;background:#1f7a4a33;color:#7ee2a6;border-radius:999px;padding:3px 10px}
 .comment{display:flex;gap:14px;margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:10px;background:#0c0e15}
@@ -281,7 +281,7 @@ footer{border-top:1px solid var(--line);background:#07080d}
   .stage{margin-top:52px}
   .hero-window{transform:none!important;animation:none!important}
   .issue-main{padding:20px}
-  .issue-main h3{font-size:19px}
+  .issue-main h2{font-size:19px}
   .comment{padding:12px}
   .receipt-float{position:relative;right:auto;bottom:auto;margin:20px auto 0;animation:none;max-width:90%}
   .receipt-float .number{font-size:21px}

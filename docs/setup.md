@@ -300,7 +300,8 @@ separate. GitBounty neither funds nor guarantees an owner's promise; there is no
 1. Apply numbered migrations through `0016_fuji_usdc.sql` with the migration runner. Shared targets
    require explicit owner approval. Existing mainnet promises retain their immutable network and amount.
 2. In ignored `backend/.env`, set `AVAX_PAYMENTS_ENABLED=true`, `PAYMENT_MODE=usdc_fuji`,
-   `SMOOTHSEND_PUBLIC_KEY=pk_nogas_…` (your dashboard public key), and `SMOOTHSEND_FEE_LIMIT_USDC=0.1`.
+   `SMOOTHSEND_PUBLIC_KEY=pk_nogas_…` (the browser key),
+   `SMOOTHSEND_SECRET_KEY=sk_nogas_…` (the backend key), and `SMOOTHSEND_FEE_LIMIT_USDC=0.1`.
    Allow the exact frontend origin in the SmoothSend dashboard, normally `http://localhost:3000`.
    Restart the API. Missing/invalid public keys keep execution disabled; secret keys are never exposed.
 3. Publish a fresh issue with an exact USDC promise, up to six decimals. Claim amounts, recipients,
@@ -324,7 +325,11 @@ performed by automated tests. Follow the [complete two-account walkthrough](test
 
 Official references: [Circle USDC contracts](https://developers.circle.com/stablecoins/usdc-contract-addresses),
 [Circle test faucet](https://faucet.circle.com/), [SmoothSend Avalanche quickstart](https://docs.smoothsend.xyz/avax/quickstart).
-The SDK is dynamically loaded from its Avalanche subpath. Project `.npmrc` uses legacy peer resolution
+Only the public key is returned to the website. The secret key is used for backend SmoothSend gateway
+verification and must remain in backend/Vercel server environment variables, never `NEXT_PUBLIC_`.
+If the secret key is absent, backend verification temporarily uses the public key for compatibility;
+configure both key types for production. Both must belong to the same SmoothSend project and allow the
+site origin. The SDK is dynamically loaded from its Avalanche subpath. Project `.npmrc` uses legacy peer resolution
 because the SDK's unused Aptos wallet peers conflict; `npm ci` follows that checked-in setting.
 
 The local Codex MCP server is registered as `smoothsend-mcp` using `npx -y @smoothsend/mcp@1.2.0`.

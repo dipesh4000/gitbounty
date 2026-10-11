@@ -104,7 +104,7 @@ export default function BroadsheetLanding() {
         <div className="issuebody">
           <div className="issue-main">
             <div className="repo"><span>acme</span> / <span>webkit</span> &nbsp; · &nbsp; Public repository</div>
-            <h3>Make keyboard navigation work for everyone <small>#128</small></h3>
+            <h2>Make keyboard navigation work for everyone <small>#128</small></h2>
             <div className="meta"><span className="pill">◉ Open</span> opened by alex-dev · 3 comments</div>
             <div className="comment">
               <div className="avatar">a</div>

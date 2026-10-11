@@ -78,7 +78,7 @@ test.describe("public pages", () => {
   }
 
   test("landing actions require login while extension setup and docs stay public", async ({ page }) => {
-    for (const [label, destination] of [["Explore bounties", "/explore"], ["Create a bounty", "/maintainers"], ["See the leaderboard →", "/leaderboard"]]) {
+    for (const [label, destination] of [["Explore bounties", "/explore"], ["Create a bounty", "/maintainers"], ["Meet the contributors", "/leaderboard"]]) {
       await page.goto(WEB_URL);
       await page.getByRole("link", { name: label, exact: true }).first().click();
       await expect(page).toHaveURL(`${WEB_URL}/login?next=${encodeURIComponent(destination)}`);
@@ -86,7 +86,7 @@ test.describe("public pages", () => {
       await expect(page.getByRole("navigation", { name: "Dashboard" })).toHaveCount(0);
     }
     await page.goto(WEB_URL);
-    await page.getByRole("link", { name: "Install the extension →" }).click();
+    await page.getByRole("link", { name: "Install the extension" }).click();
     await expect(page).toHaveURL(`${WEB_URL}/extension`);
     await expect(page.getByRole("heading", { name: "Install GitBounty for GitHub." })).toBeVisible();
     await page.getByRole("link", { name: "View installation steps" }).click();

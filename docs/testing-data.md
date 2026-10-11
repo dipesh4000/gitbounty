@@ -33,10 +33,12 @@ in either environment after sign-in and payment configuration are complete.
    AVAX_PAYMENTS_ENABLED=true
    PAYMENT_MODE=usdc_fuji
    SMOOTHSEND_PUBLIC_KEY=your_dashboard_pk_nogas_key
+   SMOOTHSEND_SECRET_KEY=your_dashboard_sk_nogas_key
    SMOOTHSEND_FEE_LIMIT_USDC=0.1
    ```
 
-   Use a public `pk_nogas_…` key and allow the exact website origin `http://localhost:3000` in SmoothSend.
+   Use the public `pk_nogas_…` key for the browser and secret `sk_nogas_…` key only on the backend;
+   allow the exact website origin `http://localhost:3000` in SmoothSend.
    The selected mode is **user-pays-erc20**: the owner pays fees in USDC. Never put a secret key in the browser.
    For the deployed run, set corresponding Vercel backend variables and redeploy; use its HTTPS origin
    in SmoothSend. Do not put these backend settings in `NEXT_PUBLIC_` variables.

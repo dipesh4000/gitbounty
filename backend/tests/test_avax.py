@@ -242,6 +242,20 @@ def test_smoothsend_is_required_even_when_payments_flag_is_enabled(monkeypatch):
     assert payment_config()["smoothsend_public_key"] is None
 
 
+def test_smoothsend_gateway_uses_backend_key_without_exposing_it(monkeypatch):
+    from app import smoothsend
+    from app.routes.payments import payment_config
+
+    monkeypatch.setattr(settings, "smoothsend_public_key", "pk_nogas_browser_test")
+    monkeypatch.setattr(settings, "smoothsend_secret_key", "sk_nogas_backend_test")
+    assert smoothsend.configured()
+    assert smoothsend.gateway_key() == "sk_nogas_backend_test"
+    assert payment_config()["smoothsend_public_key"] == "pk_nogas_browser_test"
+    assert "sk_nogas_backend_test" not in str(payment_config())
+    monkeypatch.setattr(settings, "smoothsend_secret_key", "invalid")
+    assert not smoothsend.configured()
+
+
 def test_operation_hash_matches_smoothsend_sdk_238_and_rejects_cross_operation_transfer():
     from fastapi import HTTPException
     from app import smoothsend

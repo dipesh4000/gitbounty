@@ -17,7 +17,13 @@ TRANSFER_EVENT = "0x" + keccak(text="Transfer(address,address,uint256)").hex()
 
 
 def configured():
-    return bool(re.fullmatch(r"pk_nogas_[A-Za-z0-9_-]+", settings.smoothsend_public_key))
+    return bool(re.fullmatch(r"pk_nogas_[A-Za-z0-9_-]+", settings.smoothsend_public_key)
+                and (not settings.smoothsend_secret_key or
+                     re.fullmatch(r"sk_nogas_[A-Za-z0-9_-]+", settings.smoothsend_secret_key)))
+
+
+def gateway_key():
+    return settings.smoothsend_secret_key or settings.smoothsend_public_key
 
 
 def call(signature, types, values):
@@ -32,7 +38,7 @@ async def gateway_rpc(method, params, chain_id):
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(GATEWAY + "/", headers={
-                "Authorization": "Bearer " + settings.smoothsend_public_key,
+                "Authorization": "Bearer " + gateway_key(),
                 "X-Chain": "avalanche", "X-Network": "testnet" if chain_id == 43113 else "mainnet",
                 "X-Sponsorship-Mode": "user-pays-erc20", "Origin": settings.frontend_url,
             }, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params})

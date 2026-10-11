@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     avax_payments_enabled: bool = False
     payment_mode: Literal["avax_mainnet", "usdc_fuji"] = "avax_mainnet"
     smoothsend_public_key: str = ""
+    smoothsend_secret_key: str = ""
     smoothsend_fee_limit_usdc: str = "0.1"
     avax_rpc_url: str = "https://api.avax.network/ext/bc/C/rpc"
 
