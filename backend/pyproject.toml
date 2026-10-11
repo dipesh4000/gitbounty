@@ -1,0 +1,28 @@
+[project]
+name = "gitbounty-backend"
+version = "0.1.0"
+description = "GitBounty points API"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "httpx==0.28.1",
+    "pydantic-settings==2.7.0",
+    "asyncpg==0.30.0",
+    "itsdangerous==2.2.0",
+    "cryptography==44.0.0",
+    "sqlalchemy[asyncio]>=2.0,<2.1",
+    "eth-account>=0.14.0",
+    "eth-abi>=6.0.0",
+    "eth-utils>=6.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+    "respx==0.22.0",
+]
+
+[tool.uv]
+package = false

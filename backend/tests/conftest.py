@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 # happen before anything imports `app`, which is why it sits at module scope in conftest.
 os.environ["GITBOUNTY_ENV_FILE"] = ""
 for _leaked in (
+    "GITHUB_APP_ID", "GITHUB_APP_SLUG", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_WEBHOOK_SECRET",
     "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_CALLBACK_URL", "FRONTEND_URL",
     "SESSION_SECRET", "TOKEN_ENCRYPTION_KEY", "DATABASE_URL", "ALLOWED_ORIGINS",
     "DEV_LOGIN_STUB_ENABLED", "DEV_GITHUB_LOGIN", "DEV_GITHUB_TOKEN", "DEV_GITHUB_ID",
@@ -43,7 +44,7 @@ async def apply_migrations(connection: asyncpg.Connection) -> None:
     migrations means the suite is also a clean-database bootstrap test (rules.md section 4).
     """
     for path in MIGRATIONS:
-        await connection.execute(path.read_text())
+        await connection.execute(path.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
@@ -61,7 +62,7 @@ async def db() -> AsyncIterator[asyncpg.Connection]:
     # Start from empty inside the transaction, so a test sees only its own rows even when the development
     # database has data in it. The rollback puts that data back; nothing is actually deleted.
     await connection.execute(
-        "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+        "truncate webhook_deliveries, points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
         "issues, repositories, users restart identity cascade"
     )
     try:
@@ -89,7 +90,7 @@ API_TEST_DATABASE_URL = os.environ.get(
 DEV_LOGIN = "aastha-malik"
 
 TRUNCATE_ALL = (
-    "truncate points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
+    "truncate webhook_deliveries, points_ledger, sync_runs, merged_prs, issue_points_history, issue_points, "
     "issues, repositories, users restart identity cascade"
 )
 

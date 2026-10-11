@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...auth import (
     CurrentUser,
@@ -23,7 +23,6 @@ from ..merged_prs.models import PullRequestState
 from ..merged_prs.service import (
     DetectedMerge,
     DetectionResult,
-    detect_merges,
     detect_pull_requests,
 )
 from . import sync_state
@@ -181,7 +180,6 @@ def _sync_status(run: sync_state.SyncRun | None) -> SyncStatusResponse:
         error=run.error,
         retry_after_seconds=run.retry_after_seconds,
     )
-
 
 # --- synchronisation ------------------------------------------------------
 
@@ -570,15 +568,3 @@ async def get_leaderboard(
     )
 
 
-class PointsRulesResponse(PointsRules):
-    """The published rules, so the website and the extension state the same numbers the backend enforces."""
-
-
-@router.get("/points/rules", response_model=PointsRulesResponse)
-def get_points_rules() -> PointsRulesResponse:
-    return PointsRulesResponse(
-        rule_version=RULE_VERSION,
-        baseline_per_merge=FLAT_POINTS_PER_MERGE,
-        min_bounty_points=MIN_ISSUE_POINTS,
-        max_bounty_points=MAX_ISSUE_POINTS,
-    )

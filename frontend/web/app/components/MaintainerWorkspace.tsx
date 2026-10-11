@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  API_BASE,
   ApiError,
   CATEGORIES,
   api,
@@ -9,6 +10,7 @@ import {
   categoryLabel,
   formatPoints,
   type BountyCategory,
+  type GitHubAppStatus,
   type BountyHistoryResponse,
   type BountyList,
   type BountyStatus,
@@ -18,6 +20,7 @@ import {
   type RepositoryIssue,
   type RepositoryIssueList,
 } from "../lib/api";
+import { promisedReward, type PaymentConfig } from "../lib/payments";
 import { useApiResource } from "../lib/useApiResource";
 
 /*
@@ -29,12 +32,16 @@ import { useApiResource } from "../lib/useApiResource";
 */
 
 type Tab = "publish" | "published";
-type Draft = { selected: boolean; points: string; category: BountyCategory };
+type Draft = { selected: boolean; points: string; category: BountyCategory; rewardAvax: string };
 
 const MIN_POINTS = 1;
 /** Only reached if an issue vanishes from the list mid-edit; "other" is the safe category to fall back on. */
-const BLANK_DRAFT: Draft = { selected: false, points: "", category: "other" };
+const BLANK_DRAFT: Draft = { selected: false, points: "", category: "other", rewardAvax: "" };
 const MAX_POINTS = 1000;
+
+function validAvax(value: string, decimals = 18) {
+  return new RegExp(`^(?:0|[1-9][0-9]{0,59})(?:\\.[0-9]{1,${decimals}})?$`).test(value) && /[1-9]/.test(value);
+}
 
 function message(error: unknown) {
   if (error instanceof ApiError) return error.message;
@@ -44,6 +51,7 @@ function message(error: unknown) {
 function draftFor(issue: RepositoryIssue): Draft {
   return {
     selected: false,
+    rewardAvax: issue.existing?.reward_usdc ?? issue.existing?.reward_avax ?? "",
     // A `gitbounty:N` label on the issue pre-fills the field. It is a suggestion: a label awards nothing
     // on its own, and the maintainer publishing this is the person who decides.
     points: issue.suggested_points ? String(issue.suggested_points) : "",
@@ -74,19 +82,34 @@ export function MaintainerWorkspace({ onPublished }: { onPublished: () => void }
 
 function PublishFlow({ onPublished }: { onPublished: () => void }) {
   const [repository, setRepository] = useState<MaintainerRepository | null>(null);
-  return repository === null
-    ? <RepositoryPicker onPick={setRepository} />
-    : <IssuePicker repository={repository} onBack={() => setRepository(null)} onPublished={onPublished} />;
+  return repository === null ? <><PublishingSteps step={1} /><RepositoryPicker onPick={setRepository} /></> : <IssuePicker repository={repository} onBack={() => setRepository(null)} onPublished={onPublished} />;
+}
+
+function PublishingSteps({ step }: { step: number }) {
+  return <ol className="publish-progress" aria-label="Publishing steps">{["Choose repository", "Select issues & rewards", "Review & publish"].map((label, index) => <li key={label} aria-current={step === index + 1 ? "step" : undefined}><span>{index + 1}</span>{label}</li>)}</ol>;
 }
 
 function RepositoryPicker({ onPick }: { onPick: (repository: MaintainerRepository) => void }) {
+  const { resource: app, reload: reloadApp } = useApiResource<GitHubAppStatus>("/api/github-app");
+  const [connecting, setConnecting] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
+  async function connect(fullName: string) {
+    setConnecting(fullName);
+    setConnectionNotice("");
+    try {
+      await apiWrite(`/api/maintainer/repositories/${fullName}/connect`);
+      setConnectionNotice(`${fullName} connected for automatic rewards.`);
+      reloadApp();
+    } catch (error) { setConnectionNotice(message(error)); }
+    finally { setConnecting(""); }
+  }
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
 
   const params = new URLSearchParams({ page: String(page), per_page: "30" });
   if (query.trim()) params.set("q", query.trim());
   const { resource, reload } = useApiResource<MaintainerRepositoryList>(
-    `/api/maintainer/repositories?${params}`
+    `/api/maintainer/repositories?${params}`, query ? 250 : 0
   );
   const result = resource.data;
   const loading = resource.status === "loading";
@@ -94,6 +117,12 @@ function RepositoryPicker({ onPick }: { onPick: (repository: MaintainerRepositor
 
   return (
     <>
+      <div className="app-summary-line">
+        {app.data?.install_url
+          ? <a href={app.data.install_url} target="_blank" rel="noreferrer">Install GitHub App / select repositories</a>
+          : <span>{app.error || (app.status === "loading" ? "Checking GitHub App..." : "GitHub App is not configured. Contributors can still sync after signing in.")}</span>}
+        <span role="status">{connectionNotice}</span>
+      </div>
       <div className="bounty-source-bar">
         <div>
           <strong>Choose a repository</strong>
@@ -117,7 +146,7 @@ function RepositoryPicker({ onPick }: { onPick: (repository: MaintainerRepositor
 
       {error && <ErrorBox message={error} onRetry={reload} />}
 
-      <div className="app-table bounty-repo-table">
+      {!error && <div className="app-table bounty-repo-table">
         <div className="app-table-head">
           <span>Repository</span><span>Permission</span><span>Open issues</span><span></span>
         </div>
@@ -134,6 +163,13 @@ function RepositoryPicker({ onPick }: { onPick: (repository: MaintainerRepositor
             <div data-label="Permission"><span className="app-category">{repository.permission}</span></div>
             <div data-label="Open issues">{repository.open_issues_count}</div>
             <div data-label="">
+              {app.data?.configured && !repository.private && (
+                app.data.repositories.some((item) => item.active && item.full_name.toLowerCase() === repository.full_name.toLowerCase())
+                  ? <span className="bounty-footnote">Automatic rewards connected</span>
+                  : <button type="button" disabled={!!connecting} onClick={() => connect(repository.full_name)}>
+                      {connecting === repository.full_name ? "Connecting..." : "Connect automatic rewards"}
+                    </button>
+              )}
               {repository.publishable
                 ? <button type="button" className="app-add-issues" onClick={() => onPick(repository)}>Choose issues</button>
                 : <span className="bounty-footnote">{repository.blocked_reason}</span>}
@@ -151,7 +187,7 @@ function RepositoryPicker({ onPick }: { onPick: (repository: MaintainerRepositor
             {query && <button type="button" onClick={() => setQuery("")}>Clear search</button>}
           </div>
         )}
-      </div>
+      </div>}
 
       {result && result.total > result.per_page && (
         <Pager page={result.page} perPage={result.per_page} total={result.total} onPage={setPage} />
@@ -172,6 +208,8 @@ function IssuePicker({
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
+  const { resource: paymentMode } = useApiResource<PaymentConfig>("/api/avax/config");
+  const payment = paymentMode.data;
   const [publishError, setPublishError] = useState("");
   const [success, setSuccess] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -199,8 +237,9 @@ function IssuePicker({
 
   const invalid = useMemo(() => selected.filter((issue) => {
     const points = Number(drafts[issue.number]?.points);
-    return !Number.isInteger(points) || points < MIN_POINTS || points > MAX_POINTS;
-  }), [drafts, selected]);
+    const avax = drafts[issue.number]?.rewardAvax;
+    return !Number.isInteger(points) || points < MIN_POINTS || points > MAX_POINTS || Boolean(avax && !validAvax(avax, issue.existing?.reward_usdc ? 6 : issue.existing?.reward_avax ? 18 : payment?.decimals ?? 18));
+  }), [drafts, selected, payment?.decimals]);
 
   /*
     Seed from draftFor() when there is no stored draft yet.
@@ -230,6 +269,7 @@ function IssuePicker({
             number: issue.number,
             points: Number(drafts[issue.number].points),
             category: drafts[issue.number].category,
+            ...(!issue.existing && drafts[issue.number].rewardAvax && payment ? { [payment.testnet ? "reward_usdc" : "reward_avax"]: drafts[issue.number].rewardAvax } : {}),
           })),
         },
       });
@@ -249,10 +289,12 @@ function IssuePicker({
 
   return (
     <>
+      <PublishingSteps step={reviewing ? 3 : 2} />
       <div className="bounty-source-bar">
         <div>
           <strong>{repository.full_name}</strong>
           <span>Open issues on GitHub. Choose the ones to publish as bounties.</span>
+          <span>Optional payment rewards are your promise, fixed at first publication. GitBounty does not fund or guarantee them.</span>
         </div>
         <button type="button" className="app-back-action" onClick={onBack}>Change repository</button>
       </div>
@@ -278,6 +320,7 @@ function IssuePicker({
         </button>
       </div>
 
+      <p className="bounty-payment-note">{payment ? `${payment.network} · ${payment.symbol}${payment.testnet ? " test tokens with no monetary value" : " real-money payments"}. Set the optional promise before first publication; it cannot change. Points are separate.` : "Payment configuration is loading or unavailable. You can still publish a points-only bounty."}</p>
       {reviewing ? (
         <div className="bounty-review" aria-label="Review before publishing">
           <h3>Review {selected.length} {selected.length === 1 ? "bounty" : "bounties"}</h3>
@@ -287,6 +330,7 @@ function IssuePicker({
                 <strong>#{issue.number}</strong> {issue.title}
                 <span>
                   {formatPoints(Number(drafts[issue.number].points))} points ·{" "}
+                  {drafts[issue.number].rewardAvax && `${drafts[issue.number].rewardAvax} ${issue.existing?.reward_usdc ? "USDC · Fuji testnet" : issue.existing?.reward_avax ? "AVAX · Mainnet" : `${payment?.symbol} · ${payment?.network}`} promised by you · `}
                   {categoryLabel(drafts[issue.number].category)}
                   {issue.existing && ` · replaces an existing ${issue.existing.points}-point bounty`}
                 </span>
@@ -321,7 +365,7 @@ function IssuePicker({
       {invalid.length > 0 && !reviewing && (
         <p className="bounty-footnote" role="alert">
           {invalid.length} selected {invalid.length === 1 ? "issue needs" : "issues need"} a whole-number
-          value between {MIN_POINTS} and {formatPoints(MAX_POINTS)}.
+          value between {MIN_POINTS} and {formatPoints(MAX_POINTS)}, and any payment promise must be positive with at most {payment?.decimals ?? 18} decimals.
         </p>
       )}
 
@@ -364,7 +408,8 @@ function IssuePicker({
                   {CATEGORIES.map((value) => <option value={value} key={value}>{categoryLabel(value)}</option>)}
                 </select>
               </label>
-              <label className="bounty-field" data-label="Points">
+              <div className="bounty-field" data-label="Reward">
+              <label>
                 <span className="sr-only">Points for issue #{issue.number}</span>
                 <input
                   type="number"
@@ -378,6 +423,14 @@ function IssuePicker({
                   onChange={(event) => update(issue.number, { points: event.target.value })}
                 />
               </label>
+              <label>
+                <span>{payment?.symbol ?? "Payment"} promise (optional)</span>
+                <input type="text" inputMode="decimal" value={current.rewardAvax}
+                  aria-label={`${payment?.symbol ?? "Payment"} promise for issue #${issue.number}`}
+                  disabled={!payment || !current.selected || Boolean(issue.existing)} placeholder={payment?.testnet ? "e.g. 1.25" : "e.g. 0.1"}
+                  onChange={event => update(issue.number, { rewardAvax: event.target.value })} />
+              </label>
+              </div>
             </div>
           );
         })}
@@ -483,6 +536,7 @@ function PublishedBounties({ onChanged }: { onChanged: () => void }) {
                 ? <a href={bounty.issue_url} target="_blank" rel="noreferrer">{bounty.issue_title || "View on GitHub"}</a>
                 : <span>{bounty.issue_title || "Issue"}</span>}
               {bounty.awarded && <span>Already awarded — the award keeps the value it had at the time.</span>}
+              {promisedReward(bounty) && <span>{promisedReward(bounty)} · owner-promised</span>}
             </div>
             <div className="app-repo" data-label="Repository">github.com/{bounty.repository}</div>
             <div data-label="Category"><span className="app-category">{categoryLabel(bounty.category)}</span></div>
@@ -620,11 +674,14 @@ function BountyHistory({ history, onClose }: { history: BountyHistoryResponse; o
 // --- shared bits ----------------------------------------------------------
 
 function ErrorBox({ message: text, onRetry }: { message: string; onRetry: () => void }) {
+  const reconnect = text === "Sign in with GitHub again.";
   return (
     <div className="bounty-message is-error" role="alert">
-      <strong>Couldn’t continue.</strong>
-      <span>{text}</span>
-      <button type="button" onClick={onRetry}>Try again</button>
+      <strong>{reconnect ? "Reconnect GitHub" : "Couldn’t continue."}</strong>
+      <span>{reconnect ? "Your GitHub authorization is no longer valid. Reconnect to load your repositories and continue publishing." : text}</span>
+      {reconnect
+        ? <a href={`${API_BASE}/auth/github?next=%2Fmaintainers`}>Reconnect GitHub</a>
+        : <button type="button" onClick={onRetry}>Try again</button>}
     </div>
   );
 }

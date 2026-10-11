@@ -36,6 +36,9 @@ export function categoryLabel(value: string): string {
 // --- shapes ---------------------------------------------------------------
 
 export type Issue = {
+  reward_avax?: string | null;
+  reward_usdc?: string | null;
+  reward_chain_id?: number | null;
   id: number;
   number: number;
   title: string;
@@ -239,6 +242,9 @@ export type MaintainerRepositoryList = {
 };
 
 export type PublishedBounty = {
+  reward_avax?: string | null;
+  reward_usdc?: string | null;
+  reward_chain_id?: number | null;
   repository: string;
   issue_number: number;
   points: number;
@@ -303,12 +309,25 @@ export type BountyHistoryResponse = {
   entries: BountyHistoryEntry[];
 };
 
+export type PendingClaims = {
+  points: number;
+  items: Array<{ id: number; kind: string; points: number; repository: string; pr_number: number }>;
+};
+
+export type GitHubAppStatus = {
+  configured: boolean;
+  install_url: string | null;
+  repositories: Array<{ full_name: string; active: boolean }>;
+};
+
 export type SyncStartedResponse = {
   state: "running" | "already-running";
   message: string;
 };
 
 // --- the client -----------------------------------------------------------
+
+import { clearPublicCache, publicCacheGeneration, readPublicCache, writePublicCache } from "./publicCache";
 
 export class ApiError extends Error {
   status: number;
@@ -322,6 +341,15 @@ export class ApiError extends Error {
 
 /** Read of the API. Never falls back to canned data; a failure throws an ApiError. */
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const isWrite = (options.method ?? "GET").toUpperCase() !== "GET";
+  const cacheable = !isWrite && /^\/api\/issues(?:\?|$)/.test(path) && typeof window !== "undefined";
+  const cacheKey = `${API_BASE}${path}`;
+  if (isWrite) clearPublicCache();
+  if (cacheable && options.cache !== "no-store" && options.cache !== "reload") {
+    const cached = readPublicCache(cacheKey);
+    if (cached) return cached.data as T;
+  }
+  const generation = publicCacheGeneration();
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...options });
@@ -339,8 +367,11 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     }
     throw new ApiError(message, response.status);
   }
+  if (isWrite) clearPublicCache();
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const data = await response.json() as T;
+  if (cacheable) writePublicCache(cacheKey, data, generation);
+  return data;
 }
 
 /*

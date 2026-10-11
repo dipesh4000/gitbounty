@@ -4,7 +4,9 @@
   "description": "End-to-end test: the real backend, database and website, with GitHub substituted locally.",
   "scripts": {
     "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "test:extension-ui": "node tests/extension.browser.cjs",
+    "test:landing-preview": "node tests/landing-preview.browser.cjs"
   },
   "keywords": [],
   "author": "",

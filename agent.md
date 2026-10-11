@@ -1,90 +1,38 @@
 # Agent guide
 
-For any AI coding agent working in this repo (Claude Code, Cursor, Codex, Gemini and so on).
+Read [overview.md](overview.md) first, then [plan.md](plan.md) and [rules.md](rules.md).
+The overview records product intent; the plan distinguishes implemented behavior from agreed future work.
 
-**Read [`overview.md`](overview.md) first, in full, before this file or anything else.** It explains the project in
-plain language, including the decision that matters most here: GitBounty is being built as a **points/XP** app, and
-the real-money escrow design in `readme.md` is a deferred later phase, not the current spec. Skipping it means
-working from the wrong picture of the project.
+## Working context
 
-Then read this file and [rules.md](rules.md) before you touch anything. The rules are not optional.
-The first two, read the git history and commit every small step, apply to every task.
+- GitBounty is a points app with a website and optional browser extension.
+- FastAPI, Postgres, GitHub OAuth and a points ledger are implemented.
+- uv manages the backend project and lockfile. Async SQLAlchemy serves issue-board reads and authentication; remaining queries still use asyncpg.
+- GitHub App webhooks use a signed, durable inbox and retry worker; live GitHub verification remains pending.
+- Rewards must belong to the PR author's GitHub numeric ID before or after registration.
+  Authentication as that identity is required to claim. Allocations and claims are implemented.
+- Only registered rewards are displayed; the extension's label-only fallback has been removed.
+- Owner-approved Avalanche promises are in scope. Connected browser wallets sign individual payouts
+  through required SmoothSend; owners fund smart accounts and pay fees in USDC. Current tests use Fuji USDC.
+  Points do not convert into money.
+  Keep payout amounts and recipients server-resolved, signatures verified and retries idempotent.
 
-## The project in five lines
+## Before claiming completion
 
-- GitBounty rewards open-source contributors with **points (XP)**. An issue creator decides what their issue is
-  worth; the contributor whose merged PR closes it receives exactly that.
-- Flow: log in with GitHub, browse open issues by category, we check *your own* account for merged PRs, points are
-  awarded and feed weekly and per-category leaderboards. No wallet, no escrow, no webhooks.
-- Two surfaces: a **website** (issue browser, your points, leaderboards) and an optional **Chrome extension** that
-  badges GitHub issue lists. The site must not require the extension.
-- Hackathon project (CodeSlayer 2K26, Open Innovation track), built by a small team.
-- Build plan and tech stack: [plan.md](plan.md). Who builds what: [feature-split.md](feature-split.md). The original
-  money/escrow pitch is [readme.md](readme.md) — deferred, not current.
+Read the code instead of trusting old descriptions. Run checks appropriate to the change and report
+what was verified, what skipped, and what still needs a person or external configuration.
+Preserve existing API contracts and award invariants during infrastructure migrations.
+Keep Pydantic response models separate from ORM models; stored tokens must never become public fields.
 
-## What exists today
+Open product decisions are listed in the overview. Propose and wait on those rather than choosing by scaffolding.
+Do not re-ask decisions already settled by the user.
 
-The points API exists. The website is an exact Next.js port of the original landing page and its API-backed issue browser.
+## Documentation map
 
-| Area | Folder | State |
-|---|---|---|
-| Website | `frontend/web/` | Next.js app: single-page landing site and API-backed issue browser |
-| Extension | `frontend/extension/` | Not started |
-| Backend | `backend/` | FastAPI points, leaderboard and development identity endpoints |
-| Database | `migrations/` | Hand-written Postgres migrations for the points data |
-| Escrow contract | `contracts/` | Deferred with the money version. Don't build it |
+- [README](readme.md): introduction and entry points.
+- [Overview](overview.md): agreed product.
+- [Plan](plan.md): progress and next work.
+- [Setup](docs/setup.md), [architecture](docs/architecture.md), [points rules](docs/points-rules.md),
+  [security and operations](docs/security.md): essential technical guidance.
 
-Do not describe planned things as if they work. Check the code before claiming a feature exists.
-
-## The website, as it is now
-
-- `frontend/web/app/page.tsx` is the single landing route.
-- Client components call the FastAPI issue and GitHub OAuth endpoints through `app/lib/api.ts`.
-- The issue board includes category filters, server-side search, sorting, pagination, and loading/error/empty states.
-- There is no theme switcher. Light mode comes from a single `@media (prefers-color-scheme: light)` block that
-  redefines the variables, so it follows the operating system. `localStorage` is used only for the labelled test
-  login flag.
-- `frontend/web/app/globals.css` defines colours, fonts and spacing as CSS variables in `:root`: the "Graphite Lime"
-  palette, a near-black background with a lime accent (`--accent: #C5F53A`), Space Grotesk / Inter / JetBrains
-  Mono. Use the variables and don't hard-code colours.
-
-## Domain notes for backend work
-
-For the points version. Not a fixed schema — the schema itself is Nishika's feature, see
-[feature-split.md](feature-split.md).
-
-- **No webhooks.** We don't own the repos whose issues we list, so we can't ask their maintainers to install one.
-  Merged PRs are found by querying GitHub *as the logged-in user*, with their own token.
-- **No points for self-merges** — merging your own PR into your own repo is the obvious way to fake a score. This
-  does not catch two people colluding; see the cheat noted in [overview.md](overview.md), still unsolved.
-- **Points come from the issue, not from us.** A creator sets a value with a `gitbounty:N` label or on the website
-  (website wins). Every merged PR also earns a small flat amount so unmarked repos still count.
-- Things to persist: users, the merged PRs we've already counted (so a re-sync doesn't double-award), points, the
-  issue each PR closed, and the category each merge falls into.
-- Categories, shared with the issue browser: `frontend`, `backend`, `fullstack`, `docs`, `testing`, `devops`,
-  `design`, `mobile`, `other`. See [feature-seams.md](feature-seams.md) seam 3.
-
-## Decided
-
-- Backend: FastAPI (Python). Auth: GitHub OAuth via Authlib. Database: Postgres on Nishika's Supabase.
-- Website: Next.js with React and TypeScript. Extension: Chrome Manifest V3, vanilla JS.
-- See the tech stack table in [plan.md](plan.md).
-
-## Undecided (ask, don't assume)
-
-- How big the flat per-merge amount is, and whether a points-marked issue's value is capped.
-- How to stop two people colluding to award each other points.
-- Everything about the deferred money phase: whether points redeem for money, which chain, which token, which
-  wallet provider. Don't build toward it.
-- Hosting specifics (Render or Railway for the backend, Vercel or Netlify for the site).
-
-## How to work
-
-1. Read the git history and the files you'll change ([rules.md](rules.md) section 1).
-2. Do one small step.
-3. Check it and say what you checked.
-4. Commit it ([rules.md](rules.md) section 2), then go back to step 2 for the next step.
-5. Report what changed, what you didn't verify, and anything you noticed but left alone.
-
-Some contributors have not built a browser extension before. When you introduce an extension concept
-(manifest, content script, service worker), explain it in a line.
+Use existing CSS tokens and accessible controls for frontend changes.

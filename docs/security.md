@@ -1,182 +1,100 @@
-# Security model
+# Security and operations
 
-What GitBounty protects, how, and what it does not protect. Where a claim is not true yet, it says so.
+This is guidance for the current local application. Production readiness is not established.
+See [setup](setup.md) for commands and [progress](../plan.md) for outstanding work.
 
-## What there is to protect
+## Current controls
 
-| Asset | Where it lives | Exposure if lost |
-|---|---|---|
-| A user's GitHub access token | `users.github_access_token`, Fernet-encrypted | Read access to that person's GitHub as them, within `read:user` |
-| `TOKEN_ENCRYPTION_KEY` | environment only | Every stored token becomes readable |
-| `SESSION_SECRET` | environment only | Session cookies can be forged — anybody can be impersonated |
-| `GITHUB_CLIENT_SECRET` | environment only | The OAuth app can be impersonated |
-| `DATABASE_URL` | environment only | Everything above, plus the ledger |
-| The points ledger | `points_ledger` | Reputation can be falsified |
+- GitHub OAuth uses one-time state validation and rotates the signed session on login.
+- Session cookies are HttpOnly and SameSite=Lax. Set `SECURE_COOKIES=true` explicitly for an HTTPS deployment.
+- GitHub tokens are Fernet-encrypted at rest, excluded from public response models, and cleared on logout.
+  Authentication now uses SQLAlchemy; its user mapping defers the token column unless explicitly requested.
+  Real-database tests cover encrypted storage, identity-preserving renames, public response filtering and logout removal.
+- Maintainer writes re-check GitHub admin/maintain permission. The client does not establish ownership.
+- Cookie-authenticated writes require CSRF headers; OAuth and logout are explicitly exempt.
+- Configure an explicit browser-origin allowlist. Development/test sign-in paths must be disabled in production.
+- SQL queries are parameterised; keep this and token filtering intact during SQLAlchemy migration.
+- The extension contains public code only and uses minimal permissions.
 
-GitBounty stores no password of its own, no payment details, and nothing a user has not chosen to connect.
+## Secrets and rotation
 
-## Authentication
+Never put secrets or database dumps in git, logs, screenshots or chat.
+Earlier project records report credentials shared during development; rotate affected credentials before exposure.
+This document does not establish whether any particular current secret has already been rotated.
 
-- GitHub OAuth, scope **`read:user`** only. No write access to repositories; no private-repository access.
-- `state` is 32 bytes from `secrets.token_urlsafe`, kept in the signed session, popped before use, and
-  compared with `secrets.compare_digest`. A replayed or missing state is `400` before the code is used.
-- The session is **rotated** on sign-in (session fixation).
-- The session cookie holds **only** a signed internal user id — never a token, never a login.
-- `HttpOnly` (Starlette sets it), `SameSite=Lax`, `Secure` when `SECURE_COOKIES` is true, 14-day expiry.
-- Tokens are Fernet-encrypted before storage and **never** appear in a response: `UserPublic` does not
-  declare the field, and `USER_PUBLIC_COLUMNS` does not select it.
-- Logout clears the session **and** the stored token.
-- A token GitHub rejects becomes `401` with "sign in again"; so does a token that no longer decrypts, which
-  is what a rotated `TOKEN_ENCRYPTION_KEY` looks like.
+| Setting | Rotation effect |
+|---|---|
+| `SESSION_SECRET` | Invalidates sessions; users sign in again |
+| `GITHUB_CLIENT_SECRET` | Update the backend with the new OAuth secret, then retire the old one |
+| Database password / `DATABASE_URL` | Coordinate database and backend updates; verify connectivity afterwards |
+| `TOKEN_ENCRYPTION_KEY` | Existing encrypted GitHub tokens become unreadable without the old key; users must reauthenticate |
 
-**Not done:** GitBounty cannot revoke a GitHub grant on the user's behalf — only the user can, at
-<https://github.com/settings/applications>. Clearing the stored token is what GitBounty can do, and does.
+Key rotation does not erase points. A multi-key re-encryption workflow is not implemented.
+Planned GitHub App private keys, installation tokens and webhook secrets must stay server-side.
+Webhook verification must use the raw body, HMAC-SHA256 and constant-time comparison.
+Persist delivery processing state, verify installation scope and prevent duplicate awards.
 
-## Authorization
+After rotation, check readiness, a fresh login, sync, and logout.
+Do not share actual cookie/token values as verification evidence.
 
-- One definition, `github.can_publish_bounties`, decides both what is listed and what may be written, so a
-  repository missing from the list cannot be published to by a hand-made request.
-- It reads **GitHub's own `permissions` object**. The client never asserts ownership.
-- `admin` or `maintain` is required. `push` is not enough: somebody who can both set a bounty's value and
-  merge the pull request claiming it is the collusion case with one person in it.
-- Every maintainer write re-checks, per request. Losing permission ends the ability to change those
-  bounties.
-- Reading a bounty's history requires maintaining its repository.
+## Database migrations and recovery
 
-## CSRF
+The numbered files in [migrations](../migrations/) are the schema change record.
+Run `uv run --locked python dev/migrate.py status` and `up` from the backend environment.
+The runner applies each file transactionally, records checksums and rejects numbering gaps.
+Never edit an applied migration; add the next numbered file with its dependencies.
 
-The session is a cookie, and a browser attaches cookies to a cross-site form post whether the user meant it
-or not. CORS does not prevent the *request*, only reading the *response*.
+Shared database changes need explicit owner authorisation and a backup.
+The runner refuses non-local targets without `--i-have-approval`; that flag is not permission by itself.
+Check which migrations are applied rather than assuming the hosted database matches git.
 
-A token is minted at sign-in, kept in the signed session, read from `GET /api/csrf` and echoed in
-`X-GitBounty-CSRF` on every state-changing request. An attacker's page cannot read `/api/csrf`
-cross-origin, and cannot set a custom header on a form post at all — adding one makes the request
-preflighted, which the CORS allowlist then refuses.
+Upgrade notes retained from the existing migration history:
 
-`SameSite=Lax` already blocks the classic case; this is the second lock.
+- 0007 rejects values outside 1–1000. Unpublishing alone does not satisfy that check;
+  inspect out-of-range rows and agree on a data correction before retrying.
+- When upgrading the old merged-PR totals to the ledger, include 0010's backfill.
+  Stopping after 0008 leaves old contributions out of the new totals.
+- Report checksum changes; recover the original file and use a new migration for intended changes.
 
-## CORS
+Back up before shared changes and practise restoring to a separate database.
+A local container dump can be created without shell binary redirection:
 
-An explicit allowlist from `ALLOWED_ORIGINS`, with credentials. Never `*` — with credentials, `*` would let
-any page on the internet make calls as a signed-in user. A test asserts a listed origin is allowed and an
-unlisted one is not.
-
-## Injection
-
-- **SQL:** every query is parameterised through asyncpg. The only interpolation anywhere is `order_by`,
-  chosen from a hard-coded whitelist. Repository names are validated against `^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`
-  before reaching a URL or a query.
-- **XSS:** React escapes by default. The one `dangerouslySetInnerHTML` contains a static comment. The
-  extension builds every node with `textContent`, never `innerHTML`.
-- **Open redirect:** the only redirect target is `FRONTEND_URL`, from configuration, never from a request.
-
-## IDOR and row ownership
-
-Every `/api/me/*` read is scoped to the session's user id. A maintainer's bounty list is scoped to
-`set_by_user_id`. A bounty edit re-checks GitHub permission on the repository rather than trusting the path.
-Ledger entries are never addressable by id from outside.
-
-## Error handling and logging
-
-- GitHub's response bodies are never forwarded; failures become a fixed sentence plus a status.
-- `/ready` reports `unreachable` without naming the host, port, driver or credential.
-- The migration runner strips credentials before printing a target.
-- Tokens are never logged. The sync logs an exception with a user id, not a token.
-
-**Not done:** there is no request/correlation id and logging is `logging.basicConfig(level=INFO)`. Listed in
-[`deployment-readiness.md`](deployment-readiness.md).
-
-## The extension
-
-`activeTab` plus one host (`http://localhost:8001/*`). Content scripts limited by `include_globs` to GitHub
-issue and pull-request URLs. No remotely loaded code, no analytics, no secret of any kind — everything in
-that folder ships to the browser and is public.
-
-## Secrets in the repository
-
-`.gitignore` covers `.env`, `*.env` and `.env.*`, with `.env.example` (empty values) the exception.
-`git log --all --diff-filter=A --name-only` shows no `.env` ever committed, and no key, token or connection
-string appears in any tracked file.
-
----
-
-# Secret rotation checklist
-
-**Every secret used during development must be treated as compromised.** They were shared while the project
-was being built. Rotate all four before GitBounty is ever exposed to anybody.
-
-**Only the owner can do this.** It requires GitHub and Supabase accounts nobody else holds. Never paste a
-value into a chat, an issue, a commit message or a log.
-
-Rotate in this order — the last one has the biggest user-visible effect.
-
-### 1. `SESSION_SECRET`
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+```text
+docker exec gitbounty_dev_db pg_dump -U gitbounty -d gitbounty_dev -Fc -f /tmp/gitbounty-backup.dump
+docker cp gitbounty_dev_db:/tmp/gitbounty-backup.dump <secure-backup-directory>/gitbounty-backup.dump
 ```
 
-**Effect:** every existing session cookie becomes invalid. Everyone is signed out and signs in again.
-Nothing is lost. Zero risk.
+Replace the destination with a protected directory outside the repository.
+For hosted Postgres, use a protected connection configuration with `pg_dump -Fc --file=<backup-file>`;
+do not paste credentials into commands or logs.
+Restore using `pg_restore --dbname=<separate-restore-database> --no-owner --no-privileges <backup-file>`.
+Compare user/ledger row counts, ledger totals, migration history, readiness and leaderboard reads.
+A real hosted backup restore has not been verified in this review.
 
-### 2. `GITHUB_CLIENT_SECRET`
+Do not repair points by editing ledger rows. Append a reasoned adjustment using the application's correction path.
+Account deletion/retention is not implemented; deleting user rows can cascade into awards and published bounties.
 
-GitHub → Settings → Developer settings → OAuth Apps → your app → **Generate a new client secret**, then
-delete the old one.
+## Logs and rate limits
 
-**Effect:** none for anyone already signed in. New sign-ins fail until the new value is deployed, so deploy
-it in the same change. The client *ID* does not change.
+Structured JSON logs include `X-Request-ID` correlation and events for requests, syncs, bounties and awards.
+`LOG_LEVEL` and `JSON_LOGS` control output. Bodies, query strings and credentials are excluded from request logs;
+redaction is a backstop, not permission to log secrets.
 
-### 3. The database password and `DATABASE_URL`
+Rate limiting is implemented. A 429 includes retry information.
+Counters live in one process and need a shared strategy before scaling.
+Proxy configuration must establish trusted client addresses.
+`RATE_LIMIT_SCALE` only affects the exact test environment.
+There is no metrics or external error-reporting service.
 
-Supabase → Project Settings → Database → reset the password, then update `DATABASE_URL` everywhere.
+## Before public release
 
-**Effect:** the backend cannot reach the database between the reset and the update. `/ready` reports
-`database: unreachable` and endpoints answer 503; nothing is corrupted. Take a backup first
-([`database-runbook.md`](database-runbook.md)).
+- Verify real OAuth and a complete publish → merge → award journey.
+- Configure production database, backups, OAuth callback, HTTPS cookies and allowed origins.
+- Disable the development login stub and test-auth configuration.
+- Choose hosting and a durable worker/recovery strategy; configure proxy trust and rate limiting for that topology.
+- Recheck dependencies and runtime behavior; old audit counts are not evidence of current safety.
+- Set moderator GitHub numeric IDs and a security contact.
+- Resolve licensing, privacy/terms and retention policy with the owner.
+- Replace extension localhost URLs and verify browser/session behavior before store submission.
 
-### 4. `TOKEN_ENCRYPTION_KEY` — read this before doing it
-
-```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-**Effect: every stored GitHub token becomes permanently unreadable.** Fernet ciphertext encrypted with the
-old key cannot be decrypted with the new one, and GitBounty keeps no second copy.
-
-What that means in practice:
-
-- Every user must sign in again before their next sync. The code already handles this: `decrypt` returns
-  `None`, `get_current_user_with_token` clears the session and answers `401` with "Sign in with GitHub
-  again", and the website shows the signed-out state.
-- **No points are lost.** The ledger, the bounties and the pull-request history are not encrypted and are
-  untouched.
-- A sync in flight fails and is recorded as failed. It can be re-run after signing in.
-
-Two ways to do it:
-
-- **Simple (recommended here).** Rotate the key and, in the same change, run
-  `update users set github_access_token = null;` so the state is clean rather than full of ciphertext
-  nobody can read. Everybody signs in again.
-- **Zero-logout (only if ever needed).** Add a second key, decrypt with either and re-encrypt with the new
-  one in a one-off pass, then drop the old key. This needs code that does not exist today; do not attempt it
-  under time pressure.
-
-### After rotating
-
-- [ ] `curl /ready` reports every dependency healthy
-- [ ] A fresh browser completes sign-in end to end
-- [ ] `GET /api/me` returns the right account
-- [ ] A sync runs and records `succeeded`
-- [ ] `git log -p -- backend/.env` is empty and `git grep` finds no new value in a tracked file
-- [ ] The old GitHub client secret is deleted, not merely replaced
-
-## Dependency and supply chain
-
-`npm audit` runs in CI for both JavaScript projects. Python dependencies are pinned exactly in
-`requirements.txt`. The licence inventory is in [`handoff.md`](handoff.md).
-
-## Reporting a problem
-
-There is no security contact yet, because there is no deployment and no users. Setting one up is in
-[`handoff.md`](handoff.md).
+No deployment, shared database operation, credential rotation or external telemetry is authorised by this document.

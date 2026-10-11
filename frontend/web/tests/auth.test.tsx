@@ -15,7 +15,7 @@ function Probe() {
       <output data-testid="status">{status}</output>
       <output data-testid="user">{user?.github_login ?? "none"}</output>
       <output data-testid="error">{error}</output>
-      <button type="button" onClick={signIn}>Connect GitHub</button>
+      <button type="button" onClick={() => signIn()}>Connect GitHub</button>
       <button type="button" onClick={signOut}>Sign out</button>
     </div>
   );

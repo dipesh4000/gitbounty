@@ -19,6 +19,12 @@ const eslintConfig = defineConfig([
   jsxA11y.flatConfigs.recommended,
   next.configs["core-web-vitals"],
   {
+    files: ["app/**/*.{tsx,jsx}"],
+    // vinext 1.0.0-beta.2's production Link handler throws on page navigation.
+    // Native anchors are intentional; browser tests cover the entry flow.
+    rules: { "@next/next/no-html-link-for-pages": "off" },
+  },
+  {
     languageOptions: {
       globals: { ...globals.browser, ...globals.node, ...globals.serviceworker },
     },

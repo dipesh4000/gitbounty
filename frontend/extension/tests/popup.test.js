@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { formatPoints, initials, normalizeActivity, popupState } = require("../popup/data.js");
+const { JSDOM } = require("jsdom");
 const config = require("../src/config.js");
 
 const read = (relative) => fs.readFileSync(path.join(__dirname, "..", relative), "utf8");
@@ -41,69 +42,179 @@ test("every GitBounty URL points at the local app, and nowhere unrelated", () =>
   assert.doesNotMatch(source, /localhost:8000/, "the website is on 3000, not the old 8000");
 });
 
-test("the popup contains no demo session and no fabricated account", () => {
-  const popupJs = read("popup/popup.js");
 
-  assert.doesNotMatch(popupJs, /demoAccount|DEMO_SESSION|gitbounty_demo_session/,
-    "the hard-coded account and its localStorage flag are gone");
-  assert.doesNotMatch(popupJs, /localStorage/,
-    "no client-side flag may stand in for a session");
-  // The old popup hard-coded 185 points and three invented repositories.
-  assert.doesNotMatch(popupJs, /aasha-malik|openframe\/core|relaylabs\/queue|halyard\/docs/);
-  assert.doesNotMatch(popupJs, /\b185\b/);
-  // Connect must navigate to the backend, not render a signed-in view.
-  assert.match(popupJs, /connect-button[\s\S]{0,120}openTab\(SIGN_IN_URL\)/);
+test("popup renders real account/claims, navigates, and distinguishes API failures", async () => {
+  for (const status of [200, 401, 503, 500, 0]) {
+    const dom = new JSDOM(read("popup/popup.html"), { runScripts: "outside-only", url: "https://extension.test" });
+    const { window } = dom;
+    const opened = [];
+    const invalidations = [];
+    window.chrome = {
+      tabs: { query: async () => [], create: ({ url }) => opened.push(url) },
+      runtime: { sendMessage: (message, callback) => { invalidations.push(message.type); callback(); } },
+    };
+    window.fetch = async (url) => {
+      if (!status) throw new Error("offline");
+      const payload = url.endsWith("/api/me/claims") ? { points: 40, items: [] }
+        : url.endsWith("/api/me/points") ? { week_points: 45, recent_merges: [] }
+        : { github_login: "actual-author" };
+      return { ok: status === 200, status, json: async () => payload };
+    };
+    try {
+      for (const file of ["src/config.js", "popup/data.js", "popup/popup.js"]) window.eval(read(file));
+      await new Promise(setImmediate);
+      const byId = (id) => window.document.getElementById(id);
+      const visible = status === 200 ? "signed-in-state" : status === 401 ? "signed-out-state" : "error-state";
+      assert.equal(byId(visible).hidden, false);
+      if (status === 200) {
+        assert.equal(byId("user-login").textContent, "@actual-author");
+        assert.equal(byId("points-total").textContent, "45");
+        assert.equal(byId("claims-button").textContent, "Claim 40 points");
+        byId("claims-button").click();
+        assert.deepEqual(opened, [config.DASHBOARD_URL + "#points"]);
+        byId("refresh-button").click();
+        await new Promise(setImmediate);
+        assert.deepEqual(invalidations, ["gitbounty:invalidate-cache"]);
+        byId("signout-button").click();
+        await new Promise(setImmediate);
+        assert.equal(byId("signed-out-state").hidden, false);
+      } else if (status !== 401) {
+        assert.match(byId("error-message").textContent,
+          status === 503 ? /not configured/ : status === 0 ? /not running/ : /500/);
+      }
+    } finally { window.close(); }
+  }
 });
 
-test("a 401 is presented as signed out, and other failures as failures", () => {
-  const popupJs = read("popup/popup.js");
-  assert.match(popupJs, /error\.status === 401[\s\S]{0,160}show\("signed-out-state"\)/);
-  assert.match(popupJs, /error\.status === 503/);
-  assert.match(popupJs, /show\("error-state"\)/);
+
+test("a claims failure preserves the signed-in account and bounty navigation", async () => {
+  const dom = new JSDOM(read("popup/popup.html"), {runScripts:"outside-only"});
+  const {window} = dom;
+  const opened = [];
+  window.chrome = {tabs:{query:async()=>[],create:({url})=>opened.push(url)}};
+  window.fetch = async url => ({ok:!url.endsWith("/claims"),status:url.endsWith("/claims")?503:200,
+    json:async()=>url.endsWith("/points")?{week_points:45,recent_merges:[]}:{github_login:"actual-author"}});
+  try {
+    for (const file of ["src/config.js","popup/data.js","popup/popup.js"]) window.eval(read(file));
+    await new Promise(setImmediate);
+    assert.equal(window.document.getElementById("signed-in-state").hidden,false);
+    assert.equal(window.document.getElementById("points-total").textContent,"45");
+    assert.match(window.document.getElementById("claims-notice").textContent,/could not load/);
+    window.document.getElementById("create-button").click();
+    window.document.getElementById("explore-button").click();
+    assert.deepEqual(opened,[config.APP_BASE+"/maintainers",config.DASHBOARD_URL]);
+  } finally {window.close();}
 });
 
-test("refresh and sign out drop the background worker's cached bounties", () => {
-  const popupJs = read("popup/popup.js");
-  const invalidations = popupJs.match(/gitbounty:invalidate-cache/g) || [];
-  assert.equal(invalidations.length, 2, "once for Refresh, once for Sign out");
+
+const nextTurn = () => new Promise(setImmediate);
+const bounty = number => ({ repository: "org/project", number, title: `Fix issue ${number}`, language: "Rust", category: "backend", stars: 12, points: 40,
+  labels: ["Good First Issue"], reward_usdc: "1.25", reward_chain_id: 43113 });
+async function bootPopup(respond) {
+  const dom = new JSDOM(read("popup/popup.html"), { runScripts: "outside-only" });
+  const opened = [];
+  dom.window.chrome = { tabs: { query: async () => [], create: ({ url }) => opened.push(url) },
+    runtime: { sendMessage: (_message, callback) => callback?.() } };
+  dom.window.fetch = async (url, options) => {
+    const answer = await respond(new URL(url), options);
+    return { ok: (answer.status ?? 200) === 200, status: answer.status ?? 200, json: async () => answer.body };
+  };
+  for (const file of ["src/config.js", "popup/data.js", "popup/popup.js"]) dom.window.eval(read(file));
+  await nextTurn();
+  return { dom, window: dom.window, opened, byId: id => dom.window.document.getElementById(id) };
+}
+function accountResponse(url) {
+  return { body: url.pathname.endsWith("/points") ? { total_points: 12, recent_merges: [] }
+    : url.pathname.endsWith("/claims") ? { points: 0 } : { github_login: "actual-author" } };
+}
+
+test("discovery pages and filters published issues while signed out, with safe links", async () => {
+  const queries = [];
+  const popup = await bootPopup(url => {
+    if (url.pathname === "/api/issues") { queries.push(url.searchParams); return { body: { items: [bounty(Number(url.searchParams.get("page")))], has_more: url.searchParams.get("page") === "1" } }; }
+    return { status: 401 };
+  });
+  const { window, byId, opened, dom } = popup;
+  try {
+    assert.equal(byId("signed-out-state").hidden, false);
+    assert.match(byId("discovery-list").textContent, /1.25 USDC · Fuji testnet promised/);
+    byId("discovery-list").querySelector("a").click();
+    assert.deepEqual(opened, ["https://github.com/org/project/issues/1"]);
+    byId("issues-next").click(); await nextTurn();
+    assert.equal(queries.at(-1).get("page"), "2");
+    assert.match(byId("discovery-list").textContent, /Fix issue 2/);
+    byId("issue-beginner").checked = true;
+    byId("issue-beginner").dispatchEvent(new window.Event("change"));
+    await new Promise(resolve => setTimeout(resolve, 10)); await nextTurn();
+    assert.equal(queries.at(-1).get("page"), "1");
+    assert.equal(queries.at(-1).get("beginner"), "true");
+    assert.equal(byId("filters-clear").hidden, false);
+    const helpers = window.GitBountyPopupData;
+    assert.equal(helpers.issueUrl({ repository: "javascript:alert(1)", number: 1 }), null);
+    assert.equal(helpers.issueUrl({ repository: "org/repo", number: -1 }), null);
+  } finally { dom.window.close(); }
 });
 
-
-// --- disconnected and error states ------------------------------------------
-
-test("the popup tells apart signed-out, unconfigured, unreachable and other failures", () => {
-  const popupJs = read("popup/popup.js");
-
-  // Each of the four has its own branch, and none of them shows a points figure.
-  assert.match(popupJs, /error\.status === 401[\s\S]{0,160}show\("signed-out-state"\)/);
-  assert.match(popupJs, /error\.status === 503[\s\S]{0,200}not configured yet/);
-  assert.match(popupJs, /error\.status === 0[\s\S]{0,160}is not running on/);
-  assert.match(popupJs, /The GitBounty API answered \$\{error\.status\}/);
+test("stale discovery responses cannot replace newer filter results", async () => {
+  let resolveOld;
+  const old = new Promise(resolve => { resolveOld = resolve; });
+  const popup = await bootPopup(url => url.pathname === "/api/issues"
+    ? url.searchParams.has("q") ? { body: { items: [{ ...bounty(2), title: "<img src=x onerror=alert(1)>" }], has_more: false } } : old
+    : { status: 401 });
+  try {
+    popup.byId("issue-search").value = "keyboard";
+    popup.byId("issue-search").dispatchEvent(new popup.window.Event("input"));
+    await new Promise(resolve => setTimeout(resolve, 300)); await nextTurn();
+    resolveOld({ body: { items: [bounty(1)], has_more: true } }); await nextTurn();
+    assert.match(popup.byId("discovery-list").textContent, /<img src=x onerror=alert\(1\)>/);
+    assert.equal(popup.byId("discovery-list").querySelector("img"), null);
+    assert.equal(popup.byId("issues-next").disabled, true);
+  } finally { popup.window.close(); }
 });
 
-test("a network failure is reported as the API not running, with its address", () => {
-  const popupJs = read("popup/popup.js");
-
-  // fetch only rejects for a network-level problem; that must not surface as an unhandled rejection.
-  assert.match(popupJs, /try \{[\s\S]{0,200}await fetch\([\s\S]{0,200}\} catch \{/);
-  assert.match(popupJs, /error\.status = 0/);
-  assert.match(popupJs, /\$\{API_BASE\}/);
+test("shows exact wallet balance separately from all-time points and handles logout failure", async () => {
+  const popup = await bootPopup(url => url.pathname === "/api/avax/wallet/balance" ? { body: {
+    address: "0x" + "1".repeat(40), balance: "1.250001", symbol: "USDC", native_balance_avax: "0.123456789123456789",
+    network: "Avalanche Fuji", testnet: true, checked_at: "2026-10-10T10:00:00Z" } }
+    : url.pathname === "/auth/logout" ? { status: 503 }
+    : url.pathname === "/api/issues" ? { body: { items: [], has_more: false } } : accountResponse(url));
+  try {
+    assert.equal(popup.byId("wallet-balance").textContent, "1.250001 USDC");
+    assert.match(popup.byId("wallet-gas").textContent, /0.123456789123456789 AVAX/);
+    assert.match(popup.byId("wallet-network").textContent, /TEST TOKENS/);
+    assert.equal(popup.byId("points-period").textContent, "all time");
+    popup.byId("wallet-button").click();
+    assert.equal(popup.opened.at(-1), config.DASHBOARD_URL + "#rewards");
+    popup.byId("signout-button").click(); await nextTurn();
+    assert.equal(popup.byId("signed-in-state").hidden, false);
+    assert.match(popup.byId("claims-notice").textContent, /Sign out failed/);
+    popup.byId("menu-button").click();
+    popup.window.document.dispatchEvent(new popup.window.KeyboardEvent("keydown", { key: "Escape" }));
+    assert.equal(popup.byId("menu-button").getAttribute("aria-expanded"), "false");
+  } finally { popup.window.close(); }
 });
 
-test("the content script answers nothing rather than guessing when the worker cannot be reached", () => {
-  const contentJs = read("src/content.js");
-
-  // No chrome.runtime at all (a plain page load), or a failed message, both resolve to an empty list.
-  assert.match(contentJs, /if \(!globalThis\.chrome\?\.runtime\?\.sendMessage\) \{\s*resolve\(\[\]\);/);
-  assert.match(contentJs, /chrome\.runtime\.lastError \|\| !response\?\.ok[\s\S]{0,200}resolve\(\[\]\)/);
-  // And a failure is not remembered, so one blip does not hide every badge until a reload.
-  assert.match(contentJs, /bountyRequests\.delete\(key\)/);
+test("balance failure does not fabricate zero or hide account and issue discovery", async () => {
+  const popup = await bootPopup(url => url.pathname === "/api/avax/wallet/balance" ? { status: 502 }
+    : url.pathname === "/api/issues" ? { body: { items: [bounty(1)], has_more: false } } : accountResponse(url));
+  try {
+    assert.equal(popup.byId("signed-in-state").hidden, false);
+    assert.equal(popup.byId("wallet-values").hidden, true);
+    assert.match(popup.byId("wallet-status").textContent, /Balance unavailable/);
+    assert.match(popup.byId("discovery-list").textContent, /Fix issue 1/);
+  } finally { popup.window.close(); }
 });
 
-test("the background worker reports a failure instead of inventing an empty success", () => {
-  const backgroundJs = read("src/background.js");
-
-  assert.match(backgroundJs, /return \{ ok: false, items: \[\], viewer, status: error\.status \|\| 0 \}/);
-  // A failure is never written to the cache.
-  assert.match(backgroundJs, /\/\/ Not cached[\s\S]{0,160}return \{ ok: false/);
+test("a late private balance response cannot revive the wallet after logout", async () => {
+  let resolveWallet;
+  const wallet = new Promise(resolve => { resolveWallet = resolve; });
+  const popup = await bootPopup(url => url.pathname === "/api/avax/wallet/balance" ? wallet
+    : url.pathname === "/api/issues" ? { body: { items: [], has_more: false } } : accountResponse(url));
+  try {
+    popup.byId("signout-button").click(); await nextTurn();
+    resolveWallet({ body: { address: "0xprivate", balance: "100", symbol: "USDC" } }); await nextTurn();
+    assert.equal(popup.byId("signed-out-state").hidden, false);
+    assert.equal(popup.byId("wallet-values").hidden, true);
+    assert.equal(popup.byId("wallet-balance").textContent, "");
+  } finally { popup.window.close(); }
 });

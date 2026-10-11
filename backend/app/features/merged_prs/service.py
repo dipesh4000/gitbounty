@@ -15,7 +15,6 @@ an award traceable to a person we authenticated.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 import httpx
@@ -24,7 +23,7 @@ from ..points.rules import baseline_award
 from .categorise import categorise
 from .github import fetch_authored_prs, fetch_changed_paths, fetch_merged_prs, fetch_review_state
 from .issue_links import IssueReference
-from .lifecycle import TrackedPullRequest, assess
+from .lifecycle import TrackedPullRequest, assess, _matching_bounty
 from .models import (
     AuthoredPR,
     Category,
@@ -110,26 +109,6 @@ async def _changed_paths(
             return await fetch_changed_paths(client, pr.repo_full_name, pr.number, token)
     except Exception:
         return []
-
-
-def _matching_bounty(pr: MergedPR, published: PublishedBounties) -> PublishedBounty | None:
-    """The published bounty this pull request closes.
-
-    When a pull request closes several published bounties -- "Closes #1, closes #2" -- the first one it
-    names is the one it is credited with. Awarding all of them would let one pull request collect several
-    maintainers' budgets at once, and the database only allows one award per bounty anyway, so picking
-    deliberately is better than letting insertion order decide. The rest stay open for their own work.
-    """
-    for reference in pr.closed_issues:
-        bounty = published.get((reference.repo_full_name.casefold(), reference.number))
-        if bounty is None:
-            continue
-        # A maintainer cannot collect their own bounty. The self-merge rule already covers their own
-        # repositories; this covers publishing a bounty and then fixing it in somebody else's.
-        if bounty.maintainer_user_id and bounty.maintainer_user_id == pr.author_user_id:
-            continue
-        return bounty
-    return None
 
 
 async def _detect_one(

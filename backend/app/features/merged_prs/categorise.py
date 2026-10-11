@@ -10,8 +10,8 @@ Two sources of evidence, strongest first:
 Everything here is a pure function: same input, same answer, no network. That keeps the guessing honest and
 testable, and means the rules can be tightened later without touching the code that fetches from GitHub.
 
-The category list is shared with Nishika's issue browser (feature-seams.md, seam 3). Changing it is a change to
-that agreement, not a local decision.
+The category list is shared with the issue browser and documented in docs/points-rules.md.
+Keep category changes consistent across the API, database and clients.
 """
 
 from __future__ import annotations

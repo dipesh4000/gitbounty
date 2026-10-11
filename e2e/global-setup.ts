@@ -18,7 +18,9 @@ import {
 
 const root = resolve(__dirname, "..");
 const backend = join(root, "backend");
-const python = join(backend, ".venv", "bin", "python");
+const windows = process.platform === "win32";
+const python = join(backend, ".venv", ...(windows ? ["Scripts", "python.exe"] : ["bin", "python"]));
+const vinext = join(root, "frontend", "web", "node_modules", "vinext", "dist", "cli.js");
 
 const children: ChildProcess[] = [];
 const stateDir = mkdtempSync(join(tmpdir(), "gitbounty-e2e-"));
@@ -45,14 +47,14 @@ async function waitFor(url: string, name: string, timeoutMs = 90_000) {
 }
 
 /*
-  Started detached, so each process gets its own group and the whole group can be killed.
+  POSIX processes get a group; Windows cleanup uses taskkill on only the spawned process trees.
 
-  `npm run start` spawns node as a grandchild; signalling npm alone leaves that grandchild listening, and
+  Server tools can spawn grandchildren; stopping just their parent can leave a child listening, and
   a leftover server from a previous run then answers on the port with chunks from an older build. That
   failure is confusing enough to be worth preventing structurally.
 */
 function start(name: string, command: string, args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }) {
-  const child = spawn(command, args, { ...options, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const child = spawn(command, args, { ...options, stdio: ["ignore", "pipe", "pipe"], detached: !windows, windowsHide: true });
   child.stdout?.on("data", (chunk) => process.env.E2E_VERBOSE && process.stdout.write(`[${name}] ${chunk}`));
   child.stderr?.on("data", (chunk) => process.env.E2E_VERBOSE && process.stderr.write(`[${name}] ${chunk}`));
   child.on("exit", (code) => code !== 0 && code !== null && log(`${name} exited with ${code}`));
@@ -62,9 +64,13 @@ function start(name: string, command: string, args: string[], options: { cwd: st
 
 function stopAll() {
   for (const child of children) {
-    if (child.pid === undefined) continue;
+    if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) continue;
     try {
-      process.kill(-child.pid, "SIGTERM");  // the whole group, not just the shell
+      if (windows) {
+        execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+      } else {
+        process.kill(-child.pid, "SIGTERM");
+      }
     } catch {
       try { child.kill("SIGTERM"); } catch { /* already gone */ }
     }
@@ -93,22 +99,32 @@ export default async function globalSetup() {
   for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, stopAll);
   process.once("exit", stopAll);
 
-  const databaseName = new URL(DATABASE_URL).pathname.slice(1);
-  if (!databaseName.endsWith("_e2e")) {
-    throw new Error(`refusing to use ${databaseName}: the end-to-end database name must end in _e2e`);
+  const database = new URL(DATABASE_URL);
+  const databaseName = database.pathname.slice(1);
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname)) {
+    throw new Error("the end-to-end database must be on a loopback host");
   }
-  const adminUrl = DATABASE_URL.replace(/\/[^/]+$/, "/postgres");
+  if (!/^[a-z][a-z0-9_]{0,58}_e2e$/.test(databaseName)) {
+    throw new Error("the end-to-end database must have a simple name ending in _e2e (at most 63 characters)");
+  }
+  database.pathname = "/postgres";
 
   log(`recreating ${databaseName}`);
   execFileSync(python, ["-c", `
-import asyncio, asyncpg
+import asyncio, asyncpg, os
 async def main():
-    c = await asyncpg.connect(${JSON.stringify(adminUrl)})
-    await c.execute("drop database if exists ${databaseName} with (force)")
-    await c.execute("create database ${databaseName}")
-    await c.close()
+    c = await asyncpg.connect(os.environ["GITBOUNTY_E2E_ADMIN_URL"])
+    name = os.environ["GITBOUNTY_E2E_DB_NAME"]
+    try:
+        await c.execute('drop database if exists "' + name + '" with (force)')
+        await c.execute('create database "' + name + '"')
+    finally:
+        await c.close()
 asyncio.run(main())
-`], { cwd: backend, stdio: "inherit" });
+`], {
+    cwd: backend, stdio: "inherit", windowsHide: true,
+    env: { ...process.env, GITBOUNTY_E2E_ADMIN_URL: database.toString(), GITBOUNTY_E2E_DB_NAME: databaseName },
+  });
 
   log("applying migrations");
   execFileSync(python, ["dev/migrate.py", "up", "--database-url", DATABASE_URL], {
@@ -151,19 +167,19 @@ asyncio.run(main())
   });
   await waitFor(`${API_URL}/health`, "backend");
 
-  // NEXT_PUBLIC_GITBOUNTY_API is inlined at **build** time, not read at runtime (docs/troubleshooting.md
+  // NEXT_PUBLIC_GITBOUNTY_API is inlined at **build** time, not read at runtime (docs/setup.md
   // says so, and this is what proves it): a build made against localhost:8001 keeps calling localhost:8001
   // whatever the environment says when it starts. So the site is rebuilt against the harness's API.
   const web = join(root, "frontend", "web");
   log("building the website against the harness API");
-  execFileSync("npm", ["run", "build"], {
+  execFileSync(process.execPath, [vinext, "build"], {
     cwd: web,
     env: { ...process.env, NEXT_PUBLIC_GITBOUNTY_API: API_URL },
     stdio: process.env.E2E_VERBOSE ? "inherit" : "ignore",
   });
 
   log("starting the website (production build)");
-  start("web", "npm", ["run", "start", "--", "--port", String(WEB_PORT)], {
+  start("web", process.execPath, [vinext, "start", "--port", String(WEB_PORT)], {
     cwd: web,
     env: { ...process.env, PORT: String(WEB_PORT), NEXT_PUBLIC_GITBOUNTY_API: API_URL },
   });

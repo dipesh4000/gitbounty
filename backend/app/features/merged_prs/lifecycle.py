@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from ..points.rules import baseline_award
 from .models import (
     AuthoredPR,
+    MergedPR,
     Category,
     PublishedBounties,
     PublishedBounty,
@@ -81,12 +82,8 @@ def assess(
     )
 
 
-def _matching_bounty(pr: AuthoredPR, published: PublishedBounties) -> PublishedBounty | None:
-    """The first published bounty this pull request says it closes, skipping the author's own.
-
-    The same rule the award path uses (`service._matching_bounty`), applied to the wider shape, so what a
-    contributor is shown and what they are paid cannot disagree.
-    """
+def _matching_bounty(pr: AuthoredPR | MergedPR, published: PublishedBounties) -> PublishedBounty | None:
+    """The shared award/display rule: first closing bounty, excluding the author's own."""
     for reference in pr.closed_issues:
         bounty = published.get((reference.repo_full_name.casefold(), reference.number))
         if bounty is None:

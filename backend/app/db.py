@@ -1,7 +1,7 @@
-"""The Postgres connection pool.
+"""Postgres connections during the incremental async SQLAlchemy migration.
 
-Plain SQL through asyncpg, deliberately: schema changes are hand-written migration files applied by a teammate
-(rules.md section 4), so there is no ORM here to generate or assume a schema.
+Migrated queries use a short-lived AsyncSession. Remaining queries use asyncpg.
+Neither connection path creates or alters tables; numbered migrations own the schema.
 """
 
 from __future__ import annotations
@@ -9,10 +9,13 @@ from __future__ import annotations
 import logging
 
 import asyncpg
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from .config import settings
 
 _pool: asyncpg.Pool | None = None
+_engine: AsyncEngine | None = None
+_sessions: async_sessionmaker[AsyncSession] | None = None
 
 
 class DatabaseNotConfigured(RuntimeError):
@@ -35,13 +38,26 @@ async def connect() -> None:
     "the database is unreachable" -- was never reachable to say it. The failure is recorded instead, and
     every endpoint that needs the database answers 503 with a message that names no host.
     """
-    global _pool, last_connect_error
+    global _pool, _engine, _sessions, last_connect_error
     if _pool is not None or not settings.database_url:
         return
     try:
         _pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10)
+        database_url = settings.database_url
+        _engine = create_async_engine(
+            "postgresql+asyncpg://",
+            # Keep asyncpg's DSN options (including sslmode) and keep credentials
+            # out of SQLAlchemy's URL and exception representations.
+            async_creator=lambda: asyncpg.connect(database_url),
+            pool_size=5,
+            max_overflow=0,
+            pool_pre_ping=True,
+            hide_parameters=True,
+        )
+        _sessions = async_sessionmaker(_engine, expire_on_commit=False)
         last_connect_error = None
     except Exception as error:
+        await disconnect()
         last_connect_error = type(error).__name__
         logging.getLogger(__name__).error(
             "Could not open the database pool (%s). Endpoints that need it will answer 503.",
@@ -50,7 +66,11 @@ async def connect() -> None:
 
 
 async def disconnect() -> None:
-    global _pool
+    global _pool, _engine, _sessions
+    _sessions = None
+    if _engine is not None:
+        await _engine.dispose()
+        _engine = None
     if _pool is not None:
         await _pool.close()
         _pool = None
@@ -72,22 +92,9 @@ def pool() -> asyncpg.Pool:
     return _pool
 
 
-async def fetch_all(sql: str, *args: object) -> list[asyncpg.Record]:
-    """Run a read query through the shared asyncpg pool."""
-    async with pool().acquire() as connection:
-        return await connection.fetch(sql, *args)
-
-
-async def fetch_one(sql: str, *args: object) -> asyncpg.Record | None:
-    """Return one row through the shared asyncpg pool."""
-    async with pool().acquire() as connection:
-        return await connection.fetchrow(sql, *args)
-
-
-async def execute_many(sql: str, rows: list[tuple[object, ...]]) -> int:
-    """Execute the same statement for a batch, using one acquired connection."""
-    if not rows:
-        return 0
-    async with pool().acquire() as connection:
-        await connection.executemany(sql, rows)
-    return len(rows)
+def session() -> AsyncSession:
+    """Create a session for one operation; callers close it with `async with`."""
+    pool()  # Preserve the same safe unavailable-database errors on both paths.
+    if _sessions is None:
+        raise DatabaseNotConfigured("The database is not reachable right now. Try again shortly.")
+    return _sessions()

@@ -1,129 +1,111 @@
 # Architecture
 
-How the pieces fit together, and the reasoning behind the choices that are not obvious.
+Implementation status is tracked in [plan.md](../plan.md). This page explains the current boundaries.
 
-```
-         ┌──────────────┐        ┌───────────────────┐
-         │   browser    │        │  github.com       │
-         │              │        │                   │
-   ┌─────┤  Next.js     │◄──────►│  OAuth · REST API │
-   │     │  :3000       │        └─────────┬─────────┘
-   │     └──────┬───────┘                  │
-   │            │ fetch, credentials:      │ as the signed-in user,
-   │            │ include + CSRF header    │ with their own token
-   │            ▼                          │
-   │     ┌──────────────────────────────┐  │
-   │     │       FastAPI  :8001         │◄─┘
-   │     │                              │
-   │     │  auth · issues · maintainer  │
-   │     │  points · sync · leaderboard │
-   │     └──────────────┬───────────────┘
-   │                    │ asyncpg, plain SQL
-   │                    ▼
-   │     ┌──────────────────────────────┐
-   │     │        Postgres              │
-   │     │  users · repositories ·      │
-   │     │  issues · issue_points ·     │
-   │     │  merged_prs · points_ledger  │
-   │     └──────────────────────────────┘
-   │
-   │     ┌──────────────────────────────┐
-   └────►│  Chrome extension (optional) │
-         │  content script ──message──► │
-         │  service worker ──fetch────► FastAPI
-         └──────────────────────────────┘
-```
+## Current system
 
-## Decisions worth explaining
+Website / extension → FastAPI → Postgres.
+FastAPI calls GitHub with a signed-in user's OAuth token or a selected repository's installation token.
 
-### No webhooks
-
-GitBounty does not own the repositories whose issues it lists, so it cannot ask their maintainers to
-install a webhook. Instead, each user's merged pull requests are read **as that user, with that user's own
-token** — exactly the data GitHub would show them anyway. This is also why a token is stored at all.
-
-The trade-off: nothing happens until a sync runs. That is why signing in starts one, and why there is a
-visible Sync control with a recorded status.
-
-### Plain SQL, no ORM
-
-`migrations/` is the only description of the schema (`rules.md` section 4), applied deliberately by a
-person. An ORM that generates or reflects a schema would compete with that. Every query is written out in
-full, so what runs against the database is what can be read in the file.
-
-### An append-only ledger, not a stored total
-
-`points_ledger` is the record; a total is always `sum(points)` over a user's entries. A stored total can
-drift from the rows behind it and cannot explain itself. The cost is a `group by` on every leaderboard
-read, which is covered by indexes and is not close to mattering at this size.
-
-### Idempotency in the database, not the application
-
-Two partial unique indexes do the anti-double-award work:
-
-```sql
-create unique index points_ledger_baseline_once
-  on points_ledger (user_id, github_pr_id) where kind = 'baseline_award';
-
-create unique index points_ledger_bounty_once
-  on points_ledger (lower(bounty_repo_full_name), bounty_issue_number) where kind = 'bounty_award';
-```
-
-Inserts use `on conflict do nothing` and ask whether a row came back. Two syncs running at the same moment
-therefore cannot both decide an award is missing — which a prior `SELECT` would allow.
-
-### Authorization asked of GitHub, per request
-
-`github.can_publish_bounties` is the single definition of who may publish on a repository, and it reads
-GitHub's own `permissions` object. The same function decides what is listed *and* what may be written, so
-a repository missing from the list cannot be published to by a hand-made request either. The client never
-asserts ownership.
-
-`push` permission is deliberately not enough: somebody who can both set a bounty's value and merge the
-pull request claiming it is the collusion case with one person in it.
-
-### Synchronisation as a background task
-
-A first import makes one GitHub request per pull request. `POST /api/me/sync` returns `202` immediately and
-the work happens in the background, with progress in `sync_runs`. A partial unique index allows one running
-sync per user, which is also what makes a double-clicked button harmless.
-
-Subsequent syncs resume from the last successful cursor. GitHub's search API caps at 1000 results however
-many pages are requested, so for anyone with a long history, narrowing is not an optimisation — it is the
-only way the newest work is reachable.
-
-### The extension's three parts
-
-A content script runs on github.com's origin and cannot call `localhost:8001`. It asks the service worker,
-which has the extension's own permissions, by message passing. The worker owns pagination and the cache;
-the cache is keyed by repository **and** signed-in account, so one person's view is never served to the
-next person to sign in on the same browser.
-
-## Request paths
-
-**Sign-in.** `/auth/github` → GitHub → `/auth/github/callback` → verify `state` with a constant-time
-compare → exchange the code → read the profile → upsert the user keyed on the numeric GitHub id → encrypt
-and store the token → clear and re-create the session (fixation) → mint a CSRF token → start a background
-sync → redirect to `/explore`.
-
-**Publishing.** `POST /api/maintainer/bounties` → re-fetch each repository from GitHub and check
-permissions → confirm each issue is still open → one transaction writing `repositories`, `issues`,
-`issue_points` and an `issue_points_history` row per issue.
-
-**Awarding.** `POST /api/me/sync` → background task → read published bounties → GitHub search for this
-user's merged pull requests → drop self-merges → match each against a published bounty → one transaction
-inserting `merged_prs` and the ledger entries the database will accept.
-
-## Where the boundaries are
-
-| Boundary | Crossed by | Failure shows as |
+| Component | Current implementation | Selected next change |
 |---|---|---|
-| Browser → API | `fetch`, cookie session, CSRF header on writes | `ApiError` with the real status |
-| API → GitHub | `httpx`, the user's own token | 401 (reconnect), 429 (rate limit, with Retry-After), 502 |
-| API → Postgres | `asyncpg` pool | 503 naming no host |
-| Extension content script → worker | `chrome.runtime.sendMessage` | badges simply do not appear |
+| Python project | uv, Python 3.12, backend pyproject and committed lockfile | Maintain locked local/CI environments |
+| API | FastAPI, async HTTP calls through httpx | Keep FastAPI and public response contracts |
+| Database access | Async SQLAlchemy models/sessions for issue-board reads and authentication; asyncpg for remaining queries | Migrate remaining queries; retain asyncpg as the driver |
+| Schema | Numbered SQL files and local migration runner | Keep this workflow; no ORM startup schema creation |
+| Authentication | GitHub OAuth, signed session cookies, GitHub App JWT and short-lived installation tokens | Verify production credentials |
+| Repository events | Signed webhooks in a durable inbox plus contributor reconciliation sync | Verify live deliveries and recovery |
+| Frontend | React/TypeScript, Next.js-style app routes using vinext | Continue existing website |
+| Extension | Manifest V3 content scripts, service worker and popup | Registered-only badges and reliable refresh |
 
-## Not in this architecture
+OAuth currently uses the code in `backend/app/github_oauth.py`, not Authlib.
+Pydantic models in `backend/app/models.py` describe API responses, not database entities.
+Mapped classes live in `backend/app/orm.py`. Each migrated operation opens and closes its own async session.
+During migration, the original pool allows 10 connections and the ORM pool allows 5, per process.
+The ORM connection factory uses the existing asyncpg DSN options; SQLAlchemy URLs contain no credentials,
+query parameters are hidden in errors, and no schema is created at startup.
+The public issue board runs its one SELECT in connection-scoped autocommit mode to avoid
+BEGIN/ROLLBACK network round trips. Closing the session restores the pooled connection's isolation;
+authentication, publishing and points writes retain their existing transactions.
 
-No queue, no cache server, no object storage, no third-party analytics, no payment provider, no chain, no
-wallet. Adding any of them is a decision to be argued for, not a default.
+## Code and data
+
+| Path | Responsibility |
+|---|---|
+| `backend/app/auth.py`, `crypto.py` | Identity, session lifecycle, encrypted GitHub tokens |
+| `backend/app/routes/` | Issue browsing, maintainer publishing and moderation |
+| `backend/app/features/merged_prs/` | GitHub reads, closing references, lifecycle and eligibility |
+| `backend/app/features/points/` | Sync orchestration, ledger writes and leaderboard queries |
+| `backend/app/github_app.py`, `services/webhooks.py` | Installation authentication and durable delivery processing |
+| `backend/app/db.py` | Database connection lifecycle |
+| `frontend/web/app/components/` | Landing page and signed-in workspace |
+| `frontend/extension/src/` | GitHub page decoration and API access |
+| `frontend/extension/popup/` | Signed-in points, activity and issue context |
+
+[SQL migrations](../migrations/) define the current schema:
+
+- `users`: stable GitHub ID, mutable login/profile, encrypted OAuth token.
+- `repositories`, `issues`: cached GitHub data.
+- `issue_points`, `issue_points_history`: published reward and its change history.
+- `merged_prs`, `pull_requests`: observed merges and mutable PR lifecycle state.
+- `points_ledger`: awards and corrections; totals are sums, not separately stored balances.
+- `sync_runs`: progress, cursor and failures.
+- `moderation_flags`: reports and resolutions.
+- `reward_allocations`: claimed and unclaimed awards keyed by numeric GitHub identity.
+- `connected_repositories`, `webhook_deliveries`: selected installations and durable delivery state.
+- `schema_migrations`: applied migration files and checksums.
+
+Partial unique indexes prevent duplicate baseline and bounty awards. Preserve them through ORM migration.
+Maintainer publishing writes the bounty and its history in one transaction.
+Ledger corrections append entries; they do not rewrite awards.
+
+## API reference
+
+Use [FastAPI's generated reference](http://localhost:8001/docs) or `/openapi.json` while the server is running.
+Route handlers and Pydantic schemas are the source of truth for request/response details.
+
+Public reads are `/api/issues` and `/api/leaderboard`.
+Signed-in routes include `/api/me`, points/history/PR/claim reads, `POST /api/me/sync`,
+`POST /api/me/claims`, maintainer publishing and GitHub App repository connection.
+The extension reads public bounties plus identity, points and claims; the website maps the remaining user-facing routes.
+Moderation review/resolution requires a configured administrator and intentionally has no UI yet.
+
+Browser calls include credentials. Cookie-authenticated writes use `X-GitBounty-CSRF` obtained from
+`GET /api/csrf`; OAuth and logout have explicit exemptions.
+Rate limits return 429; unavailable dependencies return 503. `/health` is liveness and `/ready` is readiness.
+
+## GitHub App and claims
+
+A maintainer installs the GitBounty App on selected public repositories.
+Use the minimum read permissions needed for issues, PRs/reviews and repository metadata;
+derive the final permission set from the actual API calls before registering the app.
+Keep existing maintainer authorisation checks: knowing an installation ID is not proof that a user administers it.
+
+Processing path:
+
+GitHub event → signature verification → durable delivery record → worker → verified GitHub data → points transaction.
+
+The receiver accepts `pull_request`, `installation`, `installation_repositories` and `ping` events.
+Persist a delivery before acknowledging acceptance; track success/failure and retry safely.
+Do not award for a closed issue or an unmerged PR. Verify scope and PR author, and reuse the same award rules
+for webhook processing and reconciliation. Duplicate delivery must not mint another award.
+
+The identity model allocates a reward to its author's GitHub numeric ID without creating a user.
+Registration authenticates ownership; claiming associates pending allocations with that account exactly once.
+Unclaimed points stay off public leaderboards. No expiry policy is implemented.
+
+The app private key path and webhook secret are server-only sensitive inputs. Installation tokens are requested
+when processing and are not stored. Errors and logs omit keys, tokens, webhook bodies and GitHub response bodies.
+GitHub does not automatically redeliver failed webhooks; retain recovery/reconciliation.
+See [GitHub's delivery guidance](https://docs.github.com/en/webhooks/using-webhooks/handling-failed-webhook-deliveries)
+and [signature guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
+
+## Extension updates
+
+Content scripts decorate GitHub's DOM; the service worker fetches API data and caches repository
+bounties for 30 seconds. The popup reads identity, points and activity.
+DOM observation is not a live backend subscription. Cache expiry does not itself trigger a refresh.
+
+The extension shows registered rewards only. Visible pages refresh every 30 seconds and on navigation/visibility
+changes; stale issue badges and PR banners are removed. Cached responses can delay a change until a later refresh.
+Webhooks alone do not refresh browser UI. Popup points are fetched when opened or manually refreshed.

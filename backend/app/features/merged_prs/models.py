@@ -19,7 +19,7 @@ class Category(StrEnum):
 
     Both halves of the product use these: Nishika's issue browser sorts open issues into them, this feature sorts
     merged PRs into them, and the per-category leaderboards group by them. Changing this list is a change to
-    feature-seams.md, seam 3 -- agree it first.
+    the shared vocabulary in docs/points-rules.md -- agree it first.
     """
 
     FRONTEND = "frontend"

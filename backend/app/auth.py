@@ -1,7 +1,7 @@
 """GitHub OAuth routes and the authenticated-user dependencies.
 
 Ported from Nishika's OAuth work on ``origin/main`` and adapted to this
-branch's asyncpg connection pool. The browser session contains only a signed
+branch's async SQLAlchemy sessions. The browser session contains only a signed
 user id; GitHub tokens are encrypted in Postgres and never returned by the API.
 """
 
@@ -15,12 +15,16 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import undefer
 
 from . import github_oauth
 from .auth_stub import dev_login_is_enabled, get_current_user as get_dev_user
 from .config import settings
 from .crypto import decrypt, encrypt
-from .db import DatabaseNotConfigured, pool
+from .db import DatabaseNotConfigured, pool, session
+from .orm import User
+from .services.users import save_sign_in
 
 SESSION_USER_KEY = "user_id"
 SESSION_STATE_KEY = "oauth_state"
@@ -87,27 +91,24 @@ async def get_current_user(request: Request) -> CurrentUser:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not signed in.")
 
     try:
-        db_pool = pool()
+        async with session() as db_session:
+            # Fresh identity on every request; this single SELECT needs no BEGIN/ROLLBACK round trips.
+            await db_session.connection(execution_options={"isolation_level": "AUTOCOMMIT"})
+            row = await db_session.scalar(
+                select(User).options(undefer(User.github_access_token)).where(User.id == user_id)
+            )
     except DatabaseNotConfigured as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
-    async with db_pool.acquire() as connection:
-        row = await connection.fetchrow(
-            """
-            select id, github_id, github_login, name, avatar_url, github_access_token
-            from users where id = $1
-            """,
-            user_id,
-        )
     if row is None:
         request.session.clear()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not signed in.")
     return CurrentUser(
-        id=row["id"],
-        github_id=row["github_id"],
-        github_login=row["github_login"],
-        github_token=decrypt(row["github_access_token"]) or "",
-        name=row["name"],
-        avatar_url=row["avatar_url"],
+        id=row.id,
+        github_id=row.github_id,
+        github_login=row.github_login,
+        github_token=decrypt(row.github_access_token) or "",
+        name=row.name,
+        avatar_url=row.avatar_url,
     )
 
 
@@ -138,10 +139,11 @@ async def get_current_user_optional(request: Request) -> CurrentUser | None:
 
 
 @router.get("/auth/github")
-async def github_login(request: Request) -> RedirectResponse:
+async def github_login(request: Request, next: str = "/explore") -> RedirectResponse:
     _require_oauth_configuration()
     state = secrets.token_urlsafe(32)
     request.session[SESSION_STATE_KEY] = state
+    request.session["oauth_next"] = next if next in {"/explore", "/maintainers", "/leaderboard", "/explore#points"} else "/explore"
     query = urlencode(
         {
             "client_id": settings.github_client_id,
@@ -162,6 +164,9 @@ async def github_callback(
 ) -> RedirectResponse:
     _require_oauth_configuration()
     expected_state = request.session.pop(SESSION_STATE_KEY, None)
+    destination = request.session.pop("oauth_next", "/explore")
+    if destination not in {"/explore", "/maintainers", "/leaderboard", "/explore#points"}:
+        destination = "/explore"
     if not state or not expected_state or not secrets.compare_digest(state, expected_state):
         raise HTTPException(status_code=400, detail="Invalid OAuth state. Start the login again.")
     if not code:
@@ -173,32 +178,20 @@ async def github_callback(
     except github_oauth.GitHubOAuthError as error:
         raise HTTPException(status_code=502, detail=f"GitHub sign-in failed: {error}") from error
 
-    async with pool().acquire() as connection:
-        row = await connection.fetchrow(
-            """
-            insert into users (github_id, github_login, name, avatar_url, github_access_token, last_login_at)
-            values ($1, $2, $3, $4, $5, now())
-            on conflict (github_id) do update set
-                github_login = excluded.github_login,
-                name = excluded.name,
-                avatar_url = excluded.avatar_url,
-                github_access_token = excluded.github_access_token,
-                updated_at = now(),
-                last_login_at = now()
-            returning id
-            """,
-            profile["id"],
-            profile["login"],
-            profile.get("name"),
-            profile.get("avatar_url"),
-            encrypt(token),
+    async with session() as db_session:
+        user_id = await save_sign_in(
+            db_session,
+            github_id=profile["id"], github_login=profile["login"],
+            name=profile.get("name"), avatar_url=profile.get("avatar_url"),
+            encrypted_token=encrypt(token),
         )
-    if row is None:
+        await db_session.commit()
+    if user_id is None:
         raise HTTPException(status_code=500, detail="Could not save the signed-in user.")
     # Rotate the session rather than adopting whatever session the browser arrived with. An attacker who
     # can set a cookie before sign-in otherwise ends up holding a session that is now authenticated.
     request.session.clear()
-    request.session[SESSION_USER_KEY] = row["id"]
+    request.session[SESSION_USER_KEY] = user_id
     request.session[SESSION_CSRF_KEY] = secrets.token_urlsafe(32)
 
     # Synchronise straight away, in the background. Nobody should have to find a hidden endpoint for their
@@ -208,7 +201,7 @@ async def github_callback(
     background.add_task(
         _sync_after_sign_in,
         CurrentUser(
-            id=row["id"],
+            id=user_id,
             github_id=profile["id"],
             github_login=profile["login"],
             github_token=token,
@@ -216,7 +209,7 @@ async def github_callback(
             avatar_url=profile.get("avatar_url"),
         ),
     )
-    return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/explore", status_code=302)
+    return RedirectResponse(f"{settings.frontend_url.rstrip('/')}{destination}", status_code=302)
 
 
 async def _sync_after_sign_in(user: CurrentUser) -> None:
@@ -248,11 +241,13 @@ async def logout(request: Request) -> Message:
     request.session.clear()
     if user_id:
         try:
-            async with pool().acquire() as connection:
-                await connection.execute(
-                    "update users set github_access_token = null, updated_at = now() where id = $1",
-                    user_id,
+            async with session() as db_session:
+                await db_session.execute(
+                    update(User).where(User.id == user_id).values(
+                        github_access_token=None, updated_at=func.now(),
+                    )
                 )
+                await db_session.commit()
         except DatabaseNotConfigured:
             pass  # nothing stored to forget
     return Message(status="logged out")

@@ -1,99 +1,72 @@
-# GitBounty Chrome extension
+# GitBounty browser extension
 
-An optional companion to the GitBounty website. It puts a published bounty's point value and category
-beside the matching issue on GitHub, and shows your own points in a toolbar popup. **The website works
-completely without it** — nothing here is required to use GitBounty.
+Optional Manifest V3 extension for Chrome, Brave and Edge. The website works without it.
+The implementation targets the local API and is not store-published.
 
-**Status:** working locally, loaded unpacked. Not published to any extension store.
+## Current behavior
 
-## What a browser extension is made of
+- Adds published GitBounty point values and categories beside matching GitHub issues.
+- Adds a reward banner to supported PR pages containing a closing reference.
+- Discover view: search published issue titles, filter language/category or maintainer-labeled good first issues,
+  sort by update/stars, and page through results. Cards open GitHub and show points separately from promises.
+- Account & wallet view: real linked-wallet balance on the configured Avalanche network, native gas balance,
+  points, recent activity, tracked issue context, and links to claim points or manage payments on the website.
+- Discovery works while signed out. Account and balance reads require the real GitBounty session.
+  Private data is fetched fresh; an unavailable balance is not displayed as zero.
+- Ignores label-only rewards; only registered API data creates a badge.
+- Refreshes visible pages every 30 seconds and on navigation/visibility changes; removes stale badges and banners.
+  API caching can delay a change until a later refresh; this is polling, not instant push.
 
-A website is one app that you host. An extension is code that runs inside somebody else's page
-(github.com), so it is split into parts that cannot see each other directly:
+External dollar bounty labels are not supported. Discovery lists only open, published GitBounty bounties,
+not all GitHub issues or the Good First Issue site's index. The beginner filter recognizes case-insensitive
+`good first issue`, `good-first-issue`, `good first contribution`, and `good-first-contribution` labels.
+Maintainers supply these labels; they do not verify difficulty, availability or a guaranteed payment.
 
-- **`manifest.json`** — the declaration: name, version, which permissions it asks for, and which pages
-  it is allowed to run on. The browser reads this first and nothing else happens without it.
-- **A content script** (`src/content.js`, `src/points.js`) — JavaScript injected into a GitHub page. It
-  can read and change that page's DOM, but it is on github.com's origin, so it *cannot* call
-  `localhost:8001` itself.
-- **A service worker** (`src/background.js`) — a background script with no page. It has the extension's
-  own permissions, so it is the part that talks to the GitBounty API. The content script asks it for
-  data by message passing. ("Service worker" here just means a script the browser starts when it is
-  needed and stops when it is not; it has no DOM.)
-- **A popup** (`popup/`) — a small HTML page shown when you click the toolbar icon. It is a normal page
-  with its own document, and it talks to the API directly.
-- **`src/config.js`** — the two URLs everything else reads, shared by the worker and the popup.
+Wallet balances are for the permanent linked receiving EOA, not the owner's SmoothSend funding smart account.
+Fuji balances are explicitly test tokens with no monetary value. Payments and wallet linking stay on the
+website through required SmoothSend; the extension never signs or sends funds and requests no new permissions.
+Webhook processing and pre-registration claims are backend features; the extension links claims to the website.
 
-## What it shows, and what it refuses to show
+## Run
 
-| On | Shows |
-|---|---|
-| An issue list | `40 GitBounty · Frontend` beside an issue with a **published** bounty |
-| An issue page | The same badge for that issue |
-| A pull request that says `Closes #N` | The bounty on `#N`, and that its points go **to the pull request's author when it is merged** |
+Start the backend and website using [setup](../../docs/setup.md).
+Open the browser's extensions page, enable Developer mode and load this folder unpacked.
+Publish a bounty, then open that repository's GitHub issue list.
+Reload the extension and GitHub tab after changing files.
 
-Three rules it does not break:
+From this folder, install test dependencies and check:
 
-1. **The points go to the pull request's author**, not to whoever clicks Merge. The backend awards on
-   `author:<login>`.
-2. **Nothing is shown for untracked work.** No published bounty means no banner and no badge — never a
-   baseline guess.
-3. **A `gitbounty:40` GitHub label is a documented fallback, not an award.** Anyone with write access to
-   a repository can add one and GitBounty has never seen it, so a label-only badge reads `40 label`, is
-   styled differently, and says so in its accessible name. A published bounty from the API always
-   replaces a label badge for the same issue; the reverse is refused.
-
-## Install it for local development (Chrome, Brave, Edge)
-
-1. Start the backend: see [`../../backend/README.md`](../../backend/README.md). It must answer on
-   `http://localhost:8001`.
-2. Start the website if you want the "Open full dashboard" link to work:
-   `cd ../web && npm run dev` (serves `http://localhost:3000`).
-3. Open `chrome://extensions` (Brave: `brave://extensions`, Edge: `edge://extensions`).
-4. Turn on **Developer mode** (top right).
-5. Click **Load unpacked** and choose this folder (`frontend/extension`).
-6. Open a GitHub issue list for a repository that has a published GitBounty bounty.
-
-To pick up a change: click the reload arrow on the extension's card, then reload the GitHub tab.
-
-## Test it by hand
-
-The automated tests cover the logic and the DOM injection; these are the things only a real browser
-shows.
-
-1. **A published bounty badges.** Publish a bounty on the website for one of your own public
-   repositories, then open that repository's issue list on GitHub. The badge appears beside the issue
-   title, reading `<points> GitBounty · <Category>`.
-2. **An untracked issue does not.** Another open issue in the same repository gets no badge.
-3. **Client-side navigation.** Click from the issue list into an issue and back using GitHub's own
-   links (no full reload). The badge is still there, exactly once — not twice.
-4. **The pull-request banner.** Open a pull request whose body says `Closes #N` for that bounty. The
-   banner names the author as the recipient. On a pull request closing an unpublished issue, there is no
-   banner.
-5. **The popup, signed out.** With no GitBounty session, click the toolbar icon: it offers **Connect
-   GitHub** and shows no points. Clicking it opens the real OAuth flow at
-   `http://localhost:8001/auth/github`.
-6. **The popup, signed in.** After signing in, the popup shows your real login and week's points, and —
-   on a tracked issue page — that issue's published value.
-7. **The popup, API down.** Stop the backend and reopen the popup: it says GitBounty is not running on
-   `localhost:8001` rather than showing a number.
-
-## Permissions, and why each one
-
-- `activeTab` — to ask the content script in the tab you are looking at what is on the page. It grants
-  nothing until you click the toolbar icon.
-- `http://localhost:8001/*` — the GitBounty API. The only host the extension may call.
-- Content scripts are limited by `include_globs` to GitHub issue and pull-request URLs.
-
-There is no remotely loaded code, no analytics, and no secret of any kind in this folder — everything
-here ships to the browser and is therefore public (`../../rules.md` section 5).
-
-## Run the checks
-
-```bash
-npm run check      # syntax check every file, then the tests
-npm test           # the tests alone
+```text
+npm ci
+npm run check
 ```
 
-`jsdom` is the only dependency, and only for tests: the DOM-injection tests load `src/content.js` into a
-fixture document shaped like a GitHub page.
+Real-browser checks should include issue lists/details, navigation without reload, PR banners,
+signed-in/out popup, API failure, and an edited/unpublished bounty.
+DOM fixture tests do not prove compatibility with GitHub's current page structure.
+
+## Files and permissions
+
+- `manifest.json`: permissions and page matching.
+- `src/content.js`, `src/points.js`: inspect GitHub pages and insert badges.
+- `src/background.js`: API requests and a 30-second repository cache.
+- `src/config.js`: API and website URLs.
+- `popup/`: account points, activity and issue context.
+
+`activeTab` supports inspecting the current tab when the popup is opened.
+The only API host permission is localhost:8001; content scripts match GitHub issue/PR URLs.
+No secrets or remotely loaded executable code belong here.
+[Plan](../../plan.md) tracks refresh and distribution work.
+
+## Check the new popup
+
+Run `npm run test:extension-ui` from `e2e/` after installing its test dependencies. It renders the actual
+popup in Chrome, checks both views with axe, and exercises navigation. Chrome APIs and API responses are
+fixtures; this does not prove unpacked-extension cookie access or a real wallet balance.
+
+For the manual run: reload this unpacked extension, start the API/site, and reopen its toolbar popup.
+Discover should show real published issues before login. Try a beginner label, filters, Next/Previous,
+empty results and an unavailable API. Sign in through Account & wallet, then reopen the popup. Compare
+its username and linked address with the website. Refresh balance and compare the active Fuji token/native
+balances with the explorer. Link a wallet on the website if none exists. Sign out and confirm private data
+is hidden while public discovery remains available. Sign out errors must leave a retry message.

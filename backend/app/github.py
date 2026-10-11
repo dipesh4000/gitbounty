@@ -25,6 +25,10 @@ class GitHubError(RuntimeError):
     """A GitHub request failed. The message is safe to log, not to show a user."""
 
 
+class GitHubAuthError(GitHubError):
+    """GitHub rejected the stored credential; the user must authorize again."""
+
+
 class RateLimited(GitHubError):
     """GitHub refused the call for rate limiting. `retry_after` is in seconds."""
 
@@ -60,38 +64,14 @@ def _headers(token: str | None = None) -> dict[str, str]:
     return headers
 
 
-async def search_issues(token: str, query: str, per_page: int = 50, page: int = 1) -> list[dict[str, Any]]:
-    """Run one issue search.
-
-    Rate limit note: this endpoint allows about 30 requests per minute for an
-    authenticated user. It is only ever called by the sync job, never on a page
-    load.
-    """
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        response = await client.get(
-            f"{settings.github_api}/search/issues",
-            headers=_headers(token),
-            params={
-                "q": query,
-                "per_page": min(per_page, 100),
-                "page": page,
-                "sort": "updated",
-                "order": "desc",
-            },
-        )
-    if response.status_code in (403, 429):
-        raise RateLimited(_retry_after_seconds(response))
-    if response.status_code != 200:
-        raise GitHubError(f"issue search returned {response.status_code}")
-    return response.json().get("items", [])
-
-
 async def get_repo(token: str, full_name: str) -> dict[str, Any] | None:
     """Fetch one repository's metadata. Returns None if it is gone or private."""
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         response = await client.get(
             f"{settings.github_api}/repos/{full_name}", headers=_headers(token)
         )
+    if response.status_code == 401:
+        raise GitHubAuthError("GitHub rejected the credential")
     if response.status_code in (404, 403):
         return None
     if response.status_code != 200:
@@ -120,6 +100,8 @@ async def list_user_repositories(
                     "page": page,
                 },
             )
+            if response.status_code == 401:
+                raise GitHubAuthError("GitHub rejected the credential")
             if response.status_code in (403, 429):
                 raise RateLimited(_retry_after_seconds(response))
             if response.status_code != 200:
@@ -141,6 +123,8 @@ async def list_repo_issues(token: str, full_name: str, *, max_pages: int = 5) ->
                 headers=_headers(token),
                 params={"state": "open", "per_page": 100, "page": page, "sort": "created"},
             )
+            if response.status_code == 401:
+                raise GitHubAuthError("GitHub rejected the credential")
             if response.status_code in (403, 429):
                 raise RateLimited(_retry_after_seconds(response))
             if response.status_code != 200:
@@ -186,7 +170,7 @@ async def list_authorized_repositories(
             if response.status_code in (403, 429):
                 raise RateLimited(_retry_after_seconds(response))
             if response.status_code == 401:
-                raise GitHubError("GET /user/repos returned 401")
+                raise GitHubAuthError("GitHub rejected the credential")
             if response.status_code != 200:
                 raise GitHubError(f"GET /user/repos returned {response.status_code}")
             page_items = response.json()

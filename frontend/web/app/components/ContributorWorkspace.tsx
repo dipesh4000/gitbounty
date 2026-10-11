@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
@@ -23,11 +22,14 @@ import {
   type TrackedPullRequest,
   type MyPointsResponse,
   type PointsHistoryResponse,
+  type PendingClaims,
   type SyncStatus,
 } from "../lib/api";
 import { useApiResource } from "../lib/useApiResource";
 import { MaintainerWorkspace, Pager } from "./MaintainerWorkspace";
-import { useAuth } from "./AuthProvider";
+import { useAuth, LoginScreen } from "./AuthProvider";
+import { promisedReward, type PaymentConfig } from "../lib/payments";
+import { AvaxRewards } from "./AvaxRewards";
 
 /*
   The signed-in application. Deliberately not a copy of the marketing page: a compact operations shell with
@@ -38,13 +40,14 @@ import { useAuth } from "./AuthProvider";
   situations and an empty table is not an answer to any of them.
 */
 
-type View = "issues" | "maintain" | "pulls" | "history" | "leaderboard";
+type View = "issues" | "maintain" | "pulls" | "history" | "leaderboard" | "rewards";
 
 const VIEWS: Array<{ id: View; label: string; title: string; lede: string }> = [
-  { id: "issues", label: "Opportunities", title: "Opportunities", lede: "Bounties published by repository maintainers." },
-  { id: "maintain", label: "My repositories", title: "Maintainer workspace", lede: "Publish bounties on repositories you manage, and look after the ones you have published." },
+  { id: "issues", label: "Explore bounties", title: "Explore bounties", lede: "Bounties published by repository maintainers." },
+  { id: "maintain", label: "Create a bounty", title: "Create a bounty", lede: "Publish bounties on repositories you manage, and look after the ones you have published." },
   { id: "pulls", label: "My PRs", title: "My pull requests", lede: "Every pull request you have authored, what state it is in, and what it has earned or stands to earn." },
   { id: "history", label: "Points", title: "Points history", lede: "Every entry behind your total, with where it came from." },
+  { id: "rewards", label: "Payments", title: "Rewards & payments", lede: "Claim a reward, review an owner payment, or verify a transaction." },
   { id: "leaderboard", label: "Leaderboard", title: "Leaderboard", lede: "Points earned from merged open-source work." },
 ];
 
@@ -53,9 +56,24 @@ function message(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
-export function ContributorWorkspace() {
-  const { user, status: authStatus, error: authError, signOut } = useAuth();
-  const [view, setView] = useState<View>("issues");
+export function ContributorWorkspace({ initialView = "issues" }: { initialView?: View }) {
+  const { user, signOut } = useAuth();
+  const [view, setCurrentView] = useState<View>(initialView);
+  const { resource: paymentMode } = useApiResource<PaymentConfig>(user ? "/api/avax/config" : null);
+  function setView(next: View) {
+    setCurrentView(next);
+    window.history.replaceState(null, "", `#${next === "history" ? "points" : next}`);
+  }
+  useEffect(() => {
+    function readHash() {
+      const hash = window.location.hash.slice(1);
+      if (hash === "points") setCurrentView("history");
+      else if (VIEWS.some(item => item.id === hash)) setCurrentView(hash as View);
+    }
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
   const [points, setPoints] = useState<MyPointsResponse | null>(null);
   const [pointsLoading, setPointsLoading] = useState(true);
 
@@ -71,13 +89,6 @@ export function ContributorWorkspace() {
     }
   }, []);
 
-  /* Only an actual 401 sends someone back to the landing page. When the API is unreachable or
-     unconfigured we stay here and say so, because bouncing to a page that cannot load either just
-     looks like the sign-in failed. */
-  useEffect(() => {
-    if (authStatus === "signed-out") window.location.replace("/");
-  }, [authStatus]);
-
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -88,36 +99,34 @@ export function ContributorWorkspace() {
     return () => { active = false; };
   }, [user]);
 
-  if (!user) {
-    if (authStatus === "unavailable") {
-      return (
-        <main className="app-loading" aria-live="polite">
-          <div className="app-empty">
-            <strong>GitBounty can’t reach its API.</strong>
-            <span>{authError}</span>
-            <Link href="/">Back to the landing page</Link>
-          </div>
-        </main>
-      );
-    }
-    return (
-      <main className="app-loading" aria-live="polite">
-        {authStatus === "loading" ? "Checking your GitHub session…" : "Returning to sign in…"}
-      </main>
-    );
-  }
+  if (!user) return <LoginScreen destination={view === "history" ? "/explore#points" : initialView === "maintain" ? "/maintainers" : initialView === "leaderboard" ? "/leaderboard" : "/explore"} />;
 
   const current = VIEWS.find((item) => item.id === view) ?? VIEWS[0];
 
   return (
-    <div className="app-shell">
+    <div className="app-shell"><a className="workspace-skip" href="#workspace-content">Skip to workspace</a>
       <header className="app-header">
         <div className="app-header-main">
-          <Link className="app-brand" href="/" aria-label="GitBounty home">
-            <Image src="/assets/favicon.png" alt="" width={28} height={28} priority />
+          <a className="app-brand" href="/" aria-label="GitBounty home">
+            <Image src="/favicon-32.png" alt="" width={28} height={28} priority />
             <span>GitBounty</span>
-          </Link>
-          <nav className="app-nav" aria-label="Dashboard">
+          </a>
+          <div className="app-header-meta">
+            {user && <span
+              className="app-nav-points"
+              aria-label={points ? `${points.total_points} points earned` : "Points not loaded"}
+            >
+              <strong>{pointsLoading ? "…" : points ? formatPoints(points.total_points) : "—"}</strong> points
+            </span>}
+            <div className="app-account-group">
+              <span className="app-account">@{user.github_login}</span>
+              <button className="app-signout" type="button" onClick={signOut}>Sign out</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <aside className="app-sidebar">          <nav className="app-nav" aria-label="Dashboard"><span className="workspace-eyebrow">Your workspace</span>
             {VIEWS.map((item) => (
               <button
                 type="button"
@@ -129,22 +138,9 @@ export function ContributorWorkspace() {
               </button>
             ))}
           </nav>
-          <div className="app-header-meta">
-            <span
-              className="app-nav-points"
-              aria-label={points ? `${points.total_points} points earned` : "Points not loaded"}
-            >
-              <strong>{pointsLoading ? "…" : points ? formatPoints(points.total_points) : "—"}</strong> points
-            </span>
-            <div className="app-account-group">
-              <span className="app-account">@{user.github_login}</span>
-              <button className="app-signout" type="button" onClick={signOut}>Sign out</button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="app-main">
+<div className="sidebar-guide"><strong>Two sides, one workflow</strong><p>Owners publish and pay. Contributors build, claim and receive.</p><a href="/docs">How it works ↗</a></div></aside>
+      <main className="app-main" id="workspace-content">
+        <div className="workspace-context"><span>WORKSPACE / {current.label.toUpperCase()}</span><span className="network-pill">{paymentMode.data ? `${paymentMode.data.testnet ? "Test mode" : "Mainnet"} · ${paymentMode.data.symbol}` : "Checking payment network…"}</span></div>
         <div className="app-page-heading">
           <div><h1>{current.title}</h1><p>{current.lede}</p></div>
           {view === "issues" && (
@@ -154,6 +150,7 @@ export function ContributorWorkspace() {
           )}
         </div>
 
+        {view !== "rewards" && <div className="workspace-next-step"><div><span className="workspace-eyebrow">{view === "maintain" ? "OWNER WORKFLOW" : "CONTRIBUTOR WORKFLOW"}</span><strong>{view === "maintain" ? "Publish → review a closing PR → merge → pay" : view === "pulls" ? "Track your PR → get merged → claim your reward" : view === "history" ? "Points recognize work. Payments are tracked separately." : view === "leaderboard" ? "Rankings come from verified contribution points." : "Find an issue → open a closing PR → get merged → claim"}</strong><p>{view === "maintain" ? "Set the points and optional payment promise before publishing. After a verified merge, the contributor claims and you sign the payment." : view === "pulls" ? "Sync GitHub to reconcile recent activity. A closed issue alone does not earn a reward." : "Work and review happen on GitHub; claim and payment status live here."}</p></div><button type="button" onClick={() => setView(view === "issues" ? "pulls" : "rewards")}>{view === "issues" ? "Track my PRs →" : "Open payments →"}</button></div>}
         {view === "issues" && <Opportunities onPublishClick={() => setView("maintain")} />}
         {view === "maintain" && <MaintainerWorkspace onPublished={() => void loadPoints()} />}
         {view === "pulls" && (
@@ -163,24 +160,27 @@ export function ContributorWorkspace() {
             onSynced={() => { void loadPoints(); }}
           />
         )}
-        {view === "history" && <PointsHistory />}
-        {view === "leaderboard" && <Leaderboard login={user.github_login} />}
+        {view === "history" && <PointsHistory onClaimed={loadPoints} />}
+        {view === "leaderboard" && <Leaderboard login={user?.github_login ?? ""} />}
+        {view === "rewards" && <AvaxRewards />}
       </main>
     </div>
   );
 }
 
-// --- the public opportunity explorer --------------------------------------
+// --- the opportunity explorer --------------------------------------
 
 function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
   const [category, setCategory] = useState<BountyCategory | "all">("all");
   const [query, setQuery] = useState("");
+  const [language, setLanguage] = useState("");
   const [page, setPage] = useState(1);
 
   const params = new URLSearchParams({ page: String(page), per_page: "25", sort: "updated" });
   if (category !== "all") params.set("category", category);
   if (query.trim()) params.set("q", query.trim());
-  const { resource, reload } = useApiResource<IssueList>(`/api/issues?${params}`);
+  if (language.trim()) params.set("language", language.trim());
+  const { resource, reload } = useApiResource<IssueList>(`/api/issues?${params}`, query || language ? 250 : 0);
   const result = resource.data;
   const loading = resource.status === "loading";
   const error = resource.error;
@@ -189,7 +189,7 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
 
   return (
     <section aria-label="Published bounties">
-      <div className="app-toolbar">
+      <div className="app-toolbar explorer-toolbar">
         <label className="app-search">
           <span className="sr-only">Search published bounties</span>
           <input
@@ -198,6 +198,7 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
             onChange={(event) => { setPage(1); setQuery(event.target.value); }}
           />
         </label>
+        <label className="app-search"><span className="sr-only">Language</span><input value={language} placeholder="Language, e.g. Python" onChange={event => { setPage(1); setLanguage(event.target.value); }} /></label>
         <label className="app-select">
           <span>Category</span>
           <select
@@ -230,29 +231,31 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
         {!loading && !error && issues.map((issue) => (
           <div className="app-table-row" key={issue.id}>
             <div className="app-primary-cell">
-              <small>#{issue.number}</small>
+              <small>#{issue.number} · {issue.language || "Any language"}</small>
               <a href={issue.html_url} target="_blank" rel="noreferrer">{issue.title}</a>
             </div>
             <div data-label="Published by">{issue.posted_by ? `@${issue.posted_by}` : "Maintainer"}</div>
             <div className="app-repo" data-label="Repository">github.com/{issue.repository}</div>
             <div data-label="Category"><span className="app-category">{categoryLabel(issue.category)}</span></div>
-            <div className="app-points" data-label="Points">+{formatPoints(issue.points)}</div>
+            <div className="app-points" data-label="Points">+{formatPoints(issue.points)}
+              {promisedReward(issue) && <small>{promisedReward(issue)} · owner-promised</small>}
+            </div>
           </div>
         ))}
         {!loading && !error && issues.length === 0 && (
           <div className="app-empty">
             <strong>
-              {query || category !== "all"
+              {query || language || category !== "all"
                 ? "No published bounty matches those filters."
                 : "No bounties have been published yet."}
             </strong>
             <span>
-              {query || category !== "all"
+              {query || language || category !== "all"
                 ? "Try another category, or clear the search."
                 : "Be the first: choose an open issue from a repository you maintain and give it a value."}
             </span>
-            {query || category !== "all"
-              ? <button type="button" onClick={() => { setQuery(""); setCategory("all"); setPage(1); }}>Clear filters</button>
+            {query || language || category !== "all"
+              ? <button type="button" onClick={() => { setQuery(""); setLanguage(""); setCategory("all"); setPage(1); }}>Clear filters</button>
               : <button type="button" onClick={onPublishClick}>Publish your first bounty</button>}
           </div>
         )}
@@ -560,7 +563,35 @@ const KIND_LABELS: Record<string, string> = {
   void: "Withdrawn",
 };
 
-function PointsHistory() {
+export function ClaimPoints({ onClaimed }: { onClaimed: () => void }) {
+  const { resource, reload } = useApiResource<PendingClaims>("/api/me/claims");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  async function claim() {
+    setBusy(true);
+    setNotice("");
+    try {
+      const result = await apiWrite<{ claimed_points: number }>("/api/me/claims");
+      setNotice(`${formatPoints(result.claimed_points)} points claimed.`);
+      reload();
+      onClaimed();
+    } catch (error) { setNotice(message(error)); }
+    finally { setBusy(false); }
+  }
+  return <div className="app-empty" aria-label="Unclaimed points">
+    <p role="status">{notice || resource.error || (resource.status === "loading"
+      ? "Checking unclaimed points..." : `${formatPoints(resource.data?.points ?? 0)} points ready to claim.`)}</p>
+    {resource.error && <button type="button" onClick={reload}>Retry claims</button>}
+    {!!resource.data?.points && <>
+      <ul>{resource.data.items.map((item) => <li key={item.id}>
+        {item.repository}#{item.pr_number} / {KIND_LABELS[item.kind] ?? item.kind} / {formatPoints(item.points)} points
+      </li>)}</ul>
+      <button type="button" disabled={busy} onClick={claim}>{busy ? "Claiming..." : "Claim my points"}</button>
+    </>}
+  </div>;
+}
+
+function PointsHistory({ onClaimed }: { onClaimed: () => void }) {
   const [page, setPage] = useState(1);
   const { resource, reload } = useApiResource<PointsHistoryResponse>(
     `/api/me/points/history?page=${page}&per_page=25`
@@ -571,6 +602,7 @@ function PointsHistory() {
 
   return (
     <section aria-label="Points history">
+      <ClaimPoints onClaimed={() => { reload(); onClaimed(); }} />
       {result && (
         <div className="app-summary-line">
           <span><strong>{formatPoints(result.total_points)}</strong> points</span>

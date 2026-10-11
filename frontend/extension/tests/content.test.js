@@ -10,6 +10,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
+const windows = [];
+test.afterEach(() => { for (const window of windows.splice(0)) window.close(); });
 
 const CONTENT = fs.readFileSync(path.join(__dirname, "../src/content.js"), "utf8");
 const POINTS = fs.readFileSync(path.join(__dirname, "../src/points.js"), "utf8");
@@ -28,6 +30,7 @@ async function mount({ fixture, url, items = [], ok = true }) {
 
   const dom = new JSDOM(html, { url, runScripts: "outside-only", pretendToBeVisual: true });
   const { window } = dom;
+  windows.push(window);
   const requests = [];
 
   window.chrome = {
@@ -45,7 +48,7 @@ async function mount({ fixture, url, items = [], ok = true }) {
   window.eval(POINTS);
   window.eval(CONTENT);
   await settle(window);
-  return { window, document: window.document, requests, dom };
+  return { window, document: window.document, requests, dom, setItems(next) { items = next; } };
 }
 
 /** The script debounces scans by 100ms and the stubbed response resolves on a timer. */
@@ -98,22 +101,15 @@ test("matches the repository case-insensitively but the issue number exactly", a
   assert.ok(badges(document).every((badge) => badge.getAttribute("data-gitbounty-points-badge") !== "999"));
 });
 
-test("a gitbounty label alone is marked as a label, never as a GitBounty award", async () => {
+test("a GitHub label alone never creates a reward badge", async () => {
   const { document } = await mount({
-    fixture: "fixture.html",
-    url: "https://github.com/openframe/core/issues",
-    items: [],
+    fixture: "fixture.html", url: "https://github.com/openframe/core/issues", items: [],
   });
-
-  const badge = badgeFor(document, 1842);
-  assert.ok(badge, "the gitbounty:40 label is still surfaced");
-  assert.equal(badge.getAttribute("data-gitbounty-source"), "label");
-  assert.match(badge.textContent, /label/);
-  assert.doesNotMatch(badge.textContent, /GitBounty/, "a label must not claim a GitBounty award");
-  assert.match(badge.getAttribute("aria-label"), /not published on GitBounty/);
+  assert.equal(badgeFor(document, 1842), null);
+  assert.deepEqual(badges(document), []);
 });
 
-test("the API's value replaces a label badge for the same issue, never the reverse", async () => {
+test("the registered value is used even when a GitHub label says something else", async () => {
   const { document, window } = await mount({
     fixture: "fixture.html",
     url: "https://github.com/openframe/core/issues",
@@ -172,7 +168,7 @@ test("an API failure leaves the page untouched rather than guessing", async () =
     ok: false,
   });
 
-  // The gitbounty:40 label badge is still allowed (it is read from the page, not the API).
+  // A GitHub label must not substitute for unavailable registered reward data.
   assert.equal(badgeFor(document, 1857), null);
   assert.equal(badgeFor(document, 1850), null);
   const apiBadges = badges(document).filter((badge) => badge.getAttribute("data-gitbounty-source") === "api");
@@ -260,4 +256,40 @@ test("the content script does nothing outside issue and pull paths", async () =>
 
   assert.deepEqual(badges(document), []);
   assert.deepEqual(requests, [], "the API is not called at all");
+});
+
+test("refresh removes an unpublished reward and updates a changed value", async () => {
+  const { document, window, setItems } = await mount({
+    fixture: "fixture.html", url: "https://github.com/openframe/core/issues",
+    items: [bounty(1842, 40), bounty(1857, 60)],
+  });
+  setItems([bounty(1857, 80, "docs")]);
+  document.dispatchEvent(new window.Event("visibilitychange"));
+  await settle(window);
+  assert.equal(badgeFor(document, 1842), null);
+  assert.equal(badgeFor(document, 1857).getAttribute("data-gitbounty-points-badge"), "80");
+  assert.match(badgeFor(document, 1857).textContent, /Docs/);
+});
+
+test("navigation away from a PR removes its reward banner", async () => {
+  const { document, window } = await mount({
+    fixture: "pull-fixture.html", url: "https://github.com/openframe/core/pull/1910",
+    items: [bounty(1842, 40)],
+  });
+  assert.ok(document.querySelector(".gitbounty-pr-award"));
+  window.history.pushState({}, "", "/openframe/core/issues");
+  document.dispatchEvent(new window.Event("turbo:load"));
+  await settle(window);
+  assert.equal(document.querySelector(".gitbounty-pr-award"), null);
+});
+
+test("an unpublished PR reward disappears on refresh", async () => {
+  const { document, window, setItems } = await mount({
+    fixture: "pull-fixture.html", url: "https://github.com/openframe/core/pull/1910",
+    items: [bounty(1842, 40)],
+  });
+  setItems([]);
+  document.dispatchEvent(new window.Event("visibilitychange"));
+  await settle(window);
+  assert.equal(document.querySelector(".gitbounty-pr-award"), null);
 });

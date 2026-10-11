@@ -1,170 +1,60 @@
-# Points and anti-abuse rules
+# Points and reward ownership
 
-The rules GitBounty enforces, what is deliberately **not** defended against, and where each rule lives in
-the code. `backend/app/features/points/rules.py` is this document, enforced; migrations 0007 and 0008 are
-the parts the database enforces so that application logic cannot be the only thing standing there.
+Product intent is in [overview.md](../overview.md); implementation progress is in [plan.md](../plan.md).
 
-Current rule version: **`points-v1`**. Every ledger entry stores the version that produced it, so changing
-a rule does not make past awards unexplainable.
+## Ownership and claim behavior
 
-## What points are
+An eligible reward belongs to the PR author's stable GitHub numeric ID, whether or not they have registered
+with GitBounty. Account creation is not a condition of earning it.
 
-Points are a record of recognition for merged open-source work. They are **not** currency, tokens,
-securities or redeemable value. They cannot be bought, sold, transferred or withdrawn. Nothing in GitBounty
-moves money.
+To claim, the contributor must sign in with that same GitHub account and create their GitBounty account.
+Claiming preserves the original reward and its evidence and cannot produce a second award.
+A renamed GitHub login must not lose ownership; another user cannot claim by supplying a login or numeric ID.
 
-## How points are earned
+`reward_allocations` stores claimed and unclaimed rewards independently of registered accounts.
+The website shows pending allocations and claims them into the ledger; the extension links to that screen.
+Only claimed points enter public leaderboards. No expiry policy is implemented.
+“Claim” means claiming points, not withdrawing cash.
 
-Two kinds of award, and only two.
+## Rules enforced today
 
-| Award | Amount | When |
-|---|---|---|
-| **Bounty award** | the value a maintainer published on the issue, 1–1000 | a merged pull request by this person closes that published bounty |
-| **Baseline award** | 5 | a merged pull request by this person lands in a repository that has at least one published GitBounty bounty |
+Rule version: `points-v1`, defined in [rules.py](../backend/app/features/points/rules.py).
+These numbers are current behavior, not newly chosen in the documentation cleanup.
 
-Both are written to `points_ledger`. A person's total is `sum(points)` over their entries — there is no
-stored total that could drift from the entries behind it.
-
-### Bounds
-
-- A bounty is between **1 and 1000 points**. Enforced in the Pydantic request schema
-  (`MIN_ISSUE_POINTS`/`MAX_ISSUE_POINTS`), in `validate_bounty_points`, and by the
-  `issue_points_points_check` database constraint. Raising the ceiling is a migration, on purpose.
-- The baseline is **5 points** (`FLAT_POINTS_PER_MERGE`) and is not configurable per repository.
-
-Before this version there was no maximum at all. `rules.py` said so, and said why it mattered: anyone
-could put 100,000 points on a trivial issue in a repository they controlled.
-
-### Only a published bounty awards its value
-
-A `gitbounty:40` **label on a GitHub issue awards nothing.** Anyone with write access to a repository can
-add one, and GitBounty has not seen it or authenticated the person who set it.
-
-A label is still used, in two places where it cannot do harm:
-
-- As a **suggestion** when a maintainer publishes a bounty through GitBounty — the publish form pre-fills
-  the label's value, clamped to 1–1000 (`suggested_bounty_points`).
-- As an explicitly-marked **fallback badge** in the browser extension, which reads `40 label`, is styled
-  differently from a GitBounty badge, and says "not published on GitBounty" in its accessible name. The
-  API's answer always replaces it; the reverse is refused.
-
-This supersedes the sketch in `overview.md`, which described a label on any repository as a way to set a
-bounty value with no signup. The workflow is: a maintainer GitBounty has authenticated publishes the
-bounty, and only published bounties appear in the explorer or award anything.
-
-### The baseline needs a participating repository
-
-A merged pull request into *any* repository used to earn the baseline. That was farmable with a throwaway
-repository and a second account. The baseline now needs the repository to have at least one published
-bounty, which means a verified maintainer with admin or maintain permission on it chose to take part.
-
-## When points are awarded, and when they are not
-
-**Only an eligible merged pull request awards anything.** Not an approval, not a closed issue, not a closed
-pull request, and not a pull request merely existing. GitBounty tracks all seven lifecycle states so a
-contributor can see where their work stands, and `expected_points` on an open pull request is a forecast —
-a bounty is awarded once, to one person, so somebody else's merge can still get there first.
-
-| State | Awards |
+| Rule | Current behavior |
 |---|---|
-| draft, open, in review, changes requested, approved | nothing |
-| closed without merging | nothing |
-| merged, but ineligible | nothing, and the reason is shown |
-| merged and eligible | the bounty's value if it closes one, plus the baseline |
+| Bounty | 1–1000 points, published by an authenticated maintainer with admin/maintain permission |
+| Baseline | 5 points for an eligible merged PR in a repository with a published bounty |
+| Recipient | PR author, not the person who clicks Merge |
+| Eligible state | Merged; draft, open, reviewed, approved and closed-unmerged earn nothing |
+| Own repository | A PR authored into the author's own repository earns nothing |
+| Own bounty | A maintainer cannot earn their own published bounty; baseline may still apply |
+| Multiple PRs for one bounty | One bounty award ever; current implementation credits whichever eligible sync records first |
+| One PR closing multiple bounties | First matching bounty only |
+| Re-sync | No duplicate award |
+| Repricing after an award | Recorded award remains unchanged |
+| Correction | Append an adjustment or withdrawal with a reason; never edit the original award |
 
-A pull request that is merged, reopened and merged again is awarded once: GitHub's pull-request id does not
-change, and `points_ledger_baseline_once` and `points_ledger_bounty_once` are keyed on it.
+An eligible 40-point bounty merge in a participating repository normally earns 40 bounty points plus 5 baseline points.
+Categories are `frontend`, `backend`, `fullstack`, `docs`, `testing`, `devops`, `design`, `mobile`, `other`.
+The maintainer's category is authoritative for bounty awards.
 
-## Who receives the points
+## Registered rewards only
 
-**The pull request's author.** Not whoever clicked Merge. Synchronisation queries GitHub as the signed-in
-user for `is:pr author:<their login> is:merged`, so the person being credited is by construction the
-author. The extension's pull-request banner says the same thing.
+Only a published GitBounty bounty creates a bounty reward.
+A GitHub label alone never awards points. Labels currently suggest values in the maintainer form.
+The extension displays registered API rewards only; it does not turn GitHub labels into badges.
 
-## What is refused
+## Audit and moderation
 
-| Case | Rule | Where |
-|---|---|---|
-| **Self-merge** — a pull request merged into a repository its own author owns | earns nothing at all, and is counted and reported so the person is told why | `MergedPR.is_self_merge`, `detect_merges` |
-| **A maintainer collecting their own bounty**, in somebody else's repository | the bounty is not matched; the baseline still applies | `_matching_bounty` |
-| **Two pull requests closing one bounty** | the bounty is awarded **once, ever, to one person**. The second earns the baseline only | `points_ledger_bounty_once` (a partial unique index) |
-| **Two people both closing one bounty** | same index. Whichever sync records first is credited; the other is told the bounty was already claimed | `points_ledger_bounty_once` |
-| **One pull request closing several bounties** | credited with the **first** bounty its text names. Awarding all of them would let one pull request collect several maintainers' budgets at once; the others stay open for their own work | `_matching_bounty` |
-| **Re-synchronising** | awards nothing a second time. A pull request already in the ledger is already paid | `points_ledger_baseline_once`, `on conflict do nothing` |
-| **A maintainer raising a bounty's value after it was awarded** | does not change the award. `bounty_points_at_award` is what it was worth at the time, and the entry is immutable | `record_merges`, migration 0008 |
-| **A maintainer lowering a value, or unpublishing** | does not remove a recorded award. An unpublished bounty stops being awardable; it does not un-pay | `published_bounties` filters on `status = 'published'` |
-| **A bounty over the maximum, or zero or negative** | rejected by the request schema and by a database check | migration 0007 |
-| **A category that is not one of the nine** | rejected by a database check on both `issues` and `points_ledger`, so a typo in one half of the product cannot split a leaderboard | migrations 0003/0004/0008 |
+The append-only `points_ledger` stores amount, rule version, PR, bounty, category and reason.
+`reward_allocations` preserves the GitHub identity and evidence before a user exists.
+Totals and leaderboards sum entries; database uniqueness constraints prevent repeat awards.
+Unpublishing stops future eligibility without erasing past awards.
 
-## What is *not* defended against
+Signed-in users can report a bounty, PR or award.
+Administrators configured by `ADMIN_GITHUB_IDS` can review/resolve reports;
+withdrawing writes a negative `void` entry. An empty administrator list grants nobody access.
+There is no moderation UI.
 
-Stated plainly, because a security claim that is not true is worse than no claim.
-
-- **Two people colluding.** A publishes a bounty on their repository, B fixes it, B is credited, and they
-  swap roles next time. The self-merge rule does not catch this and neither does anything else. The
-  1000-point ceiling makes it slow rather than impossible. Mitigations that have *not* been built: a
-  minimum repository age or star count, a per-person-pair rate limit, a cap on points earned from one
-  maintainer, and manual review of outliers.
-- **Low-value merges.** A typo fix in a participating repository earns the same baseline as a real fix.
-- **Reverted merges.** GitBounty does not detect that a merged pull request was later reverted. The
-  correction mechanism exists (`record_adjustment`) but nothing calls it automatically.
-- **Reopened or re-merged pull requests.** A pull request is identified by GitHub's immutable id, so it is
-  awarded once; a genuine second merge of the same pull request earns nothing more.
-- **Transferred or renamed repositories.** The ledger keeps the name as it was at the time of the award.
-  Matching is case-insensitive but not rename-aware, so a bounty on a repository that is later renamed
-  stops matching new pull requests.
-
-## Corrections
-
-The ledger is append-only. A correction is a **new entry with a negative value and a reason**, never an
-edit:
-
-- `adjustment` — a correction, positive or negative, with a reason. A reason is required by a database
-  check constraint, not just by convention.
-- `void` — an award withdrawn by moderation; the points are the negation of the original. The original
-  entry stays, so the history shows both what happened and that it was undone.
-
-A user whose entries net to zero or less drops off the leaderboard rather than sitting at the bottom of it.
-
-### Moderation
-
-Three endpoints, no dashboard:
-
-| | |
-|---|---|
-| `POST /api/moderation/flags` | Report a bounty, a contribution or a specific award, with a reason. **Any signed-in person may report.** A report changes nothing by itself — no points move, nothing is hidden — because an automatic consequence for an unreviewed report would be a denial-of-service tool pointed at other contributors |
-| `GET /api/moderation/flags` | The reports. **Administrators only** |
-| `POST /api/moderation/flags/{id}/resolve` | Dismiss, uphold, or withdraw an award. **Administrators only** |
-
-**Withdrawing an award never edits or deletes it.** It writes a new `void` entry for the negation of the
-original value, naming the moderator, the flag and the reason. Both rows stay, and the contributor sees
-both in their points history. An award cannot be withdrawn twice, and a withdrawal cannot itself be
-withdrawn.
-
-**Who is an administrator.** A configured list of **stable GitHub numeric ids** (`ADMIN_GITHUB_IDS`) — not
-logins, which a person can change. It is **empty by default, and an empty list means nobody**: every
-moderation endpoint answers 403 until the owner writes the list down. GitBounty has no trustworthy
-administrator model of its own — no roles table, no invitation flow, no way to verify that whoever first
-signed in should have power over everybody else's points — so failing closed is the only safe arrangement.
-There is no UI for any of this.
-
-## Where a bounty's value and category are fixed
-
-- **Value**: frozen in the ledger when the award is written (`bounty_points_at_award`).
-- **Category**: a published bounty's category is the maintainer's choice and is authoritative for anything
-  awarded on it (`category_source = 'maintainer'`). Automated inference from changed files, labels and
-  repository language only applies to a baseline award, and is recorded as `category_source = 'inferred'`.
-  Inference never overwrites a maintainer's choice — migration 0007 adds the column that makes that
-  distinction storable, and `_upsert_issue` sets it.
-
-## Audit trail
-
-| Table | Holds |
-|---|---|
-| `points_ledger` | every award and correction: kind, signed points, category and its source, rule version, reason, pull request, bounty, maintainer, merge time |
-| `issue_points_history` | every change to a bounty: published, repriced, recategorised, unpublished, republished, archived — with who did it, what it was before, and why |
-| `sync_runs` | every synchronisation attempt: what it saw, what it awarded, and how it failed |
-| `merged_prs` | which pull requests have been seen, which is a different question from what has been awarded |
-
-A user reads their own ledger at `GET /api/me/points/history`; a maintainer reads one bounty's history at
-`GET /api/maintainer/bounties/{owner}/{name}/{number}/history`.
+No automated collusion or reverted-merge detection exists. Other implementation gaps are maintained in the plan.

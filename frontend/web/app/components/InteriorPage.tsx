@@ -1,4 +1,4 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { MarketingShell } from "./MarketingShell";
 
 type Section = { heading: string; body: string; items?: string[]; code?: string };
@@ -32,7 +32,7 @@ export const pages: Record<PageKey, PageSpec> = {
     status: "Contribution protocol",
     evidence: [["INPUT", "A published bounty"], ["PROOF", "Merged pull request"], ["REWARD", "A ledger entry"], ["BASELINE", "+5 per merge in a participating repo"]],
     sections: [
-      { heading: "Find and build.", body: "Choose a published bounty that matches your skills, read the repository’s contribution guide, discuss the approach when needed, and open a normal pull request that says which issue it closes.", items: ["No separate editor or review system.", "No wallet, invoice, or payment flow.", "Maintainers keep control of acceptance and merge."] },
+      { heading: "Find and build.", body: "Choose a published bounty that matches your skills, read the repository’s contribution guide, discuss the approach when needed, and open a normal pull request that says which issue it closes.", items: ["No separate editor or review system.", "An AVAX promise is paid individually by the owner after your verified claim. GitBounty does not guarantee it.", "Maintainers keep control of acceptance and merge."] },
       { heading: "Merge and record.", body: "After your pull request merges, synchronising reads it from GitHub and writes an entry naming the pull request, the bounty, the category and the rule version. The points go to the pull request’s author, not to whoever clicked Merge. A bounty is awarded once, to one person, ever.", code: "bounty value + 5 baseline = one immutable ledger entry" },
     ],
     next: [["/contributors", "What a contribution record contains"], ["/maintainers", "Publish a bounty"]],
@@ -63,15 +63,16 @@ export const pages: Record<PageKey, PageSpec> = {
   },
   extension: {
     path: "/extension",
-    title: "See the signal without leaving GitHub.",
-    lede: "The optional Chrome extension puts a published bounty’s value and category beside the matching issue on GitHub. The website is the complete product and works without it.",
-    status: "Chrome extension · load unpacked",
-    evidence: [["VERSION", "0.4.0"], ["ACCESS", "GitHub issue and PR pages"], ["PERMISSIONS", "activeTab + the local API"], ["STORE RELEASE", "Not published"]],
+    title: "Install GitBounty for GitHub.",
+    lede: "See published rewards beside GitHub issues and pull requests. The current extension is a local developer build; install it manually in Chrome, Edge, or Brave.",
+    status: "Developer build - not yet on the Chrome Web Store",
+    evidence: [["VERSION", "0.4.0"], ["BROWSERS", "Chrome, Edge, Brave"], ["REQUIRES", "Local API on port 8001"], ["COST", "Free extension; payments on website"]],
     sections: [
-      { heading: "Install the developer build.", body: "Run the backend on localhost:8001, open chrome://extensions (or brave://extensions), enable Developer mode, choose Load unpacked, and select frontend/extension.", items: ["A badge appears beside an issue only when a bounty is actually published for it.", "A gitbounty:40 label with no published bounty is marked as a label, never as an award.", "On a pull request, the banner names the author as the recipient — not whoever merges."] },
-      { heading: "Deliberately small permissions.", body: "activeTab and one host, the local GitBounty API. No remotely loaded code, no analytics, and no secret of any kind: everything in that folder ships to the browser and is therefore public.", code: "40 GitBounty · Frontend" },
+      { heading: "1. Prepare your local project.", body: "Use the extension files already included in this repository. Start the GitBounty backend and confirm its readiness endpoint before installing.", items: ["Extension folder: frontend/extension. No extension build step is required.", "The backend must run at http://localhost:8001 for this developer build.", "If you downloaded the repository as a ZIP, extract it first."], code: "http://localhost:8001/ready" },
+      { heading: "2. Load the extension in your browser.", body: "Open your browser's extensions manager, turn on Developer mode, then choose Load unpacked. Select the frontend/extension folder containing manifest.json.", items: ["Chrome: chrome://extensions", "Edge: edge://extensions", "Brave: brave://extensions", "Pin GitBounty using the browser's Extensions menu."], code: "Developer mode > Load unpacked > frontend/extension" },
+      { heading: "3. Open a published bounty on GitHub.", body: "Reload the GitHub issue page after installation. A reward appears only when a maintainer has published that issue on GitBounty. Open the toolbar popup to check your account and contributions.", items: ["A GitHub label alone does not create a reward.", "If no badge appears, check API readiness and whether the bounty is published.", "After changing extension files, click Reload in the extensions manager and refresh GitHub.", "Permissions: activeTab and access to the local API; no analytics or remote executable code."], code: "Published bounty > GitHub issue > point reward" },
     ],
-    next: [["https://github.com/dipesh4000/gitbounty/tree/main/frontend/extension", "View extension source ↗"], ["/privacy", "Read the privacy summary"]],
+    next: [["https://github.com/dipesh4000/gitbounty", "Open the project repository"], ["/privacy", "Read the privacy summary"]],
   },
   contributors: {
     path: "/contributors",
@@ -88,12 +89,12 @@ export const pages: Record<PageKey, PageSpec> = {
   docs: {
     path: "/docs",
     title: "The operating manual, without the fog.",
-    lede: "Start with the workflow that matches your role. Every guide stays grounded in the points product that exists today.",
+    lede: "Start with the workflow that matches your role. Points recognize contributions; optional AVAX promises are paid by individual owners.",
     status: "Documentation index",
-    evidence: [["CONTRIBUTORS", "Find · build · merge"], ["MAINTAINERS", "Publish · review · merge"], ["EXTENSION", "Optional"], ["MONEY", "Out of scope"]],
+    evidence: [["CONTRIBUTORS", "Find · build · merge"], ["MAINTAINERS", "Publish · review · merge"], ["EXTENSION", "Optional"], ["MONEY", "Owner-funded AVAX promises"]],
     sections: [
       { heading: "For contributors.", body: "How bounties are discovered, how merged work is verified, and what appears in a contribution record.", items: ["Explore published bounties.", "Understand where each point came from.", "Read the leaderboard model."] },
-      { heading: "For maintainers and builders.", body: "Publish bounties from the workspace, keep native repository review, and read the rules the backend actually enforces — including what is deliberately not defended against.", code: "product truth: points and recognition—not escrow" },
+      { heading: "For maintainers and builders.", body: "Set an exact Avalanche payment promise on first publication. Current testing uses USDC on Avalanche Fuji. After the contributor claims, open Payments, fund the displayed SmoothSend smart account, review the reward and USDC fee, and sign with your connected wallet. The owner pays the fee. GitBounty verifies receipts and does not fund or guarantee payment.", code: "published promise → verified merge → contributor claim → owner-signed payment → verified receipt" },
     ],
     next: [["/how-it-works", "Contributor workflow"], ["/maintainers", "Maintainer setup"], ["/extension", "Extension setup"]],
   },
@@ -116,7 +117,7 @@ export const pages: Record<PageKey, PageSpec> = {
     status: "Terms summary · pre-launch, not legally reviewed",
     evidence: [["POINTS", "Non-transferable"], ["CASH VALUE", "None"], ["WORKFLOW", "Repository-controlled"], ["AVAILABILITY", "Not deployed"]],
     sections: [
-      { heading: "No money promise.", body: "GitBounty points are not currency, tokens, securities, or redeemable value. They cannot be purchased, sold, transferred, or withdrawn, and nothing in GitBounty moves money." },
+      { heading: "Points and payment promises.", body: "GitBounty points are not currency or redeemable value. They cannot be purchased, sold, transferred, or withdrawn. A separately published payment promise is the owner’s responsibility. GitBounty does not fund or guarantee it; payment requires the owner’s signature through SmoothSend. Fuji test tokens have no monetary value." },
       { heading: "Repositories set the rules for contribution.", body: "Using GitBounty does not override a repository’s license, contribution guide, code of conduct, review decisions, or maintainer authority.", items: ["A published bounty does not guarantee merge or acceptance.", "Awards obtained by manipulation may be withdrawn; a withdrawal is a recorded entry, not a deletion.", "Features and availability can change."] },
     ],
     next: [["/privacy", "Privacy summary"], ["/docs", "Return to docs"]],
@@ -129,7 +130,7 @@ export const pages: Record<PageKey, PageSpec> = {
     evidence: [["WEBSITE", "Runs locally"], ["BACKEND", "Runs locally"], ["OAUTH", "Implemented; needs an app"], ["EXTENSION", "Load unpacked"]],
     sections: [
       { heading: "Built and tested.", body: "GitHub OAuth, the append-only points ledger with its bounds and anti-double-award constraints, the maintainer publish and lifecycle workflow, merged-pull-request synchronisation with recorded status, category leaderboards, the opportunity explorer, and the browser extension.", items: ["The backend and extension test suites cover these paths.", "Database migrations bootstrap a clean database from scratch.", "Points rules are documented and enforced in both the application and the database."] },
-      { heading: "Not done.", body: "GitBounty is not deployed and this page makes no claim that it is. Private-repository support needs a GitHub App, collusion between two cooperating accounts is not defended against, and the privacy and terms summaries have not been legally reviewed.", code: "runs locally ≠ deployed" },
+      { heading: "Not done.", body: "GitBounty is not deployed and this page makes no claim that it is. Private repositories are not supported, collusion between two cooperating accounts is not defended against, and the privacy and terms summaries have not been legally reviewed.", code: "runs locally ≠ deployed" },
     ],
     next: [["/extension", "Install the extension"], ["https://github.com/dipesh4000/gitbounty", "Follow development on GitHub ↗"]],
   },
@@ -145,13 +146,13 @@ export function InteriorPage({ page }: { page: PageKey }) {
     <MarketingShell current={spec.path}>
       <section className="mp-hero">
         <div className="mp-shell mp-hero-grid">
-          <div><h1>{spec.title}</h1><p>{spec.lede}</p><div className="mp-status-line"><span />{spec.status}</div></div>
+          <div><h1>{spec.title}</h1><p>{spec.lede}</p><div className="mp-status-line"><span />{spec.status}</div>{page === "extension" && <a className="mp-button mp-button-primary mp-install-action" href="#extension-install">View installation steps <span aria-hidden="true">&darr;</span></a>}</div>
           <dl className="mp-evidence">{spec.evidence.map(([term, value]) => <div key={term}><dt>{term}</dt><dd>{value}</dd></div>)}</dl>
         </div>
       </section>
       <div className="mp-content">
         {spec.sections.map((section, index) => (
-          <section className="mp-section" key={section.heading}>
+          <section className="mp-section" key={section.heading} id={page === "extension" && index === 0 ? "extension-install" : undefined}>
             <div className="mp-shell mp-section-grid">
               <div className="mp-section-index">{String(index + 1).padStart(2, "0")}</div>
               <div><h2>{section.heading}</h2><p>{section.body}</p></div>
@@ -163,7 +164,17 @@ export function InteriorPage({ page }: { page: PageKey }) {
           </section>
         ))}
       </div>
-      <section className="mp-next"><div className="mp-shell"><h2>Continue through the ledger.</h2><div>{spec.next.map(([href, label]) => <Link href={href} key={href}>{label}<span aria-hidden="true">→</span></Link>)}</div></div></section>
+      <section className="mp-next"><div className="mp-shell"><h2>Explore GitBounty.</h2><div>{spec.next.map(([href, label]) => <a href={href} key={href}>{label}<span aria-hidden="true">→</span></a>)}</div></div></section>
     </MarketingShell>
   );
+}
+
+export function pageMetadata(page: PageKey): Metadata {
+  const spec = pages[page];
+  return {
+    title: `${spec.title} — GitBounty`,
+    description: spec.lede,
+    openGraph: { title: `${spec.title} — GitBounty`, description: spec.lede, type: "website" },
+    twitter: { card: "summary_large_image", title: `${spec.title} — GitBounty`, description: spec.lede },
+  };
 }

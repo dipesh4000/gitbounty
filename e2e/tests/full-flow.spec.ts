@@ -40,10 +40,10 @@ test("a bounty is published, worked on, merged, and awarded exactly once", async
   const maintainer = await maintainerContext.newPage();
 
   await maintainer.goto(`${WEB_URL}/explore`);
-  await expect(maintainer.getByRole("heading", { name: "Opportunities" })).toBeVisible();
+  await expect(maintainer.getByRole("heading", { name: "Explore bounties" })).toBeVisible();
 
   await test.step("choose a repository", async () => {
-    await maintainer.getByRole("button", { name: "My repositories" }).click();
+    await maintainer.getByRole("button", { name: "Create a bounty" }).click();
     await expect(maintainer.getByRole("link", { name: REPO })).toBeVisible();
     await maintainer.getByRole("button", { name: "Choose issues" }).click();
   });
@@ -61,7 +61,7 @@ test("a bounty is published, worked on, merged, and awarded exactly once", async
   await test.step("review before publishing", async () => {
     await maintainer.getByRole("button", { name: /^Review/ }).click();
     await expect(maintainer.getByRole("heading", { name: /Review 1 bounty/ })).toBeVisible();
-    await expect(maintainer.getByRole("listitem").first())
+    await expect(maintainer.getByLabel("Review before publishing").getByRole("listitem").first())
       .toContainText(`${BOUNTY_POINTS} points`);
   });
 
@@ -173,7 +173,7 @@ test("a bounty is published, worked on, merged, and awarded exactly once", async
 
   await test.step("the website shows the merged pull request and the points", async () => {
     await contributor.goto(`${WEB_URL}/explore`);
-    await contributor.getByRole("button", { name: "My PRs" }).click();
+    await contributor.getByRole("button", { name: "My PRs", exact: true }).click();
 
     const row = contributor.locator(".app-table-row", {
       has: contributor.getByRole("link", { name: "Fix focus order in the filter chips" }),
@@ -187,7 +187,7 @@ test("a bounty is published, worked on, merged, and awarded exactly once", async
   });
 
   await test.step("the points history explains both entries", async () => {
-    await contributor.getByRole("button", { name: "Points" }).click();
+    await contributor.getByRole("button", { name: "Points", exact: true }).click();
     const history = contributor.locator(".app-history-table");
     await expect(history).toBeVisible();
     await expect(history.getByText("Bounty", { exact: true })).toBeVisible();

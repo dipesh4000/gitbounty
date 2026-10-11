@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main class="popup-shell" aria-live="polite">
+    <main class="popup-shell">
       <header class="popup-header">
         <a class="brand" href="http://localhost:3000/" data-open-external>
           <img src="../icons/icon-32.png" width="20" height="20" alt="" />
-          <span>GitBounty</span>
+          <h1>GitBounty</h1>
         </a>
         <button class="icon-button" id="menu-button" type="button" aria-label="Open extension menu" aria-expanded="false">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/><circle cx="16" cy="10" r="1.3"/></svg>
@@ -22,12 +22,16 @@
         </div>
       </header>
 
-      <section class="loading-state" id="loading-state">
+      <nav class="popup-tabs" aria-label="Extension views"><button id="discover-tab" type="button" aria-pressed="true" aria-controls="discovery-panel">Discover</button><button id="account-tab" type="button" aria-pressed="false" aria-controls="account-panel">Account & wallet</button></nav>
+      <div class="account-overview"><p id="account-overview">Sign in to see your wallet and points.</p><button id="wallet-summary" type="button" hidden></button></div>
+      <div id="account-panel" hidden>
+      <section class="loading-state" id="loading-state" role="status">
         <span class="status-pulse" aria-hidden="true"></span>
         <p>Reading your GitBounty ledger…</p>
       </section>
 
       <section class="message-state" id="signed-out-state" hidden>
+        <h2>Make your next contribution count.</h2>
         <p>Sign in with GitHub to see published bounty values on issues as you browse, and track what you’ve earned.</p>
         <button class="primary-button" id="connect-button" type="button">Connect GitHub</button>
       </section>
@@ -43,9 +47,12 @@
           <strong id="user-login">@contributor</strong>
           <div class="points-total">
             <strong id="points-total">0</strong>
-            <span>this week</span>
+            <span id="points-period">this week</span>
           </div>
         </section>
+
+        <p class="claims-notice" id="claims-notice" role="status" hidden></p>
+        <button class="primary-button" id="claims-button" type="button" hidden>Claim points</button>
 
         <section class="page-context" id="page-context" hidden>
           <span class="section-label">On this page</span>
@@ -56,17 +63,46 @@
           </div>
         </section>
 
-        <section class="activity-section">
+        <section class="wallet-panel" aria-labelledby="wallet-heading">
+          <div class="section-heading"><h2 id="wallet-heading">Linked wallet</h2><button id="wallet-refresh" type="button">Refresh balance</button></div>
+          <p id="wallet-network" class="section-label"></p>
+          <p id="wallet-status" role="status">Reading wallet…</p>
+          <div id="wallet-values" hidden><strong id="wallet-balance"></strong><span id="wallet-gas"></span><code id="wallet-address"></code><small id="wallet-checked"></small></div>
+          <p class="wallet-note">Receiving wallet balance. Points and unpaid promises are separate; owner payment funds belong in the SmoothSend smart account.</p>
+          <button id="wallet-button" class="text-button" type="button">Open wallet & payments ↗</button>
+        </section>
+        <details class="activity-section"><summary>Recent contribution activity</summary>
           <span class="section-label">Recent activity</span>
           <div class="activity-list" id="activity-list"></div>
           <p class="empty-activity" id="empty-activity" hidden>No counted merges yet. Sync your GitHub activity from the dashboard.</p>
-        </section>
+        </details>
 
         <button class="dashboard-link" id="dashboard-button" type="button">
           <span>Open full dashboard</span>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
         </button>
       </div>
+      </div>
+      <section id="discovery-panel" class="discovery" aria-labelledby="discovery-heading">
+        <div class="section-heading"><h2 id="discovery-heading">Find your next contribution</h2><button id="discover-refresh" type="button" aria-label="Refresh issues">↻</button></div>
+        <p class="discovery-intro">Open issues with published GitBounty rewards.</p>
+        <form id="discovery-form" role="search" aria-label="Find bounties">
+          <label>Search issue titles<input id="issue-search" type="search" placeholder="What would you like to fix?" maxlength="200" autocomplete="off" /></label>
+          <label class="checkbox-label"><input id="issue-beginner" type="checkbox" />Good first issues</label>
+          <details class="advanced-filters"><summary>Language, category & sort</summary>
+            <div class="filter-row"><label>Language<input id="issue-language" list="languages" placeholder="Any language" maxlength="60" autocomplete="off" /></label><label>Category<select id="issue-category"><option value="">All categories</option><option value="frontend">Frontend</option><option value="backend">Backend</option><option value="fullstack">Full stack</option><option value="docs">Documentation</option></select></label></div>
+            <datalist id="languages"><option value="JavaScript"></option><option value="TypeScript"></option><option value="Python"></option><option value="Go"></option><option value="Rust"></option><option value="Java"></option></datalist>
+            <label>Sort<select id="issue-sort"><option value="updated">Recently updated</option><option value="stars">Most starred projects</option></select></label>
+          </details>
+          <p class="filter-hint">Good first issues are labeled by maintainers; difficulty is not verified.</p>
+        </form>
+        <p id="discovery-status" role="status">Open the extension to load issues.</p>
+        <button id="discover-retry" class="text-button" type="button" hidden>Retry loading issues</button>
+        <button id="filters-clear" class="text-button" type="button" hidden>Clear filters</button>
+        <ul id="discovery-list" class="discovery-list" aria-label="Published bounty issues"></ul>
+        <nav class="discovery-pager" aria-label="Issue pages"><button id="issues-previous" type="button" disabled>Previous</button><span id="issues-page">Page 1</span><button id="issues-next" type="button" disabled>Next</button></nav>
+      </section>
+      <nav class="popup-actions" aria-label="Bounties"><button type="button" id="explore-button">Explore bounties</button><button type="button" id="create-button">Create a bounty</button></nav>
     </main>
     <script src="../src/config.js"></script>
     <script src="data.js"></script>

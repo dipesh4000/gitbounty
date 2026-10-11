@@ -19,3 +19,5 @@ venv/
 
 # Node
 node_modules/
+
+/example/

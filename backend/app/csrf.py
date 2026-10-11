@@ -37,7 +37,7 @@ from starlette.responses import JSONResponse, Response
 CSRF_HEADER = "X-GitBounty-CSRF"
 SESSION_CSRF_KEY = "csrf_token"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
-EXEMPT_PATHS = frozenset({"/auth/github", "/auth/github/callback", "/auth/logout"})
+EXEMPT_PATHS = frozenset({"/auth/github", "/auth/github/callback", "/auth/logout", "/webhooks/github"})
 
 
 class CsrfMiddleware(BaseHTTPMiddleware):

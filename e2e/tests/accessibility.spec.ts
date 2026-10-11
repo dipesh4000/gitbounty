@@ -14,7 +14,7 @@ import { signIn, syncAndWait } from "./session";
 
   axe finds roughly a third to a half of WCAG problems in practice. A clean run is evidence that a
   specific set of machine-checkable rules passes -- it is not a statement that the product is accessible,
-  and docs/accessibility.md says so.
+  and e2e/README.md says so.
 */
 
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -65,15 +65,54 @@ test.describe("public pages", () => {
     });
   });
 
-  for (const path of ["/", "/explore", "/leaderboard", "/maintainers", "/docs", "/extension",
+  for (const path of ["/", "/login", "/explore", "/leaderboard", "/maintainers", "/docs", "/extension",
                       "/status", "/privacy", "/terms", "/contributors", "/how-it-works"]) {
     test(`${path} has no axe violations`, async ({ page }) => {
       await page.goto(`${WEB_URL}${path}`);
       await page.waitForLoadState("networkidle");
+      if (path === "/") await page.screenshot({ path: "test-results/landing-desktop.png" });
+      if (path === "/login") await page.screenshot({ path: "test-results/login-desktop.png" });
       const results = await audit(page, path);
       expect(results.violations, JSON.stringify(results.violations.map((v) => v.id))).toEqual([]);
     });
   }
+
+  test("landing actions require login while extension setup and docs stay public", async ({ page }) => {
+    for (const [label, destination] of [["Explore bounties", "/explore"], ["Create a bounty", "/maintainers"], ["See the leaderboard →", "/leaderboard"]]) {
+      await page.goto(WEB_URL);
+      await page.getByRole("link", { name: label, exact: true }).first().click();
+      await expect(page).toHaveURL(`${WEB_URL}/login?next=${encodeURIComponent(destination)}`);
+      await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeEnabled();
+      await expect(page.getByRole("navigation", { name: "Dashboard" })).toHaveCount(0);
+    }
+    await page.goto(WEB_URL);
+    await page.getByRole("link", { name: "Install the extension →" }).click();
+    await expect(page).toHaveURL(`${WEB_URL}/extension`);
+    await expect(page.getByRole("heading", { name: "Install GitBounty for GitHub." })).toBeVisible();
+    await page.getByRole("link", { name: "View installation steps" }).click();
+    await expect(page.getByRole("heading", { name: "1. Prepare your local project." })).toBeInViewport();
+    await page.getByRole("link", { name: "Docs", exact: true }).first().click();
+    await expect(page).toHaveURL(`${WEB_URL}/docs`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("The operating manual, without the fog.");
+    await page.goto(`${WEB_URL}/explore`);
+    await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeEnabled();
+    await page.setViewportSize({ width: 320, height: 780 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: "test-results/login-mobile.png" });
+  });
+
+  test("signed-in login returns to the selected workspace and rejects external destinations", async ({ browser }) => {
+    const context = await browser.newContext();
+    await signIn(context, CONTRIBUTOR);
+    const page = await context.newPage();
+    await page.goto(`${WEB_URL}/login?next=%2Fleaderboard`);
+    await expect(page).toHaveURL(`${WEB_URL}/leaderboard`);
+    await expect(page.getByRole("heading", { name: "Leaderboard" })).toBeVisible();
+    await page.goto(`${WEB_URL}/login?next=https%3A%2F%2Fattacker.example`);
+    await expect(page).toHaveURL(`${WEB_URL}/explore`);
+    await expect(page.getByRole("heading", { name: "Explore bounties" })).toBeVisible();
+    await context.close();
+  });
 
   test("the 404 page has no axe violations", async ({ page }) => {
     await page.goto(`${WEB_URL}/this-page-does-not-exist`);
@@ -178,11 +217,16 @@ test.describe("the signed-in workspace", () => {
     await page.goto(`${WEB_URL}/explore`);
 
     const violations: string[] = [];
-    for (const view of ["Opportunities", "My repositories", "My PRs", "Points", "Leaderboard"]) {
-      await page.getByRole("button", { name: view }).click();
+    for (const view of ["Explore bounties", "Create a bounty", "My PRs", "Points", "Leaderboard", "Payments"]) {
+      await page.getByRole("button", { name: view, exact: true }).click();
       await page.waitForLoadState("networkidle");
       const results = await audit(page, view);
       violations.push(...results.violations.map((v) => `${view}: ${v.id}`));
+      for (const width of [960, 320]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${view} overflow at ${width}`).toBe(true);
+      }
+      await page.setViewportSize({ width: 1280, height: 900 });
     }
 
     expect(violations, violations.join("\n")).toEqual([]);
@@ -200,7 +244,7 @@ test.describe("the signed-in workspace", () => {
     await signIn(context, MAINTAINER);
     const page = await context.newPage();
     await page.goto(`${WEB_URL}/explore`);
-    await page.getByRole("button", { name: "My repositories" }).click();
+    await page.getByRole("button", { name: "Create a bounty" }).click();
     await page.getByRole("button", { name: "Choose issues" }).click();
     await page.getByRole("checkbox").first().check();
 
@@ -231,13 +275,13 @@ test.describe("the signed-in workspace", () => {
     const page = await context.newPage();
     await page.goto(`${WEB_URL}/explore`);
 
-    // Tab to "My repositories" and activate it with the keyboard.
+    // Tab to "Create a bounty" and activate it with the keyboard.
     for (let step = 0; step < 12; step += 1) {
       await page.keyboard.press("Tab");
       const current = await focused(page);
-      if (current?.name === "My repositories") break;
+      if (current?.name === "Create a bounty") break;
     }
-    expect((await focused(page))?.name).toBe("My repositories");
+    expect((await focused(page))?.name).toBe("Create a bounty");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("button", { name: "Choose issues" })).toBeVisible();
 
@@ -266,7 +310,7 @@ test.describe("the signed-in workspace", () => {
     await signIn(context, CONTRIBUTOR);
     const page = await context.newPage();
     await page.goto(`${WEB_URL}/explore`);
-    await page.getByRole("button", { name: "My PRs" }).click();
+    await page.getByRole("button", { name: "My PRs", exact: true }).click();
     await page.waitForLoadState("networkidle");
 
     // Something on the page carries a live region, so a change is spoken rather than silently rendered.
@@ -291,4 +335,30 @@ test.describe("the signed-in workspace", () => {
         .length);
     expect(halfTables, "an element claims to be a table but has no rows").toBe(0);
   });
+});
+
+
+test("populated Fuji payment cards reflow and expose the required configuration", async ({ browser }) => {
+  const context = await browser.newContext();
+  await signIn(context, CONTRIBUTOR);
+  const page = await context.newPage();
+  const config = { enabled: false, chain_id: 43113, symbol: "USDC", network: "Avalanche Fuji", testnet: true,
+    decimals: 6, fee_limit_usdc: "0.1", configuration_message: "Set SMOOTHSEND_PUBLIC_KEY to enable SmoothSend.",
+    explorer: "https://testnet.snowtrace.io" };
+  await page.route("**/api/avax/config", route => route.fulfill({ json: config }));
+  await page.route("**/api/avax/rewards?*", route => route.fulfill({ json: { enabled: false, wallet: "0x" + "1".repeat(40),
+    payment_config: config, items: [{ ...config, id: 1, github_id: CONTRIBUTOR.github_id, contributor_login: CONTRIBUTOR.github_login,
+    payer_login: MAINTAINER.github_login, is_payer: false, repository: "e2e-maintainer/widgets", issue_number: 12,
+    reward_amount: "1.25", review_status: "clear", status: null, claimed_at: null }], has_more: false } }));
+  await page.goto(`${WEB_URL}/explore#rewards`);
+  await expect(page.getByRole("heading", { name: "USDC on Avalanche Fuji" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect wallet and claim" })).toBeDisabled();
+  for (const width of [1440, 960, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `overflow at ${width}`).toBe(true);
+    const results = await audit(page, `Fuji payment ${width}px`);
+    expect(results.violations.map(v => v.id)).toEqual([]);
+    await page.screenshot({ path: `test-results/payments-${width}.png`, fullPage: true });
+  }
+  await context.close();
 });

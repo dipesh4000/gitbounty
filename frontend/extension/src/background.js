@@ -14,31 +14,13 @@ importScripts("config.js");
 
   // A published bounty does not change minute to minute, and a GitHub issue list can trigger several
   // lookups at once, so answers are cached briefly. Short enough that un-publishing is visible quickly.
-  const CACHE_TTL_MS = 2 * 60 * 1000;
+  const CACHE_TTL_MS = 30 * 1000;
   const PER_PAGE = 100;
   // A guard, not a product limit: stop walking pages if the API ever stops saying has_more.
   const MAX_PAGES = 50;
 
-  /*
-    Cache key = repository + which account the API answered for. Without the account in the key, one
-    user's view of a repository would be served to the next user to sign in on the same browser.
-  */
+  // The issue board is public and identical for every viewer.
   const cache = new Map();
-
-  function cacheKey(repository, viewer) {
-    return `${viewer || "anonymous"}::${repository.toLowerCase()}`;
-  }
-
-  async function currentViewer() {
-    try {
-      const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
-      if (!response.ok) return null;
-      const body = await response.json();
-      return typeof body?.github_login === "string" ? body.github_login : null;
-    } catch {
-      return null;
-    }
-  }
 
   /** Every published bounty for one repository, following the API's pagination to the end. */
   async function fetchAllBounties(repository) {
@@ -63,17 +45,16 @@ importScripts("config.js");
   }
 
   async function repositoryBounties(repository) {
-    const viewer = await currentViewer();
-    const key = cacheKey(repository, viewer);
+    const key = repository.toLowerCase();
     const cached = cache.get(key);
     if (cached && cached.expires > Date.now()) return cached.result;
 
     let result;
     try {
-      result = { ok: true, items: await fetchAllBounties(repository), viewer };
+      result = { ok: true, items: await fetchAllBounties(repository) };
     } catch (error) {
-      // Not cached: a failure should be retried on the next page view, not remembered for two minutes.
-      return { ok: false, items: [], viewer, status: error.status || 0 };
+      // Not cached: a failure should be retried on the next page view, not remembered until expiry.
+      return { ok: false, items: [], status: error.status || 0 };
     }
     cache.set(key, { expires: Date.now() + CACHE_TTL_MS, result });
     return result;

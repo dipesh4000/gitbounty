@@ -4,7 +4,7 @@
   from the UI any more than from the API.
 */
 import { describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { MaintainerWorkspace } from "../app/components/MaintainerWorkspace";
@@ -33,7 +33,7 @@ const issueList = (items: unknown[]) => ({
 const EMPTY_BOUNTIES = { items: [], page: 1, per_page: 25, total: 0, has_more: false };
 
 function renderMaintainer(routes: Parameters<typeof stubApi>[0]) {
-  const stub = stubApi({ "/api/csrf": { body: { csrf_token: "a-csrf-token" } }, ...routes });
+  const stub = stubApi({ "/api/github-app": { body: { configured: false, install_url: null, repositories: [] } }, "/api/csrf": { body: { csrf_token: "a-csrf-token" } }, ...routes });
   render(<MaintainerWorkspace onPublished={() => {}} />);
   return stub;
 }
@@ -96,6 +96,16 @@ describe("choosing a repository", () => {
     expect(await screen.findByText("Couldn’t continue.")).toBeInTheDocument();
     expect(screen.getByText(/rate limit was reached/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("reconnects rejected GitHub authorization instead of retrying the same credential", async () => {
+    renderMaintainer({
+      "/api/maintainer/repositories": { status: 401, body: { detail: "Sign in with GitHub again." } },
+    });
+    const reconnect = await screen.findByRole("link", { name: "Reconnect GitHub" });
+    expect(reconnect).toHaveAttribute("href", "http://localhost:8001/auth/github?next=%2Fmaintainers");
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("authorization is no longer valid");
   });
 });
 
@@ -199,7 +209,7 @@ describe("publishing", () => {
 
     expect(screen.getByRole("heading", { name: /Review 1 bounty/ })).toBeInTheDocument();
     // The preview line is split across elements, so match on the list item's own text.
-    const [item] = screen.getAllByRole("listitem");
+    const [item] = within(screen.getByLabelText("Review before publishing")).getAllByRole("listitem");
     expect(item.textContent?.replace(/\s+/g, " ")).toContain("40 points · Frontend");
     expect(calls.some((call) => call.startsWith("POST"))).toBe(false);
   });
@@ -274,4 +284,19 @@ describe("managing what was published", () => {
 
     expect(await screen.findByText(/haven’t published any/)).toBeInTheDocument();
   });
+});
+
+
+it("links App installation and connects a selected repository with CSRF", async () => {
+  const { fetchMock } = renderMaintainer({
+    "/api/github-app": { body: { configured: true, install_url: "https://github.com/apps/gitbounty/installations/new", repositories: [] } },
+    "/api/maintainer/repositories": { body: repositoryList([repository()]) },
+    "/api/maintainer/repositories/octocat/app/connect": { body: { connected: true } },
+  });
+  expect(await screen.findByRole("link", { name: "Install GitHub App / select repositories" })).toHaveAttribute("href", "https://github.com/apps/gitbounty/installations/new");
+  await userEvent.click(await screen.findByRole("button", { name: "Connect automatic rewards" }));
+  expect(await screen.findByText("octocat/app connected for automatic rewards.")).toBeInTheDocument();
+  const write = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
+  expect(write?.[0]).toBe("http://localhost:8001/api/maintainer/repositories/octocat/app/connect");
+  expect(write?.[1]?.headers).toHaveProperty("X-GitBounty-CSRF");
 });

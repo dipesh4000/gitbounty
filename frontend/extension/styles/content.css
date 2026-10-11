@@ -7,10 +7,10 @@
   gap: 5px;
   margin-inline-start: 7px;
   padding: 0 7px;
-  border: 1px solid #7fb51f;
+  border: 1px solid #8b5cf6;
   border-radius: 999px;
-  background: #273a16;
-  color: #d7ff8f;
+  background: #2c1c49;
+  color: #c4b5fd;
   vertical-align: middle;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -23,19 +23,19 @@
 }
 
 .gitbounty-points-badge strong {
-  color: #f0ffcf;
+  color: #eee8ff;
   font-weight: 750;
 }
 
 .gitbounty-points-badge__category::before {
   content: "·";
   margin-inline-end: 5px;
-  color: #8ead52;
+  color: #a78bfa;
 }
 
 .gitbounty-points-badge:hover {
-  border-color: #d7ff8f;
-  background: #182d10;
+  border-color: #c4b5fd;
+  background: #382457;
 }
 
 /* A badge built from a `gitbounty:N` label alone, with no published bounty behind it. Deliberately
@@ -66,10 +66,10 @@
   gap: 13px;
   margin: 12px 0 18px;
   padding: 9px 14px;
-  border: 1px solid #9ee328;
-  border-radius: 3px;
-  background: #122c0d;
-  color: #c5d2c7;
+  border: 1px solid #8b5cf6;
+  border-radius: 10px;
+  background: #211435;
+  color: #ccc4dd;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
   line-height: 1.45;
@@ -78,7 +78,7 @@
 
 .gitbounty-pr-award > strong,
 .gitbounty-pr-award span strong {
-  color: #b7f34a;
+  color: #c4b5fd;
   font-weight: 700;
 }
 
@@ -86,8 +86,8 @@
 .gitbounty-points-badge *::selection,
 .gitbounty-pr-award::selection,
 .gitbounty-pr-award *::selection {
-  background: #b7f34a;
-  color: #080b09;
+  background: #c4b5fd;
+  color: #0f0a1c;
 }
 
 @media (max-width: 680px) {

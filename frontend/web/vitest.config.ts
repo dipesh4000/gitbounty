@@ -7,6 +7,13 @@ import react from "@vitejs/plugin-react";
 */
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // The application gets these aliases from vinext's Vite plugin.
+    alias: {
+      "next/image": "vinext/shims/image",
+      "next/link": "vinext/shims/link",
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,

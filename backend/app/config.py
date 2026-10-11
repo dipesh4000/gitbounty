@@ -1,6 +1,8 @@
 """Configuration, read from the environment only — never hard-coded (rules.md section 5)."""
 
 import os
+from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,11 +10,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Which dotenv file to read, if any. Normally `.env` next to this package. The test suite sets
 # GITBOUNTY_ENV_FILE="" so that a result never depends on what a particular developer happens to have in
 # their `.env` -- a suite that passes on one machine and fails on another is not a safety net.
-_ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", ".env") or None
+_ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", str(Path(__file__).resolve().parent.parent / ".env")) or None
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore", env_prefix="")
+
+    github_app_id: str = ""
+    github_app_slug: str = ""
+    github_app_private_key_path: str = ""
+    github_webhook_secret: str = ""
+    avax_payments_enabled: bool = False
+    payment_mode: Literal["avax_mainnet", "usdc_fuji"] = "avax_mainnet"
+    smoothsend_public_key: str = ""
+    smoothsend_fee_limit_usdc: str = "0.1"
+    avax_rpc_url: str = "https://api.avax.network/ext/bc/C/rpc"
 
     github_client_id: str = ""
     github_client_secret: str = ""

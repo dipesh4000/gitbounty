@@ -34,6 +34,9 @@ from urllib.parse import urlsplit
 
 import asyncpg
 
+# Direct script execution puts dev/, rather than backend/, on the import path.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 MIGRATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "migrations"
 FILENAME_PATTERN = re.compile(r"^(\d{4})_[a-z0-9_]+\.sql$")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
@@ -142,7 +145,7 @@ async def status(database_url: str) -> int:
     print(f"target:  {describe_target(database_url)}")
     problems = 0
     for path in files:
-        current = checksum(path.read_text())
+        current = checksum(path.read_text(encoding="utf-8"))
         if path.name not in recorded:
             print(f"pending  {path.name}")
         elif recorded[path.name] != current:
@@ -164,7 +167,7 @@ async def up(database_url: str) -> int:
     try:
         recorded = await applied(connection)
         for path in files:
-            current = checksum(path.read_text())
+            current = checksum(path.read_text(encoding="utf-8"))
             if path.name in recorded:
                 if recorded[path.name] != current:
                     raise MigrationError(
@@ -174,7 +177,7 @@ async def up(database_url: str) -> int:
                 continue
             try:
                 async with connection.transaction():
-                    await connection.execute(path.read_text())
+                    await connection.execute(path.read_text(encoding="utf-8"))
                     await connection.execute(
                         "insert into schema_migrations (filename, checksum) values ($1, $2)",
                         path.name,

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 
 /*
@@ -33,7 +32,7 @@ export default function GlobalError({
         </span>
         {error.digest && <span className="mono">Reference: {error.digest}</span>}
         <button type="button" onClick={reset}>Try again</button>
-        <Link href="/">Back to the landing page</Link>
+        <a href="/">Back to the landing page</a>
       </div>
     </main>
   );

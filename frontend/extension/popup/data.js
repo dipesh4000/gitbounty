@@ -32,5 +32,14 @@
     return pageContext?.issue?.points != null ? "tracked-issue" : "default";
   }
 
-  return { formatPoints, initials, normalizeActivity, popupState };
+  function issueUrl(issue) {
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(issue.repository) || !Number.isSafeInteger(issue.number) || issue.number <= 0) return null;
+    return `https://github.com/${issue.repository}/issues/${issue.number}`;
+  }
+  function promiseLabel(issue) {
+    if (issue.reward_chain_id === 43113 && issue.reward_usdc) return `${issue.reward_usdc} USDC · Fuji testnet`;
+    if (issue.reward_chain_id === 43114 && issue.reward_avax) return `${issue.reward_avax} AVAX · mainnet`;
+    return "";
+  }
+  return { formatPoints, initials, normalizeActivity, popupState, issueUrl, promiseLabel };
 });

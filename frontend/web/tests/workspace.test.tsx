@@ -5,12 +5,12 @@
   and about the two claims the product must never get wrong: that a figure is a forecast rather than an
   award, and that an empty table says which kind of empty it is.
 */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AuthProvider } from "../app/components/AuthProvider";
-import { ContributorWorkspace } from "../app/components/ContributorWorkspace";
+import { ContributorWorkspace, ClaimPoints } from "../app/components/ContributorWorkspace";
 import { captureNavigation, stubApi, stubPendingApi } from "./helpers";
 
 const ME = { id: 1, github_id: 42, github_login: "octocat", name: null, avatar_url: null };
@@ -32,7 +32,7 @@ const EMPTY_PRS = {
 };
 
 function renderWorkspace(routes: Parameters<typeof stubApi>[0]) {
-  const stub = stubApi({ "/api/me": { body: ME }, ...routes });
+  const stub = stubApi({ "/api/me": { body: ME }, "/api/me/claims": { body: { items: [], points: 0 } }, ...routes });
   render(<AuthProvider><ContributorWorkspace /></AuthProvider>);
   return stub;
 }
@@ -44,12 +44,21 @@ async function openTab(name: string) {
 // --- the opportunity explorer ------------------------------------------------
 
 describe("the opportunity explorer", () => {
-  it("shows a loading state while the bounties are being fetched", async () => {
-    stubApi({ "/api/me": { body: ME } });
+  it("waits for identity without requesting workspace data", () => {
     stubPendingApi();
     render(<AuthProvider><ContributorWorkspace /></AuthProvider>);
+    expect(screen.getByRole("button", { name: /Checking your session/ })).toBeDisabled();
+    expect(screen.queryByRole("heading", { name: "Explore bounties" })).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 
-    expect(await screen.findByText(/Checking your GitHub session/)).toBeInTheDocument();
+  it("debounces typed filters after sign-in", async () => {
+    const { calls } = renderWorkspace({ "/api/issues": { body: EMPTY_ISSUES }, "/api/me/points": { body: POINTS } });
+    await screen.findByText("No bounties have been published yet.");
+    await userEvent.type(screen.getByRole("textbox", { name: "Search published bounties" }), "keyboard");
+    expect(calls.filter(call => call.includes("/api/issues"))).toHaveLength(1);
+    await waitFor(() => expect(calls.filter(call => call.includes("/api/issues"))).toHaveLength(2));
+    expect(calls.at(-1)).toContain("q=keyboard");
   });
 
   it("invites the first bounty when nothing has been published", async () => {
@@ -364,21 +373,39 @@ describe("the leaderboard", () => {
 
 // --- signed out ---------------------------------------------------------------
 
-describe("reaching the workspace signed out", () => {
-  it("returns to the landing page on a 401", async () => {
+describe("workspace sign-in", () => {
+  it.each([
+    ["issues", "/explore"], ["maintain", "/maintainers"], ["leaderboard", "/leaderboard"],
+  ] as const)("requires sign-in for %s and preserves its destination", async (initialView, destination) => {
     const navigation = captureNavigation();
-    stubApi({ "/api/me": { status: 401, body: {} } });
-    render(<AuthProvider><ContributorWorkspace /></AuthProvider>);
-
-    await waitFor(() => expect(navigation.replaced).toEqual(["/"]));
+    const { calls } = stubApi({"/api/me":{status:401,body:{}}});
+    render(<AuthProvider><ContributorWorkspace initialView={initialView} /></AuthProvider>);
+    await userEvent.click(await screen.findByRole("button", {name:"Continue with GitHub"}));
+    expect(navigation.assigned[0]).toContain(`/auth/github?next=${encodeURIComponent(destination)}`);
+    expect(calls).toHaveLength(1);
+    expect(screen.queryByRole("navigation", {name:"Dashboard"})).not.toBeInTheDocument();
   });
-
-  it("stays put and explains when the API is unreachable", async () => {
-    const navigation = captureNavigation();
-    stubApi({ "/api/me": { status: 503, body: { detail: "The database is not reachable right now." } } });
+  it("reports failed identity lookup without exposing the workspace", async () => {
+    stubApi({"/api/me":{status:503,body:{detail:"The database is not reachable right now."}}});
     render(<AuthProvider><ContributorWorkspace /></AuthProvider>);
-
-    expect(await screen.findByText("GitBounty can’t reach its API.")).toBeInTheDocument();
-    expect(navigation.replaced).toEqual([]);
+    expect(await screen.findByText("The database is not reachable right now.")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"Retry connection"})).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", {name:"Dashboard"})).not.toBeInTheDocument();
   });
+});
+
+
+it("claims allocations with CSRF and refreshes the account", async () => {
+  const onClaimed = vi.fn();
+  const { fetchMock } = stubApi({
+    "/api/csrf": { body: { csrf_token: "claim-csrf" } },
+    "/api/me/claims": { body: { points: 40, items: [{ id: 1, kind: "bounty_award", points: 40, repository: "org/app", pr_number: 9 }], claimed_points: 40 } },
+  });
+  render(<ClaimPoints onClaimed={onClaimed} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Claim my points" }));
+  expect(await screen.findByText("40 points claimed.")).toBeInTheDocument();
+  const write = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
+  expect(write?.[0]).toBe("http://localhost:8001/api/me/claims");
+  expect(write?.[1]?.headers).toEqual({ "X-GitBounty-CSRF": "claim-csrf" });
+  expect(onClaimed).toHaveBeenCalledOnce();
 });

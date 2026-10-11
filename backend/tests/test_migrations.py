@@ -7,6 +7,8 @@ even on a machine with no Postgres.
 from __future__ import annotations
 
 import sys
+import os
+import subprocess
 from pathlib import Path
 
 import asyncpg
@@ -32,7 +34,7 @@ def test_every_migration_is_named_and_numbered_consecutively() -> None:
 def test_every_migration_documents_what_it_changes() -> None:
     """A teammate applies these by hand, so each needs a header saying what it does (rules.md s4)."""
     for path in migrate.migration_files():
-        head = "\n".join(path.read_text().splitlines()[:8]).lower()
+        head = "\n".join(path.read_text(encoding="utf-8").splitlines()[:8]).lower()
         assert path.name.lower().split("_", 1)[1].removesuffix(".sql").split("_")[0] in head or "creates:" in head, (
             f"{path.name} has no header comment describing the change"
         )
@@ -160,7 +162,7 @@ async def _apply_through(url: str, last: int) -> None:
         for path in migrate.migration_files():
             if int(path.name[:4]) > last:
                 break
-            await connection.execute(path.read_text())
+            await connection.execute(path.read_text(encoding="utf-8"))
     finally:
         await connection.close()
 
@@ -221,7 +223,7 @@ async def test_an_existing_database_upgrades_without_losing_anybodys_points() ->
 
         # And it is idempotent: applying the backfill again adds nothing.
         backfill = next(p for p in migrate.migration_files() if p.name.startswith("0010"))
-        await connection.execute(backfill.read_text())
+        await connection.execute(backfill.read_text(encoding="utf-8"))
         assert await connection.fetchval("select count(*) from points_ledger") == 4
         assert await connection.fetchval("select sum(points) from points_ledger") == 55
     finally:
@@ -265,3 +267,15 @@ async def test_a_row_that_breaks_a_new_constraint_is_reported_in_words() -> None
         await admin.execute("drop database if exists gb_range_test")
     finally:
         await admin.close()
+
+
+def test_documented_script_can_load_configuration_from_any_directory():
+    result = subprocess.run(
+        [sys.executable, str(Path(migrate.__file__)), "status"],
+        cwd=Path(migrate.__file__).parent,
+        env={**os.environ, "GITBOUNTY_ENV_FILE": "", "DATABASE_URL": ""},
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 2
+    assert "No database." in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr

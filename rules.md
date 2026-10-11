@@ -1,80 +1,62 @@
-# Rules
+# Working rules
 
-Hard rules for anyone changing this repo, human or AI agent. If a rule here clashes with a habit, the rule wins.
-If a rule is wrong or in the way, say so and change it here. Don't quietly ignore it.
+## 1. Read history before changing anything
 
-## 1. Before you start anything, read the git history
+Run `git log --stat -n 20`, `git log -p -- <path>` for the relevant files, and `git status -sb`.
+Read the files to be changed and tell the user what the history showed before editing.
+Preserve unrelated work.
 
-Run these from the repo root before the first edit of any task:
+## 2. Commit small checked steps
 
-- `git log --stat -n 20` shows what changed recently and who changed it.
-- `git log -p -- <path>` shows the history of the folder or file you are about to touch.
-- `git status -sb` shows uncommitted work, and whether you are ahead of or behind `origin`.
+Finish one logical change, check it, inspect `git status` and `git diff --staged`, then commit it locally.
+Do not start the next logical step with the previous one uncommitted.
+No secrets, unchecked claims, or unrelated files in commits.
 
-Then read the files you are about to change (not just their names) and say in one or two lines what the history
-showed and how it affects the task.
+## 3. Keep the layout clear
 
-Why: teammates commit in bursts (the README was rewritten on two days in a row). Work that ignores recent history
-overwrites somebody else's decision.
+Backend code belongs in `backend/`, website code in `frontend/web/`, extension code in
+`frontend/extension/`, SQL migrations in `migrations/`, and browser tests in `e2e/`.
+Ask before adding a top-level folder. Keep documentation status in [plan.md](plan.md), not duplicate plans.
 
-## 2. Commit every small step
+## 4. Database changes
 
-Break the work into small steps. When a step is done and checked, make a git commit for it before starting the next one.
+- Numbered SQL files in `migrations/` remain the schema change record. SQLAlchemy ORM is approved for queries;
+  ORM schema generation, automatic migration and Alembic adoption are not part of that decision.
+- Add `NNNN_short_description.sql` with purpose and dependency comments. Check existing numbers and git history first.
+- Never edit a migration that may have been applied. Add a new one.
+- Local throwaway databases may use the migration runner. Shared Supabase changes require explicit owner authorisation;
+  do not automatically apply them from a developer machine or CI.
+- Never assume a migration is applied. Check status or ask the database owner.
+- Tell the user before writing destructive SQL: `DROP`, `TRUNCATE`, unqualified `DELETE`, or a column type change.
 
-- One step is one logical change, such as "move the demo into `frontend/web`" or "add migration 0001, users table".
-  If the commit message needs an "and", it was two steps.
-- Before committing, look at `git status` and `git diff --staged` so only this step's files go in.
-- The subject line says what changed. Add a line or two on why when the reason isn't obvious.
-- Commit only work that runs or reads correctly (rule 8) and holds no secrets (rule 5). No half-done steps.
-- Commits are local. Never push unless the user asks (rule 6).
+## 5. Identity and security
 
-## 3. Repo layout
-
-| Folder | Holds |
-|---|---|
-| `frontend/web/` | The Next.js port of the original single-page landing site and live issue board |
-| `frontend/extension/` | The Chrome extension (optional add-on, the site must work without it) |
-| `backend/` | The FastAPI server for identity, points, leaderboards and GitHub polling |
-| `migrations/` | Every SQL change to the database, and nothing else |
-| `contracts/` | The escrow contract. Planned, not created yet |
-
-Don't add new top-level folders without asking.
-
-## 4. Database and migrations
-
-- The Supabase database lives in a teammate's account. Nobody applies migrations from their own machine automatically.
-- Every schema change is a new file in `migrations/`, named `NNNN_short_description.sql`.
-  Check the highest existing number in the folder and in `git log` first.
-- Never edit a migration that may already have been applied. Add a new one.
-- Put a header comment on the file saying what it changes and what it depends on, since a teammate applies it by hand.
-- Tell the user before writing anything destructive: `DROP`, `TRUNCATE`, `DELETE` without `WHERE`, or a column type change.
-- Never assume a migration has been applied. Ask.
-- Don't use ORM auto-migration tools (Prisma migrate and similar). The SQL files are the record.
-
-## 5. Money and security
-
-- Never commit secrets: `.env` files, private keys, webhook secrets, OAuth secrets, database passwords, service-role keys.
-  Commit `.env.example` with empty values only.
-- Every GitHub webhook is verified before anything else runs: check the HMAC signature on the raw body with a
-  constant-time comparison, and reject a delivery ID that has been seen before.
-- Code that moves funds (`deposit`, `claim`, `release`, `refund`), or the key that signs those calls, is never changed
-  without the user reviewing it explicitly. Flag it in your summary.
-- Anything shipped in a browser bundle (the website or the extension) is public. No private keys or server secrets there.
-- The extension asks for the fewest permissions it can: `github.com` and the backend's origin only. No remotely loaded code.
+- Never commit real credentials, dotenv files, database passwords, OAuth secrets, tokens or private keys.
+  Use empty secret placeholders in `.env.example`; no secret belongs in a browser bundle.
+- Flag changes handling secrets, tokens or keys in the summary.
+- Planned webhooks must verify HMAC on raw request bytes using constant-time comparison before processing.
+  Track delivery IDs and processing state so duplicate delivery cannot duplicate an award and failed work can retry.
+- Verify repository/installation scope and the merged PR author; do not trust a client-supplied identity or issue-close event.
+- Rewards belong to stable GitHub numeric IDs. Registration and claiming must preserve ownership and idempotency.
+- The ledger is append-only. Corrections are new entries with reasons.
+- Keep extension permissions minimal and do not load remote executable code.
+- Owner-funded Avalanche promises through required SmoothSend are approved in overview.md.
+  Code moving funds or signing transfers requires explicit user review; each owner reviews and authorizes the individual transfer in their browser wallet.
 
 ## 6. Git
 
-- Commit after every small step (rule 2). Don't push, force-push or rewrite history unless the user asks.
-  `origin` is a teammate's repository.
-- Don't amend, rebase or reset commits that already exist unless the user asks.
-- Don't edit files outside the task. If the task truly needs it, say so first.
+Commits stay local. Never push, force-push, amend, rebase or reset existing history without the user's request.
+`origin` is a teammate's repository. Do not change unrelated files.
 
-## 7. Undecided things stay undecided
+## 7. Respect decisions
 
-The backend framework, wallet provider and chain are not chosen yet. Propose and wait for the answer.
-Don't decide by scaffolding. Don't add a dependency without saying why it is needed.
+Use [overview.md](overview.md) for scope and [plan.md](plan.md) for implementation status.
+FastAPI, uv, SQLAlchemy and GitHub App webhooks are selected directions.
+Do not treat planned work as already built. Explain why a new dependency is needed.
+Open decisions stay open; ask rather than deciding through implementation.
 
 ## 8. Done means checked
 
-Run it or test it before saying it works. Say what you verified and what you did not (for example, "served the page
-and got 200, did not click through the filters").
+Run or test the relevant behavior before claiming it works. For documentation-only work,
+check references, commands against configuration, and current-versus-planned claims.
+Report verification limits and any unrelated issue left untouched.

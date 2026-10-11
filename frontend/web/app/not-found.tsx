@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { MarketingShell } from "./components/MarketingShell";
 
@@ -23,10 +22,10 @@ export default function NotFound() {
             <div className="mp-status-line"><span />404 · page not found</div>
           </div>
           <dl className="mp-evidence">
-            <div><dt>EXPLORE</dt><dd><Link href="/explore">Published bounties</Link></dd></div>
-            <div><dt>MAINTAINERS</dt><dd><Link href="/maintainers">Publish an issue</Link></dd></div>
-            <div><dt>LEADERBOARD</dt><dd><Link href="/leaderboard">Rankings</Link></dd></div>
-            <div><dt>DOCS</dt><dd><Link href="/docs">Documentation</Link></dd></div>
+            <div><dt>EXPLORE</dt><dd><a href="/explore">Published bounties</a></dd></div>
+            <div><dt>MAINTAINERS</dt><dd><a href="/maintainers">Publish an issue</a></dd></div>
+            <div><dt>LEADERBOARD</dt><dd><a href="/leaderboard">Rankings</a></dd></div>
+            <div><dt>DOCS</dt><dd><a href="/docs">Documentation</a></dd></div>
           </dl>
         </div>
       </section>
@@ -34,9 +33,9 @@ export default function NotFound() {
         <div className="mp-shell">
           <h2>Try one of these instead.</h2>
           <div>
-            <Link href="/">Back to the landing page<span aria-hidden="true">→</span></Link>
-            <Link href="/explore">Browse published bounties<span aria-hidden="true">→</span></Link>
-            <Link href="/status">See what is built<span aria-hidden="true">→</span></Link>
+            <a href="/">Back to the landing page<span aria-hidden="true">→</span></a>
+            <a href="/explore">Browse published bounties<span aria-hidden="true">→</span></a>
+            <a href="/status">See what is built<span aria-hidden="true">→</span></a>
           </div>
         </div>
       </section>

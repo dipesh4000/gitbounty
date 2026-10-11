@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "./AuthProvider";
+import { useAuth, loginHref } from "./AuthProvider";
 
 const primaryLinks = [
   ["/explore", "Explore"],
@@ -19,37 +18,36 @@ const footerGroups = [
 ] as const;
 
 export function MarketingShell({ children, current }: { children: React.ReactNode; current?: string }) {
-  const { user, status, signIn, signOut } = useAuth();
-  const loading = status === "loading";
-  const authLabel = user ? `@${user.github_login}` : "Connect GitHub";
-  const onAccountButton = () => (user ? signOut() : signIn());
+  const { user, signOut } = useAuth();
+  const destination = (href: string) => !user && (href === "/explore" || href === "/maintainers" || href === "/leaderboard") ? loginHref(href) : href;
+  const accountAction = user ? <button className="mp-button" type="button" onClick={signOut}>Sign out</button> : <a className="mp-button mp-button-primary" href={loginHref()}>Sign in with GitHub</a>;
 
   return (
     <div className="mp-site">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="mp-header">
         <div className="mp-shell mp-header-row">
-          <Link className="mp-brand" href="/" aria-label="GitBounty home">
-            <Image src="/assets/favicon.png" alt="" width="30" height="30" />
+          <a className="mp-brand" href="/" aria-label="GitBounty home">
+            <Image src="/favicon-32.png" alt="" width="30" height="30" />
             <span>GitBounty</span>
-          </Link>
+          </a>
           <nav className="mp-desktop-nav" aria-label="Primary">
             {primaryLinks.map(([href, label]) => (
-              <Link key={href} href={href} aria-current={current === href ? "page" : undefined}>{label}</Link>
+              <a key={href} href={destination(href)} aria-current={current === href ? "page" : undefined}>{label}</a>
             ))}
-            <Link href="https://github.com/dipesh4000/gitbounty">GitHub ↗</Link>
+            <a href="https://github.com/dipesh4000/gitbounty">GitHub ↗</a>
           </nav>
           <div className="mp-actions">
-            <Link className="mp-button mp-button-quiet" href="/extension">Get extension</Link>
-            <button className="mp-button mp-button-primary" type="button" disabled={loading} title={user ? "Sign out" : undefined} onClick={onAccountButton}>{authLabel}</button>
+            <a className="mp-button mp-button-quiet" href="/extension">Install extension</a>
+            {accountAction}
           </div>
           <details className="mp-mobile-menu">
             <summary>Menu</summary>
             <nav aria-label="Mobile">
-              {primaryLinks.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-              <Link href="/extension">Get extension</Link>
-              <Link href="https://github.com/dipesh4000/gitbounty">GitHub ↗</Link>
-              <button type="button" disabled={loading} onClick={onAccountButton}>{authLabel}</button>
+              {primaryLinks.map(([href, label]) => <a key={href} href={destination(href)}>{label}</a>)}
+              <a href="/extension">Install extension</a>
+              <a href="https://github.com/dipesh4000/gitbounty">GitHub ↗</a>
+              {accountAction}
             </nav>
           </details>
         </div>
@@ -58,13 +56,13 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
       <footer className="mp-footer">
         <div className="mp-shell mp-footer-grid">
           <div className="mp-footer-brand">
-            <Link className="mp-brand" href="/"><Image src="/assets/favicon.png" alt="" width="34" height="34" /><span>GitBounty</span></Link>
+            <a className="mp-brand" href="/"><Image src="/favicon-32.png" alt="" width="34" height="34" /><span>GitBounty</span></a>
             <p>Open-source work, made visible through verifiable merged contributions.</p>
           </div>
           {footerGroups.map(([title, links]) => (
             <div className="mp-footer-group" key={title}>
               <strong>{title}</strong>
-              {links.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}
+              {links.map(([href, label]) => <a href={destination(href)} key={href}>{label}</a>)}
             </div>
           ))}
         </div>

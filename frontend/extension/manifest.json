@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GitBounty Issue Points",
-  "description": "Shows published GitBounty point values and categories beside GitHub issues and pull requests.",
-  "version": "0.4.0",
+  "description": "Discover published GitBounty issues, filter good first issues, and read your linked Avalanche wallet balance.",
+  "version": "0.5.0",
   "permissions": [
     "activeTab"
   ],

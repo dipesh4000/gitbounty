@@ -157,8 +157,10 @@ async def published_bounties(connection: asyncpg.Connection) -> dict[tuple[str, 
 
 async def record_merges(
     connection: asyncpg.Connection,
-    user_id: int,
+    user_id: int | None,
     merges: Sequence[DetectedMerge],
+    *,
+    github_id: int | None = None,
 ) -> SaveOutcome:
     """Store a sync's merges and write the ledger entries they earn. Safe to run repeatedly.
 
@@ -186,28 +188,30 @@ async def record_merges(
 
     for merge in merges:
         pr = merge.pr
-        inserted = await connection.fetchval(
-            """
-            insert into merged_prs (
-                user_id, github_pr_id, repo_full_name, number, title, url, merged_at,
-                category, closed_issue_repo, closed_issue_number, issue_points, points
-            ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            on conflict (user_id, github_pr_id) do nothing
-            returning id
-            """,
-            user_id,
-            pr.github_pr_id,
-            pr.repo_full_name,
-            pr.number,
-            pr.title,
-            pr.url,
-            pr.merged_at,
-            str(merge.category),
-            merge.bounty.repo_full_name if merge.bounty else None,
-            merge.bounty.issue_number if merge.bounty else None,
-            merge.bounty.points if merge.bounty else None,
-            merge.eligible_points,
-        )
+        inserted = None
+        if user_id is not None:
+            inserted = await connection.fetchval(
+                """
+                insert into merged_prs (
+                    user_id, github_pr_id, repo_full_name, number, title, url, merged_at,
+                    category, closed_issue_repo, closed_issue_number, issue_points, points
+                ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                on conflict (user_id, github_pr_id) do nothing
+                returning id
+                """,
+                user_id,
+                pr.github_pr_id,
+                pr.repo_full_name,
+                pr.number,
+                pr.title,
+                pr.url,
+                pr.merged_at,
+                str(merge.category),
+                merge.bounty.repo_full_name if merge.bounty else None,
+                merge.bounty.issue_number if merge.bounty else None,
+                merge.bounty.points if merge.bounty else None,
+                merge.eligible_points,
+            )
         if inserted is None:
             already_counted += 1
         else:
@@ -217,6 +221,7 @@ async def record_merges(
             written = await _insert_award(
                 connection,
                 user_id=user_id,
+                github_id=github_id,
                 kind="baseline_award",
                 points=baseline_award(),
                 category=str(merge.category),
@@ -233,6 +238,7 @@ async def record_merges(
             written = await _insert_award(
                 connection,
                 user_id=user_id,
+                github_id=github_id,
                 kind="bounty_award",
                 points=merge.bounty.points,
                 category=str(merge.bounty.category),
@@ -267,7 +273,8 @@ async def record_merges(
 async def _insert_award(
     connection: asyncpg.Connection,
     *,
-    user_id: int,
+    user_id: int | None,
+    github_id: int | None,
     kind: str,
     points: int,
     category: str,
@@ -282,34 +289,24 @@ async def _insert_award(
     mechanism. Doing it in SQL rather than with a prior SELECT means two syncs running at the same time
     cannot both decide the award is missing.
     """
-    inserted = await connection.fetchval(
-        """
-        insert into points_ledger (
-            user_id, kind, points, category, category_source, rule_version, reason,
-            github_pr_id, pr_repo_full_name, pr_number, pr_author_login, merged_at,
-            bounty_repo_full_name, bounty_issue_number, bounty_points_at_award, maintainer_user_id
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-        on conflict do nothing
-        returning id
-        """,
-        user_id,
-        kind,
-        points,
-        category,
-        category_source,
-        RULE_VERSION,
-        reason,
-        merge.pr.github_pr_id,
-        merge.pr.repo_full_name,
-        merge.pr.number,
-        merge.pr.author_login,
-        merge.pr.merged_at,
-        bounty.repo_full_name if bounty else None,
-        bounty.issue_number if bounty else None,
-        bounty.points if bounty else None,
-        bounty.maintainer_user_id if bounty else None,
-    )
-    return inserted is not None
+    from .allocations import reserve
+
+    if github_id is None:
+        github_id = await connection.fetchval("select github_id from users where id = $1", user_id)
+    if github_id is None:
+        raise ValueError("An award requires a verified GitHub identity")
+    return await reserve(connection, github_id, {
+        "kind": kind, "points": points, "category": category, "category_source": category_source,
+        "rule_version": RULE_VERSION, "reason": reason,
+        "github_pr_id": merge.pr.github_pr_id, "pr_repo_full_name": merge.pr.repo_full_name,
+        "pr_number": merge.pr.number, "pr_author_login": merge.pr.author_login,
+        "merged_at": merge.pr.merged_at, "title": merge.pr.title, "url": merge.pr.url,
+        "bounty_repo_full_name": bounty.repo_full_name if bounty else None,
+        "bounty_issue_number": bounty.issue_number if bounty else None,
+        "bounty_points_at_award": bounty.points if bounty else None,
+        "maintainer_user_id": bounty.maintainer_user_id if bounty else None,
+    }, user_id)
+
 
 
 async def record_adjustment(

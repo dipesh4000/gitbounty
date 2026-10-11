@@ -1,5 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
+const channel = process.env.E2E_BROWSER_CHANNEL;
+if (channel && channel !== "chrome" && channel !== "msedge") {
+  throw new Error("E2E_BROWSER_CHANNEL must be chrome or msedge, or unset for bundled Chromium");
+}
+
 /*
   The end-to-end test runs against the **real** stack: the real FastAPI backend, a real Postgres, and the
   real production build of the website. Only github.com is substituted, by a local HTTP server
@@ -24,5 +29,5 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [{ name: channel ?? "chromium", use: { browserName: "chromium", ...(channel ? { channel } : {}) } }],
 });

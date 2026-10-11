@@ -1,4 +1,4 @@
-"""The shapes the API returns, and the columns the SQL selects to fill them.
+"""The shapes the API returns.
 
 These are Pydantic models, not ORM models. `migrations/` is the record of what
 the database looks like (rules.md section 4), and nothing in this file creates,
@@ -41,19 +41,6 @@ class UserPublic(BaseModel):
 
 # --- issues ---------------------------------------------------------------
 
-# The select list behind IssueOut. Kept next to the model so the two cannot
-# drift apart unnoticed.
-ISSUE_LIST_COLUMNS = """
-    i.id, i.number, i.title, i.html_url, i.category, i.language,
-    i.labels, i.comments_count, i.issue_created_at, i.issue_updated_at,
-    r.full_name        as repository,
-    r.description      as repository_description,
-    r.stargazers_count as stars,
-    ip.points          as points,
-    u.github_login     as posted_by
-"""
-
-
 class IssueOut(BaseModel):
     """One row on the issue board."""
 
@@ -72,6 +59,9 @@ class IssueOut(BaseModel):
     stars: int = 0
     points: int
     posted_by: str | None = None
+    reward_avax: str | None = None
+    reward_usdc: str | None = None
+    reward_chain_id: int | None = None
 
 
 class IssueList(BaseModel):
@@ -82,37 +72,6 @@ class IssueList(BaseModel):
     per_page: int
     sort: str
     has_more: bool
-
-
-class CategoryCounts(BaseModel):
-    """Open issues per category. Drives the filter chips."""
-
-    frontend: int = 0
-    backend: int = 0
-    fullstack: int = 0
-    docs: int = 0
-    testing: int = 0
-    devops: int = 0
-    design: int = 0
-    mobile: int = 0
-    other: int = 0
-
-
-class SyncResult(BaseModel):
-    """What one refresh of the board actually did.
-
-    queries_failed and errors are part of the response on purpose: a run that
-    loses most of its searches to rate limiting must not look like a clean one.
-    """
-
-    synced_by: str
-    queries_run: int
-    queries_failed: int
-    issues_found: int
-    issues_stored: int
-    skipped_low_star_repos: int = 0
-    repositories_known: int
-    errors: list[str] = Field(default_factory=list)
 
 
 # --- misc -----------------------------------------------------------------

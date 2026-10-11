@@ -1,16 +1,18 @@
 """GitBounty API.
 
-One FastAPI app, with each feature in its own module under `features/` so the two people working on it
-don't collide. See feature-split.md for who owns what.
+One FastAPI app, with routes and feature modules. See docs/architecture.md for boundaries.
 """
 
+import asyncio
 import logging
 import secrets
+import asyncpg
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import router as auth_router
@@ -22,11 +24,15 @@ from .ratelimit import RateLimitMiddleware
 from .test_auth import is_enabled as test_auth_enabled, router as test_auth_router, warn_if_enabled as warn_if_test_auth_enabled
 from . import db
 from .db import connect, disconnect, is_configured, pool
-from .features.merged_prs.router import router as merged_prs_router
 from .features.points.router import router as points_router
+from .features.points.allocations import router as claims_router
 from .routes.issues import router as issues_router
 from .routes.maintainer import router as maintainer_router
+from .routes.payments import router as payments_router
 from .routes.moderation import router as moderation_router
+from .routes.github_app import router as github_app_router
+from .github_app import configured as app_configured
+from .services.webhooks import run_worker
 
 configure_logging(settings.log_level, json_logs=settings.json_logs)
 
@@ -40,8 +46,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logging.getLogger(__name__).warning(
             "No DATABASE_URL: endpoints that need the database will answer 503. See backend/dev/README.md."
         )
-    yield
-    await disconnect()
+    worker = asyncio.create_task(run_worker()) if is_configured() and app_configured() else None
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker
+        await disconnect()
 
 
 app = FastAPI(title="GitBounty API", version="0.1.0", lifespan=lifespan)
@@ -68,11 +81,13 @@ app.add_middleware(
     max_age=settings.session_max_age_seconds,
 )
 app.include_router(auth_router)
-app.include_router(merged_prs_router)
 app.include_router(points_router)
+app.include_router(claims_router)
 app.include_router(issues_router)
 app.include_router(maintainer_router)
+app.include_router(payments_router)
 app.include_router(moderation_router)
+app.include_router(github_app_router)
 # Mounted only in a test environment. In any other configuration the path is not routed at all, so it
 # cannot be reached even with the right header.
 if test_auth_enabled():
@@ -115,9 +130,20 @@ app.add_middleware(RequestLoggingMiddleware)
 
 
 @app.get("/health")
+@app.get("/healthz", include_in_schema=False)
 def health() -> dict[str, str]:
     """Liveness: the process is running and answering. Checks nothing else, on purpose."""
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def website() -> RedirectResponse:
+    return RedirectResponse(settings.frontend_url)
+
+
+@app.exception_handler(asyncpg.UndefinedTableError)
+async def missing_table(_request, _error) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": "Database setup is incomplete. Apply the pending numbered migrations from backend/dev/migrate.py."})
 
 
 @app.get("/ready")
@@ -140,8 +166,19 @@ async def ready(response: Response) -> dict[str, object]:
     else:
         try:
             async with pool().acquire() as connection:
-                await connection.fetchval("select 1")
-            checks["database"] = "ok"
+                complete = await connection.fetchval("""
+                    select to_regclass('public.users') is not null
+                       and to_regclass('public.reward_allocations') is not null
+                       and to_regclass('public.connected_repositories') is not null
+                       and to_regclass('public.webhook_deliveries') is not null
+                       and to_regclass('public.avax_reward_terms') is not null
+                       and to_regclass('public.avax_reward_claims') is not null
+                       and to_regclass('public.wallets') is not null
+                       and to_regclass('public.avax_payments') is not null
+                       and to_regclass('public.avax_payment_receipts') is not null
+                       and to_regclass('public.smoothsend_payment_receipts') is not null
+                """)
+            checks["database"] = "ok" if complete else "schema incomplete"
         except Exception:
             logging.getLogger(__name__).exception("readiness: database check failed")
             checks["database"] = "unreachable"

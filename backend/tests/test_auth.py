@@ -44,12 +44,16 @@ def test_callback_rejects_missing_or_mismatched_state_before_using_code(oauth_co
         assert client.get(f"/auth/github/callback?code=code&state={expected}").status_code == 400
 
 
+@pytest.mark.parametrize("destination", ["/explore", "/explore#points", "/maintainers", "/leaderboard", "https://attacker.example/", "//attacker.example/", "/explore?next=https://attacker.example/"])
 def test_callback_stores_user_and_returns_to_workspace(
-    oauth_config: None, monkeypatch: pytest.MonkeyPatch
+    destination: str, oauth_config: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FakeConnection:
-        async def fetchrow(self, *_args: object) -> dict[str, int]:
-            return {"id": 17}
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, *_args: object) -> int:
+            return 17
 
     class FakeAcquire:
         async def __aenter__(self) -> FakeConnection:
@@ -58,29 +62,26 @@ def test_callback_stores_user_and_returns_to_workspace(
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self) -> FakeAcquire:
-            return FakeAcquire()
-
     async def exchange_code_for_token(_code: str) -> str:
         return "github-token"
 
     async def get_authenticated_user(_token: str) -> dict[str, object]:
         return {"id": 42, "login": "aasha-malik", "name": "Aasha Malik", "avatar_url": None}
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
     monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
 
     with TestClient(app) as client:
-        login = client.get("/auth/github", follow_redirects=False)
+        login = client.get("/auth/github", params={"next": destination}, follow_redirects=False)
         expected = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
         callback = client.get(
             f"/auth/github/callback?code=code&state={expected}", follow_redirects=False
         )
 
     assert callback.status_code == 302
-    assert callback.headers["location"] == "http://localhost:8000/explore"
+    expected_path = destination if destination in {"/explore", "/maintainers", "/leaderboard", "/explore#points"} else "/explore"
+    assert callback.headers["location"] == f"http://localhost:8000{expected_path}"
 
 
 def test_github_token_is_encrypted_at_rest(oauth_config: None) -> None:
@@ -113,8 +114,11 @@ def test_the_session_is_rotated_at_sign_in(oauth_config: None, monkeypatch: pyte
     """Session fixation: an attacker who can set a cookie before sign-in must not end up holding the
     session that sign-in then authenticates."""
     class FakeConnection:
-        async def fetchrow(self, *_args: object) -> dict[str, int]:
-            return {"id": 17}
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, *_args: object) -> int:
+            return 17
 
         async def execute(self, *_args: object) -> None:
             return None
@@ -126,17 +130,13 @@ def test_the_session_is_rotated_at_sign_in(oauth_config: None, monkeypatch: pyte
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self) -> FakeAcquire:
-            return FakeAcquire()
-
     async def exchange_code_for_token(_code: str) -> str:
         return "github-token"
 
     async def get_authenticated_user(_token: str) -> dict[str, object]:
         return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
     monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
 
@@ -173,11 +173,14 @@ def test_the_cookie_is_secure_when_configured(monkeypatch: pytest.MonkeyPatch) -
 
 def test_logout_forgets_the_stored_github_token(oauth_config: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Clearing the cookie alone would leave a usable GitHub token for an account that has signed out."""
-    statements: list[str] = []
+    statements: list[object] = []
 
     class FakeConnection:
-        async def fetchrow(self, *_args: object) -> dict[str, int]:
-            return {"id": 17}
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, *_args: object) -> int:
+            return 17
 
         async def execute(self, sql: str, *_args: object) -> None:
             statements.append(sql)
@@ -189,17 +192,13 @@ def test_logout_forgets_the_stored_github_token(oauth_config: None, monkeypatch:
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self) -> FakeAcquire:
-            return FakeAcquire()
-
     async def exchange_code_for_token(_code: str) -> str:
         return "github-token"
 
     async def get_authenticated_user(_token: str) -> dict[str, object]:
         return {"id": 42, "login": "aastha-malik", "name": None, "avatar_url": None}
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
     monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
 
@@ -209,7 +208,9 @@ def test_logout_forgets_the_stored_github_token(oauth_config: None, monkeypatch:
         client.get(f"/auth/github/callback?code=code&state={state}", follow_redirects=False)
         assert client.post("/auth/logout").json() == {"status": "logged out"}
 
-    assert any("github_access_token = null" in sql for sql in statements)
+    assert any("github_access_token" in statement.compile().params
+               and statement.compile().params["github_access_token"] is None
+               for statement in statements)
 
 
 def test_an_unreadable_stored_token_asks_for_a_new_sign_in(oauth_config: None) -> None:
@@ -231,8 +232,11 @@ def test_signing_in_starts_a_synchronisation(oauth_config: None, monkeypatch: py
     synced: list[str] = []
 
     class FakeConnection:
-        async def fetchrow(self, *_args: object) -> dict[str, int]:
-            return {"id": 17}
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, *_args: object) -> int:
+            return 17
 
         async def execute(self, *_args: object) -> None:
             return None
@@ -244,10 +248,6 @@ def test_signing_in_starts_a_synchronisation(oauth_config: None, monkeypatch: py
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self) -> FakeAcquire:
-            return FakeAcquire()
-
     async def exchange_code_for_token(_code: str) -> str:
         return "github-token"
 
@@ -257,7 +257,7 @@ def test_signing_in_starts_a_synchronisation(oauth_config: None, monkeypatch: py
     async def fake_sync(user: auth.CurrentUser) -> None:
         synced.append(user.github_login)
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
     monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
     monkeypatch.setattr(auth, "_sync_after_sign_in", fake_sync)
@@ -274,8 +274,11 @@ def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
     oauth_config: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class FakeConnection:
-        async def fetchrow(self, *_args: object) -> dict[str, int]:
-            return {"id": 17}
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, *_args: object) -> int:
+            return 17
 
         async def execute(self, *_args: object) -> None:
             return None
@@ -287,10 +290,6 @@ def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self) -> FakeAcquire:
-            return FakeAcquire()
-
     async def exchange_code_for_token(_code: str) -> str:
         return "github-token"
 
@@ -300,7 +299,7 @@ def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
     async def exploding_sync(_user: auth.CurrentUser) -> None:
         raise RuntimeError("GitHub is on fire")
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange_code_for_token)
     monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", get_authenticated_user)
     import app.features.points.router as points_router
@@ -316,9 +315,30 @@ def test_a_failing_sign_in_sync_does_not_break_the_sign_in(
 
 
 # --- the OAuth callback, against a mocked GitHub boundary -------------------
+def test_identity_read_stays_fresh_and_preserves_later_write_transactions(api):
+    from starlette.requests import Request
+    from sqlalchemy import literal, select
+    from app.db import session
+    from .test_maintainer_api import query
+
+    user_id = query("insert into users (github_id, github_login) values (222, 'fresh-identity') returning id")[0]["id"]
+    request = Request({"type": "http", "session": {"user_id": user_id}})
+    assert api.portal.call(auth.get_current_user, request).github_login == "fresh-identity"
+    query("update users set github_login = 'renamed-identity' where id = $1", user_id)
+    assert api.portal.call(auth.get_current_user, request).github_login == "renamed-identity"
+
+    async def check_transaction():
+        async with session() as db_session:
+            await db_session.execute(select(literal(1)))
+            raw = await (await db_session.connection()).get_raw_connection()
+            assert raw.driver_connection.is_in_transaction()
+
+    api.portal.call(check_transaction)
+
+
 #
 # A real github.com authorization needs a human and is a separate, documented verification
-# (docs/oauth-verification.md). Everything on this side of the boundary is covered here: the token
+# (docs/setup.md). Everything on this side of the boundary is covered here: the token
 # exchange, the profile read, what is stored, and every failure GitHub can hand back.
 
 
@@ -332,15 +352,17 @@ def mocked_github(oauth_config: None, monkeypatch: pytest.MonkeyPatch):
     stored: dict[str, object] = {}
 
     class FakeConnection:
-        async def fetchrow(self, sql: str, *args: object):
-            if "insert into users" in sql:
-                stored["github_id"] = args[0]
-                stored["github_login"] = args[1]
-                stored["name"] = args[2]
-                stored["avatar_url"] = args[3]
-                stored["token_ciphertext"] = args[4]
-                return {"id": 17}
-            return None
+        async def commit(self) -> None:
+            pass
+
+        async def scalar(self, statement):
+            params = statement.compile().params
+            stored["github_id"] = params["github_id"]
+            stored["github_login"] = params["github_login"]
+            stored["name"] = params["name"]
+            stored["avatar_url"] = params["avatar_url"]
+            stored["token_ciphertext"] = params["github_access_token"]
+            return 17
 
         async def execute(self, *_args: object) -> None:
             return None
@@ -352,14 +374,10 @@ def mocked_github(oauth_config: None, monkeypatch: pytest.MonkeyPatch):
         async def __aexit__(self, *_args: object) -> None:
             return None
 
-    class FakePool:
-        def acquire(self):
-            return FakeAcquire()
-
     async def no_sync(_user: object) -> None:
         return None
 
-    monkeypatch.setattr(auth, "pool", lambda: FakePool())
+    monkeypatch.setattr(auth, "session", lambda: FakeAcquire())
     monkeypatch.setattr(points_router, "run_sync", no_sync)
 
     with respx.mock(assert_all_called=False) as mock:
@@ -504,3 +522,45 @@ def test_a_forged_state_is_refused_before_anything_is_exchanged(mocked_github) -
 
     assert response.status_code == 400
     assert token_route.call_count == 0, "the code is never sent to GitHub on a bad state"
+
+
+def test_sign_in_rename_and_logout_persist_through_the_orm(api, oauth_config, monkeypatch):
+    """Verify the actual transaction and encrypted row, beyond the OAuth boundary mocks."""
+    from .test_maintainer_api import query
+
+    monkeypatch.setattr(settings, "dev_login_stub_enabled", False)
+    profile = {"id": 4242, "login": "original-name", "name": "Contributor"}
+    token = "test-only-oauth-value"
+
+    async def exchange(_code):
+        return token
+
+    async def read_profile(_token):
+        return profile
+
+    async def no_sync(_user):
+        pass
+
+    monkeypatch.setattr(auth.github_oauth, "exchange_code_for_token", exchange)
+    monkeypatch.setattr(auth.github_oauth, "get_authenticated_user", read_profile)
+    monkeypatch.setattr(auth, "_sync_after_sign_in", no_sync)
+    assert _complete_callback(api).status_code == 302
+    row = dict(query("select * from users where github_id = 4242")[0])
+    assert decrypt(row["github_access_token"]) == token
+    assert row["github_access_token"] != token
+    assert row["last_login_at"] is not None
+    first_id = row["id"]
+    me = api.get("/api/me")
+    assert me.status_code == 200 and me.json()["id"] == first_id
+    assert token not in me.text and "github_access_token" not in me.json()
+
+    profile["login"] = "renamed-contributor"
+    assert _complete_callback(api).status_code == 302
+    rows = query("select id, github_login from users where github_id = 4242")
+    assert len(rows) == 1 and rows[0]["id"] == first_id
+    assert api.get("/api/me").json()["github_login"] == "renamed-contributor"
+
+    csrf = api.get("/api/csrf").json()["csrf_token"]
+    assert api.post("/auth/logout", headers={"X-GitBounty-CSRF": csrf}).status_code == 200
+    assert query("select github_access_token from users where github_id = 4242")[0][0] is None
+    assert api.get("/api/me").status_code == 401

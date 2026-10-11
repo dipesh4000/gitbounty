@@ -15,17 +15,18 @@ without provenance is not auditable.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from typing import Any, Literal
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 import logging
 
 from .. import github
+from ..avax import avax_to_wei, wei_to_avax, amount_to_units, units_to_amount, reward_fields
+from ..config import settings
 from ..auth import CurrentUser, get_current_user_with_token
 from ..categories import classify
 from ..db import DatabaseNotConfigured, pool
@@ -55,6 +56,19 @@ class BountyInput(BaseModel):
     number: int = Field(gt=0, le=2_000_000_000)
     points: int = Field(ge=MIN_ISSUE_POINTS, le=MAX_ISSUE_POINTS)
     category: Category
+    reward_avax: str | None = Field(default=None, max_length=79)
+
+    reward_usdc: str | None = Field(default=None, max_length=67)
+
+    @field_validator("reward_usdc")
+    @classmethod
+    def exact_usdc(cls, value: str | None) -> str | None:
+        return units_to_amount(amount_to_units(value, 6), 6) if value is not None else None
+
+    @field_validator("reward_avax")
+    @classmethod
+    def exact_avax(cls, value: str | None) -> str | None:
+        return wei_to_avax(avax_to_wei(value)) if value is not None else None
 
 
 class PublishRequest(BaseModel):
@@ -118,14 +132,6 @@ class IssueList(BaseModel):
     repository: str
 
 
-class OwnedIssuesResponse(BaseModel):
-    """Kept for the first version of the publish screen, which loads every repository at once."""
-
-    items: list[RepositoryIssue]
-    repository_count: int
-    truncated: bool = False
-
-
 class PublishedBounty(BaseModel):
     repository: str
     issue_number: int
@@ -141,6 +147,9 @@ class PublishedBounty(BaseModel):
     #: Whether a contributor has already been awarded this bounty. Once true, the value is frozen in the
     #: ledger and editing the bounty cannot change what was awarded.
     awarded: bool = False
+    reward_avax: str | None = None
+    reward_usdc: str | None = None
+    reward_chain_id: int | None = None
 
 
 class BountyList(BaseModel):
@@ -199,6 +208,8 @@ def _permission(repo: dict[str, Any], user: CurrentUser) -> Literal["admin", "ma
 
 
 def _github_error(error: Exception) -> HTTPException:
+    if isinstance(error, github.GitHubAuthError):
+        return HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in with GitHub again.")
     if isinstance(error, github.RateLimited):
         return HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
@@ -213,7 +224,7 @@ def _blocked_reason(repo: dict[str, Any]) -> str | None:
     if repo.get("private"):
         return (
             "Private repositories are not supported yet: GitBounty asks GitHub only for public data, and "
-            "reading a private repository needs a broader grant. See docs/github-app.md."
+            "private-repository access is outside the current scope. See docs/architecture.md."
         )
     if repo.get("archived"):
         return "This repository is archived on GitHub, so its issues cannot be worked on."
@@ -444,6 +455,8 @@ async def _existing_bounties(repository: str) -> dict[int, PublishedBounty]:
         rows = await db_pool.fetch(
             """
             select ip.repo_full_name, ip.issue_number, ip.points, ip.status,
+                   (select amount_wei::text from avax_reward_terms where bounty_id = ip.id) as reward_wei,
+                   (select chain_id from avax_reward_terms where bounty_id = ip.id) as reward_chain_id,
                    ip.created_at, ip.updated_at,
                    u.github_login as set_by,
                    i.title as issue_title, i.state as issue_state, i.html_url as issue_url,
@@ -464,43 +477,10 @@ async def _existing_bounties(repository: str) -> dict[int, PublishedBounty]:
         )
     except asyncpg.UndefinedTableError:
         return {}
-    return {row["issue_number"]: PublishedBounty(**{**dict(row), "repository": row["repo_full_name"]}) for row in rows}
-
-
-# --- the first publish screen (every repository at once) ------------------
-
-
-@router.get("/issues", response_model=OwnedIssuesResponse)
-async def list_owned_issues(
-    user: CurrentUser = Depends(get_current_user_with_token),
-) -> OwnedIssuesResponse:
-    """Open issues across every repository this person may publish on.
-
-    Kept because the first version of the publish screen loads everything at once. `/repositories` followed
-    by `/repositories/{owner}/{name}/issues` is the cheaper path and the one the UI uses now.
-    """
-    try:
-        repositories = [
-            repo for repo in await github.list_authorized_repositories(user.github_token)
-            if github.can_publish_bounties(repo, user.github_login) and _blocked_reason(repo) is None
-        ]
-        semaphore = asyncio.Semaphore(6)
-
-        async def load(repo: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-            async with semaphore:
-                return repo, await github.list_repo_issues(user.github_token, repo["full_name"])
-
-        loaded = await asyncio.gather(*(load(repo) for repo in repositories))
-    except github.GitHubError as error:
-        raise _github_error(error) from error
-
-    items = [_issue_out(issue, repo) for repo, issues in loaded for issue in issues]
-    items.sort(key=lambda item: (item.repository.casefold(), item.number))
-    return OwnedIssuesResponse(
-        items=items,
-        repository_count=len(repositories),
-        truncated=any(len(issues) >= 500 for _, issues in loaded),
-    )
+    return {row["issue_number"]: PublishedBounty(**{
+        **dict(row), "repository": row["repo_full_name"],
+        **reward_fields(row["reward_wei"], row["reward_chain_id"]),
+    }) for row in rows}
 
 
 # --- publishing -----------------------------------------------------------
@@ -554,7 +534,7 @@ async def publish_bounties(
                         """,
                         repo["full_name"], issue["number"],
                     )
-                    await connection.execute(
+                    bounty_id = await connection.fetchval(
                         """
                         insert into issue_points (repo_full_name, issue_number, points, set_by_user_id, status)
                         values ($1, $2, $3, $4, 'published')
@@ -563,9 +543,32 @@ async def publish_bounties(
                             set_by_user_id = excluded.set_by_user_id,
                             status = 'published',
                             updated_at = now()
+                        returning id
                         """,
                         repo["full_name"], issue["number"], item.points, actor_id,
                     )
+                    terms = await connection.fetchrow(
+                        "select amount_wei, payer_github_id, chain_id from avax_reward_terms where bounty_id = $1",
+                        bounty_id,
+                    )
+                    cash = item.reward_usdc if item.reward_usdc is not None else item.reward_avax
+                    chain_id = 43113 if item.reward_usdc is not None else 43114
+                    if item.reward_usdc is not None and item.reward_avax is not None:
+                        raise HTTPException(422, "Choose one reward asset.")
+                    if cash is not None:
+                        amount = amount_to_units(cash, 6 if chain_id == 43113 else 18)
+                        if terms and (int(terms["amount_wei"]) != amount or terms["chain_id"] != chain_id):
+                            raise HTTPException(409, "The published payment promise cannot be changed.")
+                        if terms is None:
+                            active_chain = 43113 if settings.payment_mode == "usdc_fuji" else 43114
+                            if chain_id != active_chain:
+                                raise HTTPException(409, "The reward asset does not match the configured payment mode.")
+                            if before is not None:
+                                raise HTTPException(409, "Cash rewards must be agreed on first publication. Create a new bounty.")
+                            await connection.execute(
+                                "insert into avax_reward_terms (bounty_id, payer_github_id, amount_wei, chain_id) values ($1, $2, $3, $4)",
+                                bounty_id, user.github_id, amount, chain_id,
+                            )
                     await _record_history(
                         connection,
                         repository=repo["full_name"],
@@ -578,7 +581,8 @@ async def publish_bounties(
                         status_before=before["status"] if before else None,
                         status_after="published",
                         category_after=item.category,
-                        reason="Published from the maintainer workspace.",
+                        reason=(f"Published with owner-promised {cash} {'USDC (Fuji testnet)' if chain_id == 43113 else 'AVAX'}; GitBounty does not guarantee payment."
+                                if cash else "Published from the maintainer workspace."),
                     )
     except asyncpg.UndefinedTableError as error:
         raise _missing_table(error) from error
@@ -669,6 +673,8 @@ async def my_bounties(
             rows = await connection.fetch(
                 """
                 select ip.repo_full_name as repository, ip.issue_number, ip.points, ip.status,
+                       (select amount_wei::text from avax_reward_terms where bounty_id = ip.id) as reward_wei,
+                   (select chain_id from avax_reward_terms where bounty_id = ip.id) as reward_chain_id,
                        ip.created_at, ip.updated_at,
                        u.github_login as set_by,
                        i.title as issue_title, i.state as issue_state, i.html_url as issue_url,
@@ -695,7 +701,10 @@ async def my_bounties(
         raise _missing_table(error) from error
 
     total = rows[0]["total"] if rows else 0
-    items = [PublishedBounty(**{k: v for k, v in dict(row).items() if k != "total"}) for row in rows]
+    items = [PublishedBounty(**{
+        **dict(row),
+        **reward_fields(row["reward_wei"], row["reward_chain_id"]),
+    }) for row in rows]
     return BountyList(
         items=items, page=page, per_page=per_page, total=total, has_more=page * per_page < total
     )

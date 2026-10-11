@@ -1,6 +1,7 @@
 .mp-site { min-height: 100vh; background: var(--canvas); color: var(--text); }
 .mp-shell { width: min(100% - 64px, 1320px); margin-inline: auto; }
-.mp-header { position: sticky; top: 0; z-index: 80; height: 70px; border-bottom: 1px solid var(--line-soft); background: rgba(8,11,9,.94); backdrop-filter: blur(12px); }
+.mp-install-action { margin-top: 28px; gap: 12px; }
+.mp-header { position: sticky; top: 0; z-index: 80; height: 70px; border-bottom: 1px solid var(--line-soft); background: rgba(8,9,13,.94); backdrop-filter: blur(12px); }
 .mp-header-row { height: 70px; display: flex; align-items: center; gap: 24px; }
 .mp-brand { display: inline-flex; align-items: center; gap: 10px; font: 700 18px/1 var(--font-display); letter-spacing: -.02em; white-space: nowrap; }
 .mp-brand img { width: 30px; height: 30px; object-fit: contain; }
@@ -11,7 +12,7 @@
 .mp-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 3px; background: transparent; color: var(--text); font: 600 13px/1 var(--font-body); cursor: pointer; }
 .mp-button:hover { border-color: var(--text-secondary); background: var(--surface); }
 .mp-button:disabled { cursor: wait; opacity: .58; }
-.mp-button-primary { border-color: var(--signal); background: var(--signal); color: #0a0d0a; }
+.mp-button-primary { border-color: var(--signal); background: var(--signal); color: var(--signal-ink); }
 .mp-button-primary:hover { border-color: var(--signal-hover); background: var(--signal-hover); }
 .mp-mobile-menu { display: none; margin-left: auto; }
 .mp-mobile-menu summary { min-width: 70px; min-height: 42px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; list-style: none; font: 500 12px/1 var(--font-mono); }
@@ -46,7 +47,7 @@
 .mp-next a { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-right: 18px; border-bottom: 1px solid var(--line); color: var(--text-secondary); }
 .mp-next a:hover { color: var(--text); background: var(--surface); }
 .mp-next a span { color: var(--signal); font: 500 18px/1 var(--font-mono); }
-.mp-footer { background: #060806; }
+.mp-footer { background: var(--canvas); }
 .mp-footer-grid { display: grid; grid-template-columns: 1.6fr repeat(4,.8fr); gap: 56px; padding-block: 72px; }
 .mp-footer-brand p { margin-top: 18px; max-width: 32ch; font-size: 13px; }
 .mp-footer-group { display: grid; align-content: start; gap: 10px; }
@@ -87,3 +88,17 @@
   .mp-footer-grid { grid-template-columns: 1fr 1fr; gap: 38px 22px; }
   .mp-footer-bottom { padding-block: 18px; align-items: flex-start; flex-direction: column; gap: 8px; }
 }
+.login-page { min-height: 100svh; display: flex; flex-direction: column; background: radial-gradient(ellipse at 50% 35%, #21163088, transparent 65%), var(--canvas); }
+.login-header, .login-footer { width: min(100% - 40px, 1120px); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 30px; }
+.login-header > a:last-child, .login-footer { color: var(--text-muted); font-size: 13px; }
+.login-card { width: min(100% - 40px, 480px); margin: auto; padding: 48px 0; }
+.login-eyebrow { font: 500 10px/1.6 var(--font-mono); letter-spacing: .12em; color: var(--signal); }
+.login-card h1 { font-size: clamp(38px, 6vw, 54px); line-height: 1.08; margin: 20px 0; }
+.login-card > p { font-size: 15px; }
+.login-card > button { width: 100%; min-height: 50px; margin: 32px 0 20px; border-radius: 8px; font-size: 15px; }
+.login-card .login-note, .login-card .login-legal { font-size: 12px; line-height: 1.7; color: var(--text-muted); }
+.login-card .login-legal { padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--line); }
+.login-legal a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; }
+.login-error { display: grid; gap: 12px; margin-bottom: 20px; }
+.login-error p { font-size: 13px; color: var(--danger); }
+@media (max-width: 480px) { .login-footer { align-items: flex-start; flex-direction: column; gap: 12px; } }

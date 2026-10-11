@@ -34,7 +34,8 @@ from pydantic import BaseModel, Field
 from .auth import SESSION_CSRF_KEY, SESSION_USER_KEY
 from .config import settings
 from .crypto import encrypt
-from .db import DatabaseNotConfigured, pool
+from .db import DatabaseNotConfigured, session
+from .services.users import save_sign_in
 
 logger = logging.getLogger(__name__)
 
@@ -107,36 +108,22 @@ async def create_test_session(
     _authorise(test_auth)
 
     try:
-        db_pool = pool()
+        async with session() as db_session:
+            user_id = await save_sign_in(
+                db_session,
+                github_id=body.github_id, github_login=body.github_login,
+                name=body.name, avatar_url=body.avatar_url,
+                encrypted_token=encrypt(body.github_token) if body.github_token else None,
+            )
+            await db_session.commit()
     except DatabaseNotConfigured as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
 
-    async with db_pool.acquire() as connection:
-        row = await connection.fetchrow(
-            """
-            insert into users (github_id, github_login, name, avatar_url, github_access_token, last_login_at)
-            values ($1, $2, $3, $4, $5, now())
-            on conflict (github_id) do update set
-                github_login = excluded.github_login,
-                name = excluded.name,
-                avatar_url = excluded.avatar_url,
-                github_access_token = excluded.github_access_token,
-                updated_at = now(),
-                last_login_at = now()
-            returning id
-            """,
-            body.github_id,
-            body.github_login,
-            body.name,
-            body.avatar_url,
-            encrypt(body.github_token) if body.github_token else None,
-        )
-
     # The same session shape OAuth produces, so everything downstream behaves identically.
     request.session.clear()
-    request.session[SESSION_USER_KEY] = row["id"]
+    request.session[SESSION_USER_KEY] = user_id
     csrf = secrets.token_urlsafe(32)
     request.session[SESSION_CSRF_KEY] = csrf
 
     logger.warning("test sign-in used for github_login=%s", body.github_login)
-    return TestSessionResponse(id=row["id"], github_login=body.github_login, csrf_token=csrf)
+    return TestSessionResponse(id=user_id, github_login=body.github_login, csrf_token=csrf)

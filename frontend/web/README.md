@@ -1,35 +1,25 @@
-# GitBounty web
+# GitBounty website
 
-The original `index.html`, `styles.css`, and `script.js` landing page, ported to Next.js without changing its design.
+React/TypeScript with Next.js-style app routing, built and served through vinext.
+Includes public landing and informational pages, plus the signed-in explorer, maintainer/contributor workspace and leaderboard. `/login` preserves the selected workspace through GitHub OAuth.
 
-## Run locally
+From this folder:
 
-```bash
+```text
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`. The issue board and GitHub sign-in call the FastAPI service at
-`http://localhost:8001` by default.
+The site serves port 3000 and calls the API on port 8001 by default.
+Set `NEXT_PUBLIC_GITBOUNTY_API` before building to override it.
+[Local setup](../../docs/setup.md) covers the backend and OAuth.
 
-To override the API URL in PowerShell:
+Checks: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+Also verify `npm run start` after toolchain upgrades; a successful build alone has previously missed runtime failures.
 
-```powershell
-$env:NEXT_PUBLIC_GITBOUNTY_API = "http://localhost:8000"
-npm run dev
-```
+Small `page.tsx` files are framework route entries. Shared content, metadata and layout live in
+`app/components`; keep route entries thin. Native anchors avoid a client-link runtime failure in the
+installed vinext beta.
 
-On macOS or Linux:
-
-```bash
-NEXT_PUBLIC_GITBOUNTY_API=http://localhost:8000 npm run dev
-```
-
-## Checks
-
-```bash
-npm run lint
-npm run build
-```
-
-The App Router entrypoint is `app/page.tsx`, the source stylesheet is preserved in `app/globals.css`, and the API behavior lives in `app/lib/api.ts` plus the client components under `app/components/`.
+Use existing styles in `app/globals.css` and API helpers in `app/lib/api.ts`.
+[DESIGN.md](DESIGN.md) is the visual reference; [plan](../../plan.md) is implementation status.

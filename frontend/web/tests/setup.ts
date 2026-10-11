@@ -7,6 +7,8 @@ import { cleanup } from "@testing-library/react";
   given one explicitly, so a test can never accidentally depend on a real request or silently navigate.
 */
 beforeEach(() => {
+  sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
   vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("fetch was not stubbed for this test"))));
 });
 

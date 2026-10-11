@@ -1,90 +1,71 @@
-"""Public issue-board query behavior used by the website and browser extension."""
+"""Public issue-board queries used by the website and extension."""
 
-import asyncio
-
-import asyncpg
-
-from app.routes import issues
+from .test_maintainer_api import query
+from .test_points_api import publish_bounty
 
 
-def test_browse_issues_filters_an_exact_repository(monkeypatch) -> None:
-    captured: dict[str, object] = {}
-
-    async def fake_fetch_all(sql: str, *args):
-        captured["sql"] = sql
-        captured["args"] = args
-        return []
-
-    monkeypatch.setattr(issues, "fetch_all", fake_fetch_all)
-
-    result = asyncio.run(issues.browse_issues(
-        category=None,
-        language=None,
-        q=None,
-        repository="aasha-malik/gitbounty",
-        sort="updated",
-        page=1,
-        per_page=100,
-    ))
-
-    assert result.items == []
-    assert "lower(r.full_name) = lower($4)" in captured["sql"]
-    assert captured["args"] == (None, None, None, "aasha-malik/gitbounty", 101, 0)
+def test_board_filters_an_exact_repository_without_exposing_tokens(api) -> None:
+    publish_bounty("org/app", 1, 40)
+    publish_bounty("org/app-extra", 2, 80)
+    response = api.get("/api/issues", params={"repository": "ORG/APP"})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [(item["repository"], item["points"]) for item in items] == [("org/app", 40)]
+    assert items[0]["posted_by"] == "the-maintainer"
+    assert "github_access_token" not in items[0]
 
 
-# --- category provenance --------------------------------------------------
+def test_board_filters_and_pages_only_open_published_rewards(api) -> None:
+    publish_bounty("org/app", 1, 40, category="backend")
+    publish_bounty("org/app", 2, 50, category="docs")
+    publish_bounty("org/app", 3, 60, status="unpublished")
+    publish_bounty("org/app", 4, 70, status="archived")
+    publish_bounty("org/app", 5, 80)
+    query("update issues set state = 'closed' where number = 5")
+    query("update issues set language = 'Python', issue_updated_at = now() where number = 1")
+    first = api.get("/api/issues", params={"per_page": 1}).json()
+    second = api.get("/api/issues", params={"per_page": 1, "page": 2}).json()
+    assert (first["items"][0]["number"], first["has_more"]) == (1, True)
+    assert (second["items"][0]["number"], second["has_more"]) == (2, False)
+    filtered = api.get("/api/issues", params={"language": "PYTHON", "q": "Issue 1", "category": "backend"})
+    assert [item["number"] for item in filtered.json()["items"]] == [1]
+    assert api.get("/api/issues", params={"q": "' OR 1=1 --"}).json()["items"] == []
 
 
-async def test_refreshing_the_board_does_not_overwrite_a_maintainers_category(
-    db: asyncpg.Connection,
-) -> None:
-    """An inference may fill in a blank; it may not overrule a person.
+def test_board_orders_by_repository_stars(api) -> None:
+    publish_bounty("org/small", 1, 40)
+    publish_bounty("org/large", 2, 40)
+    query("update repositories set stargazers_count = 100 where full_name = 'org/large'")
+    body = api.get("/api/issues", params={"sort": "stars"}).json()
+    assert [item["repository"] for item in body["items"]] == ["org/large", "org/small"]
 
-    `POST /api/issues/sync` classifies from the repository language and the issue's labels. A maintainer
-    publishing a bounty chooses the category deliberately. The refresh used to overwrite it and leave
-    category_source saying 'maintainer', so the row claimed a provenance it no longer had.
-    """
-    from app.services.issue_sync import _ISSUE_UPSERT_SQL
 
-    repository_id = await db.fetchval(
-        "insert into repositories (github_id, full_name, owner_login) values (1,'org/app','org') returning id"
-    )
-    maintainer_id = await db.fetchval(
-        "insert into users (github_id, github_login) values (7,'maintainer') returning id"
-    )
-    await db.execute(
-        """
-        insert into issues (github_id, repository_id, number, title, html_url, category, category_source)
-        values (10, $1, 5, 'Chosen by a person', 'https://github.com/org/app/issues/5', 'docs', 'maintainer'),
-               (11, $1, 6, 'Never published',    'https://github.com/org/app/issues/6', 'other', 'inferred')
-        """,
-        repository_id,
-    )
-    await db.execute(
-        """
-        insert into issue_points (repo_full_name, issue_number, points, set_by_user_id)
-        values ('org/app', 5, 40, $1)
-        """,
-        maintainer_id,
-    )
+def test_board_read_does_not_disable_transactions_for_later_sessions(api) -> None:
+    from sqlalchemy import literal, select
+    from app.db import session
+    from app.routes.issues import _read
 
-    # The refresh arrives with an inferred category that disagrees with both rows.
-    for github_id, number in ((10, 5), (11, 6)):
-        await db.execute(
-            _ISSUE_UPSERT_SQL,
-            github_id, repository_id, number, "Refreshed title",
-            f"https://github.com/org/app/issues/{number}", "open",
-            "backend", "Python", ["bug"], 0, None, None,
-        )
+    async def check():
+        assert (await _read(select(literal(1))))[0]["anon_1"] == 1
+        async with session() as db_session:
+            await db_session.execute(select(literal(1)))
+            connection = await db_session.connection()
+            raw = await connection.get_raw_connection()
+            assert raw.driver_connection.is_in_transaction()
 
-    rows = {
-        row["number"]: (row["category"], row["category_source"], row["title"])
-        for row in await db.fetch("select number, category, category_source, title from issues")
-    }
+    api.portal.call(check)
 
-    assert rows[5] == ("docs", "maintainer", "Refreshed title"), (
-        "the maintainer's category survives; everything else about the issue is refreshed"
-    )
-    assert rows[6] == ("backend", "inferred", "Refreshed title"), (
-        "an inferred category is free to be re-inferred"
-    )
+
+def test_beginner_filter_uses_labels_before_pagination_and_matches_case(api):
+    for number in range(1, 5):
+        publish_bounty("org/start", number, 40)
+    query("update issues set labels = ARRAY['Good First Issue'] where number = 2")
+    query("update issues set labels = ARRAY['good-first-contribution'] where number = 3")
+    query("update issues set labels = ARRAY['good first issue'] where number = 4")
+    query("update issue_points set status = 'archived' where issue_number = 4")
+    first = api.get("/api/issues", params={"beginner": True, "per_page": 1}).json()
+    second = api.get("/api/issues", params={"beginner": True, "per_page": 1, "page": 2}).json()
+    assert [item["number"] for item in first["items"]] == [2]
+    assert first["has_more"] is True
+    assert [item["number"] for item in second["items"]] == [3]
+    assert second["has_more"] is False

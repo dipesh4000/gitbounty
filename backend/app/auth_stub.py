@@ -1,12 +1,11 @@
-"""A stand-in for the GitHub Login feature, which is Nishika's and isn't built yet.
+"""A local development identity fallback. Real GitHub OAuth is implemented in auth.py.
 
-This exists so Merged PR Detection can be built and run now instead of waiting. It is deliberately crude: it reads
+This supports local backend development without an OAuth round trip. It reads
 one user out of the environment and calls them logged in. It authenticates nobody.
 
-When the real login lands, `get_current_user` is replaced by the real dependency and this file is deleted. The
-shape returned here is the shape agreed in feature-seams.md, seam 1, so nothing that depends on it has to change.
+The identity boundary is described in docs/architecture.md. Production uses the real auth dependency.
 
-It is inert unless DEV_GITHUB_LOGIN is set, which no deployed build should ever do. DEV_GITHUB_TOKEN is separate
+The real auth path gates this fallback with DEV_LOGIN_STUB_ENABLED; keep it disabled in deployed builds. DEV_GITHUB_TOKEN is separate
 and optional: reading someone's stored points needs no GitHub token, and only the endpoints that actually call
 GitHub ask for one.
 """

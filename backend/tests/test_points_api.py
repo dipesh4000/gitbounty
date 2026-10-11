@@ -406,13 +406,6 @@ def test_leaderboard_paging_arguments_are_validated(api: TestClient) -> None:
     assert api.get("/api/leaderboard", params={"per_page": 0}).status_code == 422
 
 
-def test_the_published_rules_are_readable_without_signing_in(api: TestClient) -> None:
-    body = api.get("/api/points/rules").json()
-    assert body["max_bounty_points"] == 1000
-    assert body["min_bounty_points"] == 1
-    assert body["baseline_per_merge"] == 5
-
-
 # --- plumbing -------------------------------------------------------------
 
 

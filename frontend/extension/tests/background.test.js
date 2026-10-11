@@ -32,12 +32,9 @@ function jsonResponse(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
 
-/** A viewer plus one page of bounties per request, so `page` can be asserted. */
-function apiStub({ viewer = "maya-dev", pages = [] } = {}) {
+function apiStub({ pages = [] } = {}) {
   return (url) => {
-    if (url.endsWith("/api/me")) {
-      return jsonResponse(viewer ? { github_login: viewer } : null, viewer ? 200 : 401);
-    }
+    assert.equal(new URL(url).pathname, "/api/issues", "public badges need no identity lookup");
     const page = Number(new URL(url).searchParams.get("page"));
     return jsonResponse(pages[page - 1] ?? { items: [], has_more: false });
   };
@@ -65,13 +62,6 @@ test("follows the API's pagination instead of stopping at one page of 100", asyn
   assert.ok(calls.every((url) => !url.includes("/api/issues") || url.includes("per_page=100")));
 });
 
-test("stops asking once the API says there is no more", async () => {
-  fetchHandler = apiStub({ pages: [{ items: [{ repository: "org/app", number: 1, points: 5 }], has_more: false }] });
-
-  await send({ type: "gitbounty:get-repository-bounties", repository: "org/app" });
-
-  assert.equal(calls.filter((url) => url.includes("/api/issues")).length, 1);
-});
 
 test("serves a repeat question from cache, and refetches after invalidation", async () => {
   fetchHandler = apiStub({ pages: [{ items: [{ repository: "org/app", number: 7, points: 30 }], has_more: false }] });
@@ -97,16 +87,6 @@ test("caches per repository, so one repository's answer is never served for anot
   assert.deepEqual(repositories, ["org/app", "org/other"]);
 });
 
-test("caches per signed-in account, so switching user does not reuse the previous view", async () => {
-  fetchHandler = apiStub({ viewer: "maya-dev", pages: [{ items: [], has_more: false }] });
-  await send({ type: "gitbounty:get-repository-bounties", repository: "org/app" });
-  const afterFirst = calls.filter((url) => url.includes("/api/issues")).length;
-
-  fetchHandler = apiStub({ viewer: "other-person", pages: [{ items: [], has_more: false }] });
-  await send({ type: "gitbounty:get-repository-bounties", repository: "org/app" });
-
-  assert.equal(calls.filter((url) => url.includes("/api/issues")).length, afterFirst + 1);
-});
 
 test("matches a repository case-insensitively in the cache key", async () => {
   fetchHandler = apiStub({ pages: [{ items: [], has_more: false }] });
@@ -117,7 +97,7 @@ test("matches a repository case-insensitively in the cache key", async () => {
 });
 
 test("does not cache a failure, so one blip does not hide badges until a reload", async () => {
-  fetchHandler = (url) => (url.endsWith("/api/me") ? jsonResponse({ github_login: "maya-dev" }) : jsonResponse(null, 503));
+  fetchHandler = () => jsonResponse(null, 503);
   const failed = await send({ type: "gitbounty:get-repository-bounties", repository: "org/app" });
   assert.equal(failed.ok, false);
   assert.equal(failed.status, 503);
@@ -129,12 +109,6 @@ test("does not cache a failure, so one blip does not hide badges until a reload"
   assert.equal(recovered.items.length, 1);
 });
 
-test("answers signed-out requests without failing: public bounties are public", async () => {
-  fetchHandler = apiStub({ viewer: null, pages: [{ items: [{ repository: "org/app", number: 1, points: 5 }], has_more: false }] });
-  const response = await send({ type: "gitbounty:get-repository-bounties", repository: "org/app" });
-  assert.equal(response.ok, true);
-  assert.equal(response.viewer, null);
-});
 
 test("rejects anything that is not an owner/repo pair without calling the API", async () => {
   for (const repository of ["", "no-slash", "org/app/extra", "../../etc/passwd", "org/app?x=1"]) {

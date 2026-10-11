@@ -34,15 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install dependencies
         working-directory: backend
-        run: pip install -r requirements-dev.txt
+        run: uv sync --locked
 
       - name: Create the test databases
         env:
@@ -56,20 +56,20 @@ jobs:
       - name: Bootstrap a clean database from the migrations
         working-directory: backend
         run: |
-          python dev/migrate.py up \
+          uv run --locked python dev/migrate.py up \
             --database-url postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev
-          python dev/migrate.py status \
+          uv run --locked python dev/migrate.py status \
             --database-url postgresql://gitbounty:gitbounty_local_dev@localhost:5440/gitbounty_dev
 
       - name: Tests
         working-directory: backend
         # No skips: the databases above exist, so every database-backed test must actually run.
-        run: pytest -q -p no:randomly
+        run: uv run --locked pytest -q -p no:randomly
 
       - name: Fail if any test skipped
         working-directory: backend
         run: |
-          pytest -q 2>&1 | tee result.txt
+          uv run --locked pytest -q 2>&1 | tee result.txt
           if grep -qE "[0-9]+ skipped" result.txt; then
             echo "::error::Tests skipped in CI. A skip here means a dependency the job should have provided."
             exit 1
@@ -144,20 +144,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
+          version: "0.11.18"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Backend dependencies
         working-directory: backend
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install -r requirements-dev.txt
+        run: uv sync --locked
 
       - name: Website dependencies
         working-directory: frontend/web

@@ -10,7 +10,7 @@ unauthenticated request falls back to the client address, and that fallback is d
 limiting an address too tightly punishes everybody behind one NAT or one university.
 
 The counter is a fixed window held **in this process**. That is honest for what GitBounty is -- one
-instance, not deployed -- and it is written down in docs/deployment-readiness.md: more than one instance
+instance, not deployed -- and it is written down in docs/security.md: more than one instance
 needs a shared store (Redis) or the limit is multiplied by the number of instances. The interface here
 does not change if that happens.
 """
@@ -49,7 +49,6 @@ class Limit:
 #: endpoints are generous -- they are reads a page makes several of.
 RULES: tuple[tuple[str, Limit], ...] = (
     ("/api/me/sync", Limit(6, 60)),
-    ("/api/issues/sync", Limit(6, 60)),
     ("/api/maintainer/bounties", Limit(30, 60)),
     ("/api/maintainer/repositories", Limit(60, 60)),
     # Reporting is cheap but a flood of reports is its own kind of abuse.
@@ -121,7 +120,7 @@ def caller_for(request: Request) -> str:
     Identity first, because it is the thing that cannot be changed by reconnecting. The address fallback
     reads the socket's peer, **not** X-Forwarded-For -- that header is attacker-controlled unless a proxy
     is known to rewrite it, and trusting it would let anybody reset their own counter at will. A
-    deployment behind a proxy must configure the proxy headers explicitly; see docs/deployment-readiness.md.
+    deployment behind a proxy must configure the proxy headers explicitly; see docs/security.md.
     """
     session = request.scope.get("session") or {}
     user_id = session.get("user_id")
