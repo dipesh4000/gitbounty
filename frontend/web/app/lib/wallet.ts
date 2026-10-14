@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, custom, http, type Address, type Hex } from "viem";
+import { createWalletClient, createPublicClient, custom, http, erc20Abi, formatUnits, type Address, type Hex } from "viem";
 import { avalanche, avalancheFuji } from "viem/chains";
 import { apiWrite } from "./api";
 import { walletProvider, walletError } from "./walletProviders";
@@ -6,7 +6,30 @@ import { walletProvider, walletError } from "./walletProviders";
 export type SmoothPayment = { claim_id: number; sender: string; recipient: string; nonce: number; amount_wei: string;
   chain_id: number; smart_sender: Address; entry_point: Address; account_factory: Address; paymaster_address: Address;
   call_data: Hex; fee_token: Address; fee_limit: string; fee_limit_usdc: string; smoothsend_public_key: string;
+  token_address: Address | null; decimals: number; symbol: string;
   operation: string | Record<string, unknown> | null; status: string; tx_hash: string | null; userop_hash: string | null };
+
+export type PaymentFunding = { rewardBalance: string; feeBalance: string; rewardRequired: string; feeRequired: string; sufficient: boolean; checkedAt: string };
+
+/** Read-only preflight: verifies SDK routing and the smart account, never asks for a signature. */
+export async function inspectRewardFunding(payment: SmoothPayment): Promise<PaymentFunding> {
+  const chain = payment.chain_id === avalancheFuji.id ? avalancheFuji : payment.chain_id === avalanche.id ? avalanche : null;
+  if (!chain) throw new Error("Only Avalanche mainnet and Fuji are supported.");
+  if (!payment.smoothsend_public_key?.startsWith("pk_nogas_")) throw new Error("SmoothSend public key is not configured.");
+  const { SmoothSendAvaxSubmitter } = await import("@smoothsend/sdk/avax");
+  const submitter = new SmoothSendAvaxSubmitter({ apiKey: payment.smoothsend_public_key, network: chain.id === avalancheFuji.id ? "testnet" : "mainnet" });
+  if (Number(await submitter.getChainId()) !== chain.id) throw new Error("SmoothSend is on a different Avalanche network.");
+  if (!(await submitter.getSupportedEntryPoints()).some(address => address.toLowerCase() === payment.entry_point.toLowerCase())) throw new Error("SmoothSend does not support this payment's EntryPoint.");
+  const client = createPublicClient({ chain, transport: http() });
+  if (await client.getChainId() !== chain.id) throw new Error("The Avalanche RPC is on a different network.");
+  const balanceOf = (address: Address) => client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [payment.smart_sender] });
+  const [reward, fee] = await Promise.all([payment.token_address ? balanceOf(payment.token_address) : client.getBalance({ address: payment.smart_sender }), balanceOf(payment.fee_token)]);
+  const sameToken = payment.token_address?.toLowerCase() === payment.fee_token.toLowerCase();
+  const amount = BigInt(payment.amount_wei), allowance = BigInt(payment.fee_limit);
+  return { rewardBalance: formatUnits(reward, payment.decimals), feeBalance: formatUnits(fee, 6),
+    rewardRequired: formatUnits(sameToken ? amount + allowance : amount, payment.decimals), feeRequired: formatUnits(allowance, 6),
+    sufficient: reward >= amount + (sameToken ? allowance : BigInt(0)) && fee >= allowance, checkedAt: new Date().toISOString() };
+}
 
 export async function browserWallet(chainId: number = avalanche.id) {
   const provider = walletProvider();
@@ -73,6 +96,7 @@ export async function sendReward(payment: SmoothPayment) {
     const operation = typeof payment.operation === "string" ? JSON.parse(payment.operation) : payment.operation;
     return submitter.sendUserOperation(operation, payment.entry_point, "user-pays-erc20");
   }
+  if (!(await inspectRewardFunding(payment)).sufficient) throw new Error("Your payout account needs the reward plus the USDC fee reserve. Add funds and check again before signing.");
   await quoteReward(payment);
   const result = await submitter.submitSponsoredUserOperation({
     userOp: await draftPayment(payment, context), entryPoint: payment.entry_point,

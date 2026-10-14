@@ -1,137 +1,207 @@
 # Architecture
 
-Implementation status is tracked in [plan.md](../plan.md). This page explains the current boundaries.
+Reviewed 2026-10-13. This is the target specification, not a claim that escrow or Privy is implemented. [plan.md](../plan.md) controls sequencing; [implementation-audit.md](implementation-audit.md) records evidence and open gates.
 
-## Current system
+## Current implementation
 
-Website / extension → FastAPI → Postgres.
-FastAPI calls GitHub with a signed-in user's OAuth token or a selected repository's installation token.
-
-| Component | Current implementation | Selected next change |
-|---|---|---|
-| Python project | uv, Python 3.12, backend pyproject and committed lockfile | Maintain locked local/CI environments |
-| API | FastAPI, async HTTP calls through httpx | Keep FastAPI and public response contracts |
-| Database access | Async SQLAlchemy models/sessions for issue-board reads and authentication; asyncpg for remaining queries | Migrate remaining queries; retain asyncpg as the driver |
-| Schema | Numbered SQL files and local migration runner | Keep this workflow; no ORM startup schema creation |
-| Authentication | GitHub OAuth, signed session cookies, GitHub App JWT and short-lived installation tokens | Verify production credentials |
-| Repository events | Signed webhooks in a durable inbox plus contributor reconciliation sync | Verify live deliveries and recovery |
-| Frontend | React/TypeScript, Next.js App Router | Continue existing website |
-| Extension | Manifest V3 content scripts, service worker and popup | Registered-only badges and reliable refresh |
-
-OAuth currently uses the code in `backend/app/github_oauth.py`, not Authlib.
-Pydantic models in `backend/app/models.py` describe API responses, not database entities.
-Mapped classes live in `backend/app/orm.py`. Each migrated operation opens and closes its own async session.
-During migration, the original pool allows 10 connections and the ORM pool allows 5, per process.
-The ORM connection factory uses the existing asyncpg DSN options; SQLAlchemy URLs contain no credentials,
-query parameters are hidden in errors, and no schema is created at startup.
-The public issue board runs its one SELECT in connection-scoped autocommit mode to avoid
-BEGIN/ROLLBACK network round trips. Closing the session restores the pooled connection's isolation;
-authentication, publishing and points writes retain their existing transactions.
-
-## Code and data
-
-| Path | Responsibility |
+| Area | Existing source |
 |---|---|
-| `backend/app/auth.py`, `crypto.py` | Identity, session lifecycle, encrypted GitHub tokens |
-| `backend/app/routes/` | Issue browsing, maintainer publishing and moderation |
-| `backend/app/features/merged_prs/` | GitHub reads, closing references, lifecycle and eligibility |
-| `backend/app/features/points/` | Sync orchestration, ledger writes and leaderboard queries |
-| `backend/app/github_app.py`, `services/webhooks.py` | Installation authentication and durable delivery processing |
-| `backend/app/db.py` | Database connection lifecycle |
-| `frontend/web/app/components/` | Landing page and signed-in workspace |
-| `frontend/extension/src/` | GitHub page decoration and API access |
-| `frontend/extension/popup/` | Signed-in points, activity and issue context |
+| Web | Next.js 16.4.0, React 19.3.0, TypeScript, viem |
+| API/data | FastAPI, asyncpg, selected SQLAlchemy paths, numbered PostgreSQL migrations through 0016 |
+| Login | GitHub OAuth, signed HttpOnly app session, encrypted GitHub access token |
+| GitHub automation | App installation tokens, HMAC webhook inbox, in-process polling worker, contributor reconciliation |
+| Ownership | Numeric GitHub IDs, pre-registration allocations, append-only points ledger |
+| Wallet | EIP-1193 browser discovery; one immutable signed EOA link per GitHub identity |
+| Payments | Historical AVAX/Fuji USDC promises, SmoothSend UserOperations, stored-operation recovery, receipt verification |
 
-[SQL migrations](../migrations/) define the current schema:
+No contract workspace or Privy dependency exists yet. Public readiness proves database/OAuth settings are configured, not that production OAuth or webhook execution has completed.
 
-- `users`: stable GitHub ID, mutable login/profile, encrypted OAuth token.
-- `repositories`, `issues`: cached GitHub data.
-- `issue_points`, `issue_points_history`: published reward and its change history.
-- `merged_prs`, `pull_requests`: observed merges and mutable PR lifecycle state.
-- `points_ledger`: awards and corrections; totals are sums, not separately stored balances.
-- `sync_runs`: progress, cursor and failures.
-- `moderation_flags`: reports and resolutions.
-- `reward_allocations`: claimed and unclaimed awards keyed by numeric GitHub identity.
-- `connected_repositories`, `webhook_deliveries`: selected installations and durable delivery state.
-- `schema_migrations`: applied migration files and checksums.
+## System shape
 
-Partial unique indexes prevent duplicate baseline and bounty awards. Preserve them through ORM migration.
-Maintainer publishing writes the bounty and its history in one transaction.
-Ledger corrections append entries; they do not rewrite awards.
+~~~text
+GitHub OAuth or Privy native GitHub login
+                    |
+                    v
+          Verified GitBounty session
+                    |
+                    v
+Next.js --same-origin proxy--> FastAPI <--> PostgreSQL durable inbox/ledger
+                                  |
+                  GitHub App / eligibility / voucher signer
+                                  |
+                         Avalanche RPC verification
+                                  |
+User EOA or optional AA executor --> GitBountyEscrow --> Fuji test USDC
+~~~
 
-## API reference
+The chain verifies the signer's authorization, escrow accounting and replay. GitHub eligibility is a backend attestation. Describe this as attested escrow settlement; do not claim fully trustless GitHub verification.
 
-Use [FastAPI's generated reference](http://localhost:8001/docs) or `/openapi.json` while the server is running.
-Route handlers and Pydantic schemas are the source of truth for request/response details.
+## Target hackathon architecture
 
-Public reads are `/api/issues` and `/api/leaderboard`.
-Signed-in routes include `/api/me`, points/history/PR/claim reads, `POST /api/me/sync`,
-`POST /api/me/claims`, maintainer publishing and GitHub App repository connection.
-The extension reads public bounties plus identity, points and claims; the website maps the remaining user-facing routes.
-Moderation review/resolution requires a configured administrator and intentionally has no UI yet.
+### Identity
 
-Browser calls include credentials. Cookie-authenticated writes use `X-GitBounty-CSRF` obtained from
-`GET /api/csrf`; OAuth and logout have explicit exemptions.
-Rate limits return 429; unavailable dependencies return 503. `/health` is liveness and `/ready` is readiness.
+Privy **natively supports GitHub OAuth**. The preferred upgrade is GitHub login through Privy and embedded EOA creation. Custom JWT/OIDC is an alternative for existing-auth federation and is not required for native GitHub login. [Official OAuth documentation](https://docs.privy.io/authentication/user-authentication/login-methods/oauth).
 
-## GitHub App and claims
+The app keeps its existing HttpOnly session as the API credential. A new auth exchange verifies the Privy access token, obtains server-verified linked-account data, resolves github_oauth to the stable numeric GitHub ID, and creates/updates the existing user by that ID. A browser user object is never identity proof. Validate the provider subject's numeric semantics against GitHub before migration; ambiguity must block linking.
 
-A maintainer installs the GitBounty App on selected public repositories.
-Use the minimum read permissions needed for issues, PRs/reviews and repository metadata;
-derive the final permission set from the actual API calls before registering the app.
-Keep existing maintainer authorisation checks: knowing an installation ID is not proof that a user administers it.
+Store a unique nullable privy_did, but keep users.id and users.github_id stable. A DID already mapped elsewhere, mismatched active GitHub session, missing GitHub account, expired token, wrong audience/issuer, or subject mismatch fails closed. Never auto-merge by email or username.
 
-Processing path:
+Native login does not grant repository permissions or guarantee a GitHub API token. Retain the existing GitHub owner-authorization flow for actions requiring its token, bound to the same numeric ID; use App installation tokens for repository reads/webhooks. Consolidating all user authorization is post-proof work.
 
-GitHub event → signature verification → durable delivery record → worker → verified GitHub data → points transaction.
+Login migration must preserve points, pending allocations and linked wallets. Logout clears both app and Privy state. Keep direct GitHub OAuth available if the Privy rollout fails; choosing fallback must not silently change the user's wallet.
 
-The receiver accepts `issues`, `pull_request`, `installation`, `installation_repositories` and `ping` events.
-Issue closed/reopened events verify live state and update discovery only; sync recovers missed issue updates.
-Persist a delivery before acknowledging acceptance; track success/failure and retry safely.
-Do not award for a closed issue or an unmerged PR. Verify scope and PR author, and reuse the same award rules
-for webhook processing and reconciliation. Duplicate delivery must not mint another award.
+### Wallets and recovery
 
-The identity model allocates a reward to its author's GitHub numeric ID without creating a user.
-Registration authenticates ownership; claiming associates pending allocations with that account exactly once.
-Unclaimed points stay off public leaderboards. No expiry policy is implemented.
+- Receiving wallets are EOAs for the MVP, including Privy embedded EOAs. Generic ERC-1271 smart-wallet linking is excluded until implemented and tested.
+- Existing wallets are immutable through migration 0015. Reuse the linked EOA even if Privy creates another wallet.
+- For a first link, show the address explicitly and issue a one-use challenge containing app origin, GitHub ID, selected address, nonce, chain and expiry. Validate the recovered address and consume atomically.
+- A wallet-linked identity is not proof that the wallet is connected now. Recheck account and chain before signing.
+- Once a voucher exists, its recipient cannot be changed by refresh, re-login, SDK fallback or an expired-voucher renewal.
+- Recovery/export must preserve the same address. A newly connected external address cannot control an existing embedded address. Future wallet rotation needs a dedicated migration and revocation design.
+- For an embedded wallet, test MFA and user-directed export/recovery while the provider works. Provider outages can still prevent signing; no offline-access guarantee is implied.
 
-The app private key path and webhook secret are server-only sensitive inputs. Installation tokens are requested
-when processing and are not stored. Errors and logs omit keys, tokens, webhook bodies and GitHub response bodies.
-GitHub does not automatically redeliver failed webhooks; retain recovery/reconciliation.
-See [GitHub's delivery guidance](https://docs.github.com/en/webhooks/using-webhooks/handling-failed-webhook-deliveries)
-and [signature guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
+### GitHub eligibility
 
-## SmoothSend payments
+The GitHub App reads only selected public repositories, with Contents/Issues/Pull requests read permissions and automatic Metadata read. Subscribe to issues, pull_request, installation and installation_repositories. Preserve raw-byte HMAC verification and delivery-ID uniqueness.
 
-The frontend dynamically loads `@smoothsend/sdk/avax` in `app/lib/wallet.ts`. It checks the network
-and linked payer, quotes the USDC fee with `estimateUserPaysFee`, and submits using
-`submitSponsoredUserOperation` with explicit `mode: "user-pays-erc20"`. Despite the method name,
-this mode charges the owner in USDC; GitBounty does not sponsor fees. Before broadcast, the owner's
-signature and exact operation are saved to the backend. Recovery resubmits that saved operation.
+Cash eligibility adds these rules to the existing points/allocation service:
 
-`backend/app/routes/payments.py` resolves claim amount, recipient, network, smart account and nonce
-from authenticated records. `backend/app/smoothsend.py` builds the reward transfer and capped fee
-approval, validates the operation hash/calldata, and checks the EntryPoint event plus the exact token
-Transfer in that operation's log segment. Only verified success becomes paid. Pending/unknown stays
-unpaid; a verified failed operation permits another attempt. Migration 0016 adds SmoothSend fields
-and receipt history on top of 0015's immutable terms, claims and permanent wallet links.
+1. Persist numeric repository, issue, PR and author IDs alongside display names.
+2. Require a fresh open, published issue with no old bounty allocation or legacy cash terms.
+3. Verify the PR through the App API: same repository, target default branch, merged state and author numeric ID; reject repository owner/self-bounty authors and bots for the MVP.
+4. Accept one same-repository funded issue referenced by a supported closing keyword in the PR body. Title-only, commit-only, sidebar-only, cross-repository and multiple-funded-issue references cannot receive automatic cash.
+5. Require canonical fundedAt <= mergedAt < workEndsAt. Reconciliation time does not determine eligibility. Confirm the issue timeline ClosedEvent.closer is the same PR with a focused GraphQL read, retaining event ID/time and handling pagination. Missing or ambiguous evidence pauses cash allocation; adding a closing keyword after merge cannot establish closure.
+6. Save the verified PR body/closing-reference snapshot, merge time, author, funding block and rule version at allocation.
+7. Under a lock and unique constraint, the first eligible allocation processed wins. Later merges/reopened issues cannot create another payout. Do not advertise earliest-merge ordering.
+8. Webhooks and recovery sync call the same cash-validation/reservation function. An issue closed without an eligible PR gives no cash.
 
-Only the dashboard public key reaches the browser. The optional secret gateway key stays server-side;
-the backend currently falls back to the public key when no secret is configured. Production setup
-should configure both and the exact allowed origin. MCP tools help development; they do not execute
-runtime payouts. No direct-transfer fallback, internal balance or sponsored withdrawal is implemented.
+Existing points remain 5 baseline per eligible merged PR and 1–1000 bounty points. A 40-point bounty plus eligible baseline creates two award types totaling 45. If eligibility behavior changes, version the rule; never rewrite historical entries.
 
-This promotes SmoothSend through a concrete merge-to-payment demonstration: visible provider attribution,
-smart-account funding, a quoted USDC fee, an owner signature and verifiable settlement. It does not imply
-a partnership, free fees or a completed live payout. [Setup](setup.md#avalanche-payments-through-smoothsend)
-and [demo steps](testing-data.md#a-fund-and-pay-through-smoothsend) describe the required configuration.
+Official semantics: GitHub closing keywords act on the default branch. [GitHub issue linking](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue), [ClosedEvent and closer](https://docs.github.com/en/graphql/reference/issues#closedevent).
 
-## Extension refresh behavior
+### Escrow contract
 
-Content scripts decorate GitHub's DOM; the service worker fetches API data and caches repository
-bounties for 30 seconds. The popup reads identity, points and activity.
-DOM observation is not a live backend subscription. Cache expiry does not itself trigger a refresh.
+Implement one non-upgradeable GitBountyEscrow with immutable token and EOA authorizationSigner. Use OpenZeppelin EIP712, ECDSA, SafeERC20 and ReentrancyGuard, pinned to a tested release. There is no owner withdrawal, early cancellation, pause, token registry, signer rotation, partial payout or top-up.
 
-The extension shows registered rewards only. Visible pages refresh every 30 seconds and on navigation/visibility
-changes; stale issue badges and PR banners are removed. Cached responses can delay a change until a later refresh.
-Webhooks alone do not refresh browser UI. Popup points are fetched when opened or manually refreshed.
+Set the compiler's evmVersion explicitly to cancun and pin the compiler version/optimizer settings. Current Avalanche guidance warns newer compiler defaults can target unsupported hardforks. [Avalanche compiler guidance](https://build.avax.network/docs/primary-network/verify-contract/hardhat).
+
+Public key derivation, with ABI encoding (not ambiguous packed strings):
+
+~~~text
+referenceId = keccak256(abi.encode(applicationNamespace, immutableDatabaseBountyId))
+bountyId = keccak256(abi.encode(block.chainid, address(this), payer, referenceId))
+~~~
+
+The app stores one expected payer before funding. fund(referenceId, amount, workEndsAt) derives payer from msg.sender, so funding from another wallet produces a different ID. A copied reference cannot block the intended payer's ID. Fix the payer/reference and terms once instructions are issued; rejected/incorrect funding is not silently reassigned.
+
+Contract fields per bounty: payer, amount, fundedAt, workEndsAt, claimUntil, state, recipient after settlement. Token and signer are immutable contract-wide. States: absent, funded, settled, refunded.
+
+Actions:
+
+- **fund:** require fresh ID, positive amount, nonzero reference, workEndsAt > block.timestamp, and checked timestamp arithmetic. Set claimUntil = workEndsAt + seven days. transferFrom payer into escrow; require exact token balance delta. Emit BountyFunded with ID/reference/payer/amount/times.
+- **settle:** accept the typed voucher below; require funded state, nonzero recipient, exact token/amount, nonce zero, block.timestamp < deadline <= claimUntil, and authorized signer. Set settled before SafeERC20 transfer to recipient. Anyone may submit: recipient is voucher-bound, not msg.sender. Emit BountySettled with ID/recipient/amount/digest.
+- **refund:** require funded state and block.timestamp >= claimUntil; set refunded before transfer to recorded payer. Anyone can trigger, but only payer receives. Emit BountyRefunded.
+- **views:** expose bounty fields, immutable token/signer and domain data.
+
+Contract invariants: each ID can leave funded only once; escrow token balance covers all outstanding liabilities; a direct token donation does not create a bounty or allow an admin withdrawal. Token pause/blacklisting or transfer failure must revert the action without destroying its funded state.
+
+### Deadline policy
+
+There are two clocks: workEndsAt is the eligible merge cutoff; claimUntil is the on-chain claim deadline. The seven-day grace permits delayed webhooks, registration and wallet linking. Claims before claimUntil can succeed; refunds at or after claimUntil can succeed. At the boundary the conditions do not overlap.
+
+An off-chain award does **not** indefinitely lock refund. An unclaimed award can expire. A transaction broadcast before the deadline but mined after it fails. State these limits in the bounty terms and UI; points remain valid even if the cash claim expires. Guaranteed locking after an award would require another on-chain reservation action and is outside this MVP.
+
+### Settlement authorization
+
+Freeze this exact version-1 typed data in Solidity, Python and viem:
+
+~~~text
+domain = {
+  name: "GitBountyEscrow",
+  version: "1",
+  chainId: 43113,
+  verifyingContract: deployedEscrow
+}
+Settlement(
+  bytes32 bountyId,
+  address recipient,
+  address token,
+  uint256 amount,
+  uint256 nonce,
+  uint256 deadline
+)
+~~~
+
+Nonce is zero for the one-shot MVP bounty; funded/settled state provides replay protection. The contract rejects nonzero values. The backend freezes the recipient at first voucher issuance. Use integer base units and UTC Unix seconds only.
+
+deadline = min(currentChainTime + fifteen minutes, claimUntil). Read canonical chain state before issuing; do not issue when insufficient valid time remains. Persist the typed payload/digest, recipient and attempt before signing. Repeated requests return the same unexpired voucher; renew only deadline for the same recipient/amount/token/nonce. Different-domain or changed-recipient vouchers must never be issued for the same escrow.
+
+A golden vector must prove equal digest and recovered signer across eth-account, viem and Solidity. Signatures are bearer authorizations to the exact recipient; avoid exposing them publicly or in logs.
+
+### Funding and claim flow
+
+~~~text
+draft terms -> signed EOA payer link -> exact USDC allowance approval
+-> fund transaction -> verified funding event + incoming Transfer
+-> public funded bounty -> verified eligible PR -> single allocation
+-> contributor login + wallet proof -> persisted signed voucher
+-> settle call -> verified settlement event + outgoing Transfer -> paid
+~~~
+
+Approve is separate from fund. Approval only grants an allowance; it does not fund escrow. Use exact allowance, not unlimited approval. The payer needs test USDC and AVAX for approval/funding; the direct claimant needs AVAX even though the reward is USDC. Test faucets before recording.
+
+### Provider boundaries
+
+Privy supplies native GitHub onboarding, embedded EOA creation, external-wallet connection and user signatures. GitBounty stores reward records and verifies identity/chain evidence. Privy outage may block embedded signing or new Privy login; direct OAuth/external wallets preserve supported alternative paths, not control of the embedded address.
+
+SmoothSend is optional developer-sponsored **claim execution**. Its ERC-4337 sender is a smart contract account owned by the EOA; it is not the receiving EOA. settle permits a relayer/SCW caller but always pays the voucher recipient. Maintainer funding remains direct in the MVP, preventing payer/refund-address confusion.
+
+Store UserOperation hash separately from transaction hash. Resolve the bundler receipt and verify inner success plus the matching escrow/token logs. An outer successful EntryPoint transaction alone is insufficient. Gateway failure falls back to a direct call of the same valid voucher; idempotent on-chain state prevents two successful payments. See [dependency boundaries](dependency-boundaries.md).
+
+### Browser extension
+
+The extension remains an optional discovery surface with its existing permissions. It never signs, funds or claims. Read-only UI should link to real public bounty/settlement state.
+
+## Data and API contract
+
+Add a new migration, preserving historical data. New escrow rewards must not insert avax_reward_terms, so old reservation triggers cannot create a second cash path.
+
+| Record | Required fields and constraints |
+|---|---|
+| User mapping | existing GitHub numeric ID + unique nullable Privy DID; no email/name merging |
+| Escrow terms | unique issue/bounty reference and chain+contract+bountyId; numeric repo/issue IDs, payer GitHub ID/address, token, amount_units numeric(78,0) within uint256, work/claim times, reward mode |
+| Funding evidence | chain, contract, bounty ID, tx hash, log index, block number/hash/time, exact payer/token/amount |
+| Allocation | unique winning escrow allocation and existing points allocation reference; numeric author/PR IDs, merge/reference snapshot and rule version |
+| Voucher | unique escrow recipient binding; typed payload, digest, deadline, nonce zero, issued timestamp; renewed attempts retained |
+| Chain attempts/events | kind (approval/fund/settle/refund), EOA or AA, optional userOpHash/txHash, status, errors without secrets; unique chain+txHash+logIndex |
+| Index cursor | chain+contract deployment start, last reconciled block/hash, bounded overlap for restarts |
+
+Use the existing /api/avax prefix while migrating, or explicitly version/alias endpoints; avoid silently breaking the extension and website. Add config with execution_mode, network/token/contract/signer/deployment block and public deadline policy.
+
+Product API operations: draft/freeze funding terms, funding instructions, reconcile funding, get claim authorization, record/reconcile settlement attempt, refund instructions/status, public bounty detail. Server-resolved records determine all authoritative fields. Client hashes are hints for lookup, never proof of settlement. App-session auth and existing CSRF protection apply to every private mutation.
+
+Persist contribution state (available/awarded/ineligible), escrow state (unfunded/funded/settled/refunded) and attempt state (awaiting_signature/submitted/unknown/failed/verified) separately. Expired-claim/refundable badges are derived from chain time/state. Rejected signatures never downgrade a funded escrow.
+
+## Verification and recovery
+
+On every chain read, require eth_chainId == configured chain. Pin expected deployment address, bytecode and token/signer values.
+
+For funding require successful receipt, expected BountyFunded from escrow, exact stored terms/times, incoming token Transfer from payer to escrow, and matching contract state. For settlement require BountySettled from escrow, expected ID/digest/recipient/amount, and exact token Transfer from escrow to recipient. Verify refunds analogously to the recorded payer.
+
+For direct calls require transaction.to == escrow. For sponsored claims the enclosing transaction can target EntryPoint; match the correct UserOperation and log segment. Neither transaction.from nor msg.sender identifies the recipient.
+
+Demo confirmation policy: require the receipt block hash to match the canonical block and query its hash again after observing at least one subsequent block. This is an application confirmation threshold, not a new consensus/finality claim. Missing/conflicting RPC data stays unknown and is retried. Store block hash/number/log index, and detect inconsistency rather than treating it as failure or sending again.
+
+Index logs from deployment with bounded ranges and a persisted cursor; re-read a short overlap and deduplicate events. Browser hash submission and background scanning use the same verifier. Browser closure, HTTP timeout, duplicate delivery, replaced transaction and worker restart must recover existing business state.
+
+## Deployment
+
+Keep the frontend on Vercel. The target API is a persistent Python service (for example, an operator-provisioned non-sleeping Render service) with the durable PostgreSQL worker. Retain same-origin /api, /auth, /webhooks and health routes through explicit proxy rewrites. Current service rewrites require an implementation change to point at an external host. Verify cookies, redirects, Origin, forwarded protocol and webhook delivery after the switch.
+
+Confirm hosting budget/account availability during Phase 0. Render free instances sleep; they are not the always-on target. If persistent hosting is unavailable, use an authenticated bounded request-driven drain/refresh with saved inbox state; document its latency and avoid claiming autonomous background processing.
+
+Deliver the App RSA key via host secret-file facilities, preserving GITHUB_APP_PRIVATE_KEY_PATH or deliberately adding an environment-value loader; an arbitrary local path will not deploy. Store the separate escrow signer in server secret storage. Keep PostgreSQL connection pools within host limits; do not put an unbounded scanner in HTTP handlers.
+
+Future readiness should report required schema, contract/token/signer consistency and worker heartbeat separately; provider keys alone do not prove operational capability. Public responses reveal statuses, not credentials.
+
+Mainnet requires a separate configuration, review and new deployment. It must not reuse a Fuji payment record as mainnet settlement.

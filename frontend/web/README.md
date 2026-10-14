@@ -25,10 +25,15 @@ Small `page.tsx` files are framework route entries. Shared content, metadata and
 Use existing styles in `app/globals.css` and API helpers in `app/lib/api.ts`.
 [DESIGN.md](DESIGN.md) is the visual reference; [plan](../../plan.md) is implementation status.
 
-Payments use the dynamically loaded `@smoothsend/sdk/avax` in `app/lib/wallet.ts`.
-`AvaxRewards.tsx` provides external-wallet setup/selection, claim, funding address, USDC fee quote,
-owner review and recovery. The browser signs and submits an owner-paid `user-pays-erc20`
-UserOperation; it saves the signed operation before broadcast. Only the public SmoothSend key
-reaches this client. Contributors receive funds directly in their permanent linked wallet.
-See [SmoothSend architecture](../../docs/architecture.md#smoothsend-payments) and
-[demo walkthrough](../../docs/testing-data.md#a-fund-and-pay-through-smoothsend).
+## Reward implementation
+
+The current screen dynamically loads `@smoothsend/sdk/avax` from `app/lib/wallet.ts`.
+`AvaxRewards.tsx` provides external-wallet setup, funding, review, submission, and recovery for that
+earlier provider-specific path. Only its public provider key belongs in the browser.
+
+The hackathon target replaces the required provider flow with Privy login/wallets and direct interaction
+with the funded `GitBountyEscrow` contract on Fuji. SmoothSend can remain as an optional sponsored or
+account-abstraction execution path, but the same claim must work without it. UI copy must distinguish
+off-chain points, an escrow-funded reward, an eligible claim, a submitted transaction, and a verified
+settlement. See [target architecture](../../docs/architecture.md#target-hackathon-architecture) and the
+[live Fuji runbook](../../docs/testing-data.md#final-live-fuji-runbook).

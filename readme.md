@@ -1,79 +1,95 @@
 # GitBounty
 
-Find rewarded GitHub issues, contribute a fix, and earn points for an eligible merged pull request.
-Use the website to discover and manage bounties, or the optional browser extension to see rewards directly on GitHub.
+GitBounty turns verified GitHub contributions into transparent points and funded Avalanche rewards for the developer who authored the merged pull request.
 
-**Current status:** deployed at [GitBounty](https://gitbounty-web.vercel.app), with points bounties and
-owner-funded payments through SmoothSend. The two-account trial reached a verified merge and points
-award; wallet claiming and a live SmoothSend payout remain unverified. See [progress](plan.md).
+Live application: [gitbounty-web.vercel.app](https://gitbounty-web.vercel.app)
 
-## Product direction
+## Hackathon direction
 
-- Maintainers publish rewards on GitBounty. Only registered, published rewards should appear on the website and extension.
-- Rewards belong to the pull request author's **stable GitHub numeric ID**, whether or not they have a GitBounty account.
-- A contributor must sign in with that same GitHub account to create their GitBounty account and claim their points.
-- Registration does not determine eligibility or create a second award; the signed-in GitHub identity claims a reserved award once.
-- Optional fixed payment promises accompany points bounties. Current testing uses official USDC on
-  Avalanche Fuji; existing mainnet AVAX promises retain their terms. Owners sign through an external
-  browser wallet, fund a SmoothSend smart account, and pay payout fees in USDC. Contributors receive
-  the full reward in their linked external wallet. Points do not convert into money.
-  Execution requires migrations through 0016 and the payment configuration in [setup](docs/setup.md).
-  GitBounty does not fund or guarantee payment.
+The target submission is a complete Fuji demonstration:
 
-## Why this demo uses SmoothSend
+1. A maintainer publishes and funds a GitHub issue bounty in test USDC.
+2. A contributor opens an eligible pull request that closes the issue.
+3. GitBounty verifies the merge and PR author through GitHub.
+4. The contributor claims the escrowed reward through a user-controlled wallet.
+5. GitBounty independently verifies the Avalanche settlement and links to Snowtrace.
 
-GitBounty showcases SmoothSend as the execution layer for real contribution rewards: an eligible
-GitHub merge becomes an owner-reviewed payout, with fees paid in USDC through `user-pays-erc20`.
-The owner signs one ERC-4337 UserOperation; SmoothSend estimates fees, supplies paymaster data and
-submits the operation. The contributor receives the full promised amount, with the fee paid separately.
-The payout does not require native AVAX in the owner's signing wallet; funding from an ordinary wallet
-and later sending received funds can still require native gas.
+The current repository already implements the GitHub identity, bounty, points, allocation, webhook, wallet-linking, and payment-verification foundations. The hackathon roadmap adds a minimal Fuji escrow contract, improves wallet onboarding with Privy, and packages one live end-to-end proof. See [the plan](plan.md) for the exact current-versus-target boundary.
 
-The Payments workflow names SmoothSend, shows its smart-account funding address and fee quote,
-and supports recovery by UserOperation hash. This is the demo's provider integration, not an embedded
-GitBounty wallet or a withdrawal service. See [implementation details](docs/architecture.md#smoothsend-payments)
-and the [two-account demo](docs/testing-data.md#a-fund-and-pay-through-smoothsend).
+## Why Avalanche
 
-## Start here
+Avalanche C-Chain provides fast EVM-compatible settlement with a public testnet suitable for a judge-verifiable prototype. GitBounty uses Fuji for the demo, official test USDC for funded rewards, and Snowtrace for public transaction evidence. A small escrow contract makes “reward available” mean funds actually exist before a contributor starts work.
+
+## Architecture
+
+```text
+GitHub App / OAuth
+        │
+        ▼
+FastAPI eligibility + PostgreSQL ledger
+        │
+        ├── points and contribution history
+        │
+        └── signed settlement authorization
+                     │
+                     ▼
+Privy or external wallet ──► GitBountyEscrow on Avalanche Fuji
+                                      │
+                                      ▼
+                            verified USDC transfer
+```
+
+- **Website:** Next.js, React, TypeScript, viem.
+- **API:** FastAPI, Python, PostgreSQL, SQLAlchemy/asyncpg.
+- **GitHub:** OAuth identity, GitHub App installations, signed webhooks, reconciliation sync.
+- **Wallets:** planned Privy embedded/external wallet experience; current browser-wallet adapter remains available during migration.
+- **Avalanche:** Fuji C-Chain, official test USDC, planned `GitBountyEscrow` contract.
+- **Optional execution provider:** SmoothSend may improve account abstraction or sponsorship, but reward correctness does not depend on it.
+
+## Core invariants
+
+- Rewards belong to the stable numeric GitHub ID of the eligible PR author.
+- Registration never creates a second award.
+- Points are reputation and never convert into money.
+- A cash reward is advertised as funded only after its escrow transaction is confirmed.
+- Clients never choose the final recipient, amount, token, chain, or eligibility result.
+- Pending or unknown transactions are never presented as paid.
+- Retries cannot duplicate points or settlement.
+
+## Documentation
 
 | Document | Purpose |
 |---|---|
-| [Product overview](overview.md) | Agreed experience and product boundaries |
-| [Progress and next steps](plan.md) | What exists, what is unverified, and what to build next |
-| [Local setup](docs/setup.md) | Run the backend, website, extension and checks |
-| [Architecture](docs/architecture.md) | Current code structure and planned integration |
-| [Points rules](docs/points-rules.md) | Current award rules and implemented claim model |
-| [Security and operations](docs/security.md) | Credentials, migrations, recovery and deployment |
+| [Product overview](overview.md) | Product, principles, target experience, and non-goals |
+| [Implementation plan](plan.md) | Full phased roadmap and acceptance checks |
+| [Implementation audit](docs/implementation-audit.md) | Gaps found, evidence, and remaining launch gates |
+| [Hackathon submission](docs/hackathon-submission.md) | Submission fields, evidence, and demo script |
+| [Architecture](docs/architecture.md) | Current and target technical boundaries |
+| [Dependency boundaries](docs/dependency-boundaries.md) | What may be core, replaceable, or optional |
+| [Setup](docs/setup.md) | Local environment and planned contract configuration |
+| [Testing](docs/testing-data.md) | Deterministic and live two-account verification |
+| [Security](docs/security.md) | Identity, contract, signer, and deployment controls |
+| [Points rules](docs/points-rules.md) | Off-chain points and funded-reward eligibility |
 
-## Implementation today
+## Repository layout
 
-FastAPI serves GitHub OAuth, issue browsing, maintainer publishing, PR tracking, points history,
-leaderboards and moderation APIs. Postgres stores an append-only points ledger.
-The website uses React/TypeScript with the standard Next.js App Router.
-The Manifest V3 extension adds issue badges and a points popup.
+| Path | Responsibility |
+|---|---|
+| `backend/` | FastAPI application and backend tests |
+| `frontend/web/` | Website and component tests |
+| `frontend/extension/` | Optional browser extension |
+| `migrations/` | Numbered PostgreSQL migrations |
+| `e2e/` | Browser and accessibility tests |
+| `contracts/` | Planned Solidity escrow workspace |
 
-The backend uses **uv** with a committed lockfile. **Async SQLAlchemy** now serves the issue board and authentication;
-the remaining database queries are being migrated from asyncpg SQL.
-Selected public repositories can receive signed GitHub App webhooks; contributor sync remains the reconciliation path.
+The `contracts/` directory is part of the roadmap and must not be described as implemented until it exists and its deployment is verified.
 
 ## Run locally
 
-Follow [setup](docs/setup.md) for Python 3.12, Node 24 LTS, local Postgres and GitHub OAuth configuration.
-The API runs on port 8001 and the website on port 3000.
-Load `frontend/extension` unpacked in Chrome, Brave or Edge.
+See [docs/setup.md](docs/setup.md). The existing application uses Python 3.12, Node 24, PostgreSQL, GitHub OAuth/App credentials, and optional payment-provider configuration. Never commit environment files, keys, tokens, or database credentials.
 
-Run commands inside the relevant project folder; this is not a root npm workspace.
-The generated API reference is available at [localhost:8001/docs](http://localhost:8001/docs) while the backend runs.
+## Submission status
 
-## Repository
+The deployed landing page exists, but the hackathon submission is not complete until a real two-account GitHub journey ends in a verified Fuji escrow settlement. Contract address, Snowtrace transaction, public repository URL, demo video, and AI-tool disclosure will be added to [docs/hackathon-submission.md](docs/hackathon-submission.md) when verified.
 
-| Folder | Purpose |
-|---|---|
-| `backend/` | FastAPI application and Python tests |
-| `frontend/web/` | Website and component tests |
-| `frontend/extension/` | Browser extension and tests |
-| `migrations/` | Numbered SQL schema changes |
-| `e2e/` | Browser journey and accessibility tests |
-
-Contributors and coding agents should read [agent.md](agent.md) and [rules.md](rules.md).
-No licence has been selected; there is no `LICENSE` file.
+No license has been selected yet. The owner must choose one before claiming a reusable open-source release.

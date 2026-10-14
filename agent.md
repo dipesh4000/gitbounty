@@ -1,40 +1,42 @@
 # Agent guide
 
-Read [overview.md](overview.md) first, then [plan.md](plan.md) and [rules.md](rules.md).
-The overview records product intent; the plan distinguishes implemented behavior from agreed future work.
+Read [overview.md](overview.md), then [plan.md](plan.md), then [rules.md](rules.md) before changing the project.
 
-## Working context
+## Mission
 
-- GitBounty is a points app with a website and optional browser extension.
-- FastAPI, Postgres, GitHub OAuth and a points ledger are implemented.
-- uv manages the backend project and lockfile. Async SQLAlchemy serves issue-board reads and authentication; remaining queries still use asyncpg.
-- GitHub App webhooks use a signed, durable inbox and retry worker; live GitHub verification remains pending.
-- Rewards must belong to the PR author's GitHub numeric ID before or after registration.
-  Authentication as that identity is required to claim. Allocations and claims are implemented.
-- Only registered rewards are displayed; the extension's label-only fallback has been removed.
-- Owner-approved Avalanche promises are in scope. Connected browser wallets sign individual payouts
-  through required SmoothSend; owners fund smart accounts and pay fees in USDC. Current tests use Fuji USDC.
-  Points do not convert into money.
-  Keep payout amounts and recipients server-resolved, signatures verified and retries idempotent.
-- Current demo documentation must explain SmoothSend's owner-paid USDC fee flow and external
-  receiving wallets. Do not imply embedded wallets, sponsored withdrawals or a verified live payout.
+Ship a judge-verifiable GitHub reward flow on Avalanche Fuji. A maintainer funds an issue bounty, GitBounty verifies the eligible merged PR author, and that contributor claims the exact escrowed USDC reward.
 
-## Before claiming completion
+## Current-versus-target discipline
 
-Read the code instead of trusting old descriptions. Run checks appropriate to the change and report
-what was verified, what skipped, and what still needs a person or external configuration.
-Preserve existing API contracts and award invariants during infrastructure migrations.
-Keep Pydantic response models separate from ORM models; stored tokens must never become public fields.
+- Existing code includes GitHub authentication, GitHub App webhooks, points, allocations, wallet proofs, SmoothSend integration, and payment verification.
+- The Fuji escrow contract and Privy migration are planned until source, tests, deployment evidence, and live verification exist.
+- Never convert roadmap statements into “implemented” claims without checking the code and evidence.
+- Historical migrations describe prior models; add new numbered migrations for the new settlement design.
 
-Open product decisions are listed in the overview. Propose and wait on those rather than choosing by scaffolding.
-Do not re-ask decisions already settled by the user.
+## Priority order
 
-## Documentation map
+1. Preserve stable GitHub numeric identity and idempotent awards.
+2. Prove the smallest funded Fuji escrow lifecycle.
+3. Connect verified GitHub eligibility to exact-recipient settlement.
+4. Make the deployed experience understandable and accessible.
+5. Record public evidence and package the submission.
+6. Add Privy native GitHub onboarding and optional SmoothSend claims after the direct-wallet proof; follow the dated phase gates.
+7. Package pitch slides, video and accurate build-window provenance; owner handles source/license and portal publication.
 
-- [README](readme.md): introduction and entry points.
-- [Overview](overview.md): agreed product.
-- [Plan](plan.md): progress and next work.
-- [Setup](docs/setup.md), [architecture](docs/architecture.md), [points rules](docs/points-rules.md),
-  [security and operations](docs/security.md): essential technical guidance.
+## Engineering boundaries
 
-Use existing CSS tokens and accessible controls for frontend changes.
+- The backend decides eligibility, bounty ID, token, amount, recipient, chain, authorization nonce, and deadline.
+- The contract enforces funding, authorization, replay protection, settlement, and refunds.
+- Its immutable signer is trusted for GitHub eligibility. Fixed seven-day claim grace may expire even after an off-chain award.
+- The frontend displays state and requests user signatures; it is never trusted as an authority.
+- Privy owns wallet UX, not GitBounty's reward database or GitHub identity model.
+- SmoothSend is optional transaction infrastructure, not a product invariant.
+- Points remain an append-only off-chain reputation ledger.
+
+## Completion evidence
+
+Every completed phase needs proportionate automated checks and observable evidence. The submission additionally requires one real GitHub two-account run and one successful Fuji settlement linked on Snowtrace. Simulated tests alone do not prove the hackathon demo.
+
+Read [implementation audit](docs/implementation-audit.md) and [dependency gates](docs/dependency-boundaries.md). Native Privy GitHub OAuth is supported; custom JWT is optional. Preserve existing immutable wallets, and never assume a Vercel function keeps an infinite worker alive.
+
+Do not expose secrets in source, logs, tool output, screenshots, videos, documentation, or chat.

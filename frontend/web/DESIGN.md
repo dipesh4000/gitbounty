@@ -45,20 +45,26 @@ Keep persistent navigation, readable tables and one clear next action per stage.
 art and scroll effects for marketing; activity and payment screens need stable, predictable controls.
 
 - Contributor flow: discover and filter → inspect the GitHub issue and reward terms → submit a PR →
-  follow review/merge status → claim eligible points and link a receiving wallet → track the owner's
-  payment → see verified settlement. A merge or points award alone must not read as a paid reward.
+  follow review/merge status → claim eligible points → connect or create a Privy wallet → claim a funded
+  reward from escrow → see verified settlement. A merge or points award alone must not read as a paid reward.
 - Maintainer flow: select repository → configure issues, points and exact reward promises → review
-  and publish → review contributions → open eligible payment → fund the displayed SmoothSend smart
-  account for the full reward plus USDC fee → review and sign → follow verification or recovery.
-- Payment review must identify network, recipient, full reward, fee allowance and funding address.
+  and publish → fund the escrowed reward → review contributions → merge an eligible PR → follow the
+  contributor claim and verified settlement.
+- Payment review must identify network, escrow contract, recipient, token, exact reward and claim state.
+  Show work cutoff and claim deadline before funding or contribution; a cash award can expire while
+  points remain. Approval and funding are separate actions. Show AVAX gas separately from test USDC.
   Payment lists separate owner payouts from contributor rewards, with merge/claim/payment progress
   and a role-specific next action. A linked address is not proof of a current browser connection;
-  show these states separately and detect account mismatch without requesting a signature.
-  The connected receiving wallet and the owner's SmoothSend smart account are different accounts.
-  Missing funds, unavailable provider and pending verification each need a specific next step.
-- Name SmoothSend in payment review and owner-payout guidance, explaining USDC-paid fees and
-  smart-account funding. Do not call it a GitBounty withdrawal, free payment or internal wallet.
+  show these states separately and detect account mismatch before a claim is submitted.
+  Missing escrow funds, an expired authorization, a network mismatch, a pending transaction, and failed
+  verification each need a specific next step.
+- Name Privy when explaining login or wallet custody. Name SmoothSend only when its optional transaction
+  path is actually active. Do not call either service a GitBounty wallet, bank account, or proof of payment.
   Keep wallet setup available before a reward exists and payment-workflow help expandable.
+- Preserve the existing permanent receiving address during Privy onboarding. Explain same-address
+  recovery; connecting a different external wallet cannot recover an embedded wallet's control.
+- Make funded/awarded/paid/refundable states readable without login on the public proof page. Explain
+  that GitBounty attests GitHub eligibility and the contract enforces the authorized transfer.
 - Extension flow: Discover is the default, with title search and the beginner filter visible.
   Language/category/sort live in expandable filters; paging preserves the query. Issue cards link
   directly to GitHub. Account & wallet holds full balances, network, address and recent activity.

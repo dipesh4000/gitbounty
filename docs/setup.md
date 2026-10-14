@@ -1,342 +1,212 @@
-# Local setup
+# Development and deployment setup
 
-Use uv, Python 3.12 (matching CI), Node 24 LTS and local Postgres 17.
-uv manages Python and dependencies; the SQLAlchemy migration is partially complete.
-Install uv using its official installation guide: https://docs.astral.sh/uv/getting-started/installation/.
-Run npm commands within the relevant project folder.
+This guide covers the existing application and names planned settings for the hackathon escrow/Privy work. Planned settings are not usable until their corresponding code exists.
 
-For your configured Supabase database, skip the local database step and keep the existing
-`DATABASE_URL` in `backend/.env`. Local Postgres is needed only for isolated automated tests.
+## Prerequisites
 
-## 1. Local database
+- Python 3.12
+- uv
+- Node.js 24
+- PostgreSQL
+- Two GitHub accounts for the live flow
+- A GitHub OAuth app and GitHub App
+- An Avalanche-compatible wallet with Fuji test AVAX
+- Official Fuji test USDC
+- A Privy application when Phase 5 begins
+- A Fuji RPC endpoint
 
-On this Windows machine, the temporary PostgreSQL 17 instance used for testing already exists.
-Start it in a dedicated PowerShell terminal without Docker (leave this terminal open):
+## Repository layout
 
-```powershell
-& "$env:TEMP\gitbounty-postgres-tools\pgsql\bin\postgres.exe" -D "$env:TEMP\gitbounty-postgres-tools\data" -p 5440 -h 127.0.0.1
-```
-
-It contains `gitbounty_dev`, `gitbounty_api_test` and `gitbounty_bootstrap_test`.
-This temporary location is for local development; do not rely on it for long-term storage.
-
-On another machine, create the local container instead (requires Docker):
-
-From any terminal, as single-line commands:
+Run commands from the component directory; this is not a root npm workspace.
 
 ```text
-docker run -d --name gitbounty_dev_db -e POSTGRES_USER=gitbounty -e POSTGRES_PASSWORD=gitbounty_local_dev -e POSTGRES_DB=gitbounty_dev -p 5440:5432 postgres:17-alpine
-docker exec gitbounty_dev_db psql -U gitbounty -d postgres -c "create database gitbounty_api_test" -c "create database gitbounty_bootstrap_test"
+backend/             FastAPI application
+frontend/web/        Next.js website
+frontend/extension/  optional browser extension
+migrations/          PostgreSQL migrations
+e2e/                 browser tests
+contracts/           planned Solidity workspace
 ```
 
-The password above is for this throwaway local container only.
-If the container already exists, use `docker start gitbounty_dev_db`.
-Create the test databases once. Never substitute a shared database for a test target.
+## Database
 
-## 2. Backend environment
-
-From the repository root, Windows PowerShell:
+Use a throwaway local PostgreSQL database for development and tests. Configure `DATABASE_URL` in the ignored `backend/.env` file. Apply migrations through the existing runner:
 
 ```powershell
 cd backend
 uv sync --locked
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+uv run python dev/migrate.py status
+uv run python dev/migrate.py up
 ```
 
-On macOS/Linux:
+Never apply migrations to a shared database without explicit owner approval and a backup. Never edit an applied migration.
 
-```bash
-cd backend
-uv sync --locked
-cp .env.example .env
-```
+## Existing backend configuration
 
-Only copy the example if you do not already have a `.env`; preserve existing configuration.
-Create a GitHub OAuth app through [developer settings](https://github.com/settings/developers):
-homepage `http://localhost:3000`, callback `http://localhost:8001/auth/github/callback`.
-The callback must match `GITHUB_CALLBACK_URL`.
+Copy `backend/.env.example` to ignored `backend/.env` and configure only the values required for the feature under test:
 
-Set these in the ignored `backend/.env`. The backend always loads this file, regardless of the
-working directory. A root `.env` is not used. `ALLOWED_ORIGIN`, `COOKIE_SECURE` and
-`COOKIE_SAMESITE` are not GitBounty setting names; use the names below. Groq, NVIDIA and Gemini
-settings are unrelated to the current bounty flow.
+- `DATABASE_URL`
+- `SESSION_SECRET`
+- `TOKEN_ENCRYPTION_KEY`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GITHUB_CALLBACK_URL`
+- `FRONTEND_URL`
+- `GITHUB_APP_ID`
+- `GITHUB_APP_SLUG`
+- `GITHUB_APP_PRIVATE_KEY_PATH`
+- `GITHUB_WEBHOOK_SECRET`
+- `SECURE_COOKIES`
+- `ADMIN_GITHUB_IDS` when testing moderation
 
-GitHub's consent screen identifies the OAuth app's developer. The configured local app is
-**GitBounty (local)**, owned by **Nishika**, which the owner has chosen to retain.
-This does not select the signed-in user's identity; that comes from GitHub's authenticated profile.
-See [GitHub's consent guide](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/authorizing-oauth-apps).
+The current SmoothSend path additionally recognizes its existing `AVAX_*` and `SMOOTHSEND_*` settings. Those remain historical/current compatibility settings until the new escrow flow replaces or reuses them.
 
-| Setting | Local value |
-|---|---|
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | From your OAuth app; keep the secret private |
-| `GITHUB_CALLBACK_URL` | `http://localhost:8001/auth/github/callback` |
-| `FRONTEND_URL` | `http://localhost:3000` |
-| `ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` |
-| `DATABASE_URL` | `postgresql://gitbounty:gitbounty_local_dev@127.0.0.1:5440/gitbounty_dev` |
-| `SESSION_SECRET` | A generated random session secret |
-| `TOKEN_ENCRYPTION_KEY` | A generated Fernet key |
-| `SECURE_COOKIES` | `false` for local HTTP; explicitly `true` for deployed HTTPS |
-
-## Vercel multi-service deployment
-
-The root [vercel.json](../vercel.json) configures `backend` and `web` services. The backend is routed
-publicly at `/api/*`, `/auth/*`, `/webhooks/github`, `/health`, `/healthz` and `/ready`; the web service
-handles all remaining paths. Browser API calls use those same-origin paths in production, so do not set
-`NEXT_PUBLIC_GITBOUNTY_API` on Vercel. No service binding is needed for the current browser-to-API calls.
-Set the Vercel project's framework to **Services**. The web service uses the `nextjs` preset, runs the
-package's standard `next build`, and selects Node 24 from `frontend/web/package.json`.
-
-In the backend service's Vercel environment, set `FRONTEND_URL` to the canonical HTTPS site origin,
-`GITHUB_CALLBACK_URL` to that origin plus `/auth/github/callback`, and `SECURE_COOKIES=true`. Configure the
-GitHub OAuth app with the same callback URL. Add the backend's other required secrets and database settings
-as Vercel environment variables; do not put secrets in `vercel.json`.
-
-For webhook processing, create a GitHub App with read-only Contents, Issues and Pull requests permissions.
-Subscribe to Pull request and Issues events; installation lifecycle events are also handled. Set its webhook URL to
-`https://<public-api-host>/webhooks/github`. Add these server-only values:
-
-| Setting | Value |
-|---|---|
-| `GITHUB_APP_ID` | Numeric App ID |
-| `GITHUB_APP_SLUG` | App URL slug used by the installation link |
-| `GITHUB_APP_PRIVATE_KEY_PATH` | Absolute path to the downloaded RSA private key, outside this repository |
-| `GITHUB_WEBHOOK_SECRET` | A generated webhook secret configured identically in GitHub |
-
-Do not commit the private key or secret. The local API must be reachable from GitHub to receive live deliveries.
-
-Generate secrets locally using the virtualenv's Python, then keep the values private:
-
-```text
-uv run --locked python -c "import secrets; print(secrets.token_urlsafe(32))"
-uv run --locked python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-Run these commands from `backend/`; uv selects the project's Python and environment.
-Never include generated output in a commit or support message.
-For real OAuth verification, leave the development login stub disabled, the test secret unset,
-and `GITBOUNTY_ENVIRONMENT` at its default.
-
-Other settings are defined in [config.py](../backend/app/config.py) and [.env.example](../backend/.env.example).
-Notable options: `ADMIN_GITHUB_IDS` (numeric IDs; empty grants nobody moderation access),
-`LOG_LEVEL`, `JSON_LOGS`, `SESSION_MAX_AGE_SECONDS`, and `GITBOUNTY_ENV_FILE`.
-The test-only auth/API-host/rate-limit overrides must never be enabled for normal operation.
-
-There is no application Settings page. Edit server settings in `backend/.env` and restart the backend.
-The template supplies local cookie/expiry defaults and disables test-only authentication. In an existing `.env`,
-remove empty `SESSION_MAX_AGE_SECONDS` values or set `1209600`; use `SECURE_COOKIES=false` for local HTTP.
-Keep `GITBOUNTY_ENVIRONMENT=production` and `GITBOUNTY_TEST_AUTH_SECRET` empty for manual testing.
-
-## 3. Run backend and website
-
-From `backend/`, PowerShell:
+Start the API:
 
 ```powershell
-uv run --locked python dev/migrate.py status
-uv run --locked python dev/migrate.py up
-uv run --locked python -m uvicorn app.main:app --port 8001 --reload
+cd backend
+uv run uvicorn app.main:app --reload --port 8001
 ```
 
-For a shared Supabase target, the runner requires explicit owner approval:
-`uv run --locked python dev/migrate.py status --i-have-approval`, then, only with that approval,
-`uv run --locked python dev/migrate.py up --i-have-approval`.
-Migrations through 0016 were recorded as applied to the configured Supabase target with owner approval
-on 2026-10-10; verify status/checksums for the actual target before use.
-Startup does not apply migrations automatically. `/ready` reports an incomplete rewards schema as 503.
+Useful endpoints:
 
-The same uv commands work on POSIX. Production dependency installation uses `uv sync --locked --no-dev`.
-Confirm [readiness](http://localhost:8001/ready), then open [API docs](http://localhost:8001/docs).
+- `http://localhost:8001/health`
+- `http://localhost:8001/ready`
+- `http://localhost:8001/docs`
 
-In a second terminal from the repository root:
+## Website
 
-```text
+```powershell
 cd frontend/web
-npm ci
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open [localhost:3000](http://localhost:3000). Port 8001 is the API, not the website.
-Explore, Create and Leaderboard require GitHub sign-in. Landing actions open `/login` with the selected
-destination; direct workspace links show the same sign-in screen. Informational pages and the landing
-bounty preview remain public. After authorization, you return to the selected workspace.
-The API URL defaults to port 8001; `NEXT_PUBLIC_GITBOUNTY_API` overrides it and is baked into production builds.
-Use the same hostname consistently for the site, API and callback.
+Open `http://localhost:3000`.
 
-## 4. Extension
-
-Open `chrome://extensions`, `brave://extensions` or `edge://extensions`, enable Developer mode,
-and load `frontend/extension` unpacked.
-Start the API, publish a bounty, then open its GitHub issue list.
-Reload the extension and GitHub tab after changing extension code.
-See the [extension README](../frontend/extension/README.md) for current behavior and pending changes.
-
-## 5. Checks
-
-Run each row in its own folder:
-
-| Folder | Commands |
-|---|---|
-| `backend/` | `uv run --locked pytest` |
-| `frontend/web/` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` |
-| `frontend/extension/` | `npm ci`, `npm run check` |
-| `e2e/` | See [E2E instructions](../e2e/README.md); Windows and POSIX are supported |
-
-Database tests skip when their databases cannot be reached. Report skips; they do not establish correctness.
-Tests isolate configuration from developer dotenv files.
-[CI](../.github/workflows/ci.yml) runs backend/database checks, web component/build checks,
-extension tests, E2E/accessibility, secret scanning and migration validation. It does not deploy.
-
-## Real GitHub verification
-
-Use the [copy-ready test data](testing-data.md) for your two GitHub accounts, five issues,
-point values, filter checks and merge/claim scenarios with expected totals.
-
-The automated E2E harness substitutes GitHub; verify this separately with an actual account:
-
-1. On the website, choose **Create a bounty**, sign in through GitHub, and confirm you return to the repository picker. Confirm `/api/me` returns your identity without any access token.
-2. Refresh and confirm the session persists. Inspect cookie flags without exposing the cookie value.
-3. Choose a public repository you maintain, choose an open issue, select it, set 1–1000 points and a
-   category, review, then publish. Confirm it appears at `/explore` after sign-in and in the public landing preview,
-   and on its GitHub issue after reloading the extension and GitHub tab.
-4. Use **My published bounties** to edit, unpublish or archive the reward. Confirm the explorer and
-   extension reflect changes. Use **My PRs** to sync; **Points** shows history and claimable rewards.
-5. For reward verification, use a different contributor account: open a PR with `Closes #<issue>`
-   targeting the rewarded repository, then merge it as the maintainer. Self-merges/own-repository
-   contributions are excluded. Sync the contributor after merging and confirm a single award;
-   repeat sync to verify it is not counted twice.
-6. Install the GitHub App on that public repository and connect it from the maintainer workspace.
-7. Using a different eligible contributor account, merge a PR closing that issue. Confirm the delivery is processed.
-8. Sign in as the contributor, claim reserved points, and confirm history and leaderboard. Sync again and confirm no duplicate.
-9. Sign out and confirm `/api/me` returns 401 and the stored token is cleared.
-10. To test revocation, revoke the GitHub grant while retaining the existing GitBounty session, then sync.
-   The app should request reauthentication. Signing in again first would obtain a new grant and invalidate this check.
-
-Use two GitHub accounts: a repository maintainer and a contributor who does not own that repository or bounty.
-For the pre-registration path, merge before the contributor first signs in to GitBounty. The PR body should
-contain an explicit closing reference such as `Closes #12`. GitHub's Development-sidebar link alone is not detected.
-An eligible 40-point bounty normally earns 45 points including the baseline; repeat sync/claim must add zero.
-The webhook worker starts with the API when all four App settings and the database are configured.
-A public HTTPS tunnel to port 8001 is needed for GitHub to reach a local webhook; use its URL only for the webhook,
-while keeping the website and OAuth callback on the configured localhost addresses.
-
-In the signed-in workspace, test Explore bounties, Create a bounty, My PRs, Points and Leaderboard.
-`/maintainers` opens the publishing workspace; `/leaderboard` shows the live ranking. Both require sign-in.
-For moderation, set `ADMIN_GITHUB_IDS` and use the API reference; moderation UI remains deferred.
-
-## Stop after testing
-
-Press Ctrl+C in the backend and website terminals. Stop the local Windows database with:
+Checks:
 
 ```powershell
-& "$env:TEMP\gitbounty-postgres-tools\pgsql\bin\pg_ctl.exe" stop -D "$env:TEMP\gitbounty-postgres-tools\data" -m fast -w
+npm.cmd test
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run build
 ```
 
-For the Docker alternative, use `docker stop gitbounty_dev_db`. Stop any webhook tunnel in its terminal too.
+## Backend checks
 
-## Troubleshooting
+```powershell
+cd backend
+uv run pytest
+```
 
-| Symptom | Check |
-|---|---|
-| Readiness/API 503 | Configured database reachable, migrations applied, required settings present |
-| Missing `reward_allocations` or `connected_repositories` | Apply migrations 0013/0014 using the runner; shared targets require owner approval |
-| OAuth redirect mismatch | Exact callback scheme, hostname, port and path |
-| Repeated signed-out state | Consistent hostnames, allowed origins, cookie settings and current encryption key |
-| CSRF 403 | Obtain a fresh token from `/api/csrf`; reload after session changes |
-| Empty explorer | A maintainer must publish a bounty; a GitHub label does not publish one |
-| No extension badge | Loaded/reloaded extension, matching GitHub issue URL, API contains that bounty |
-| Label has points but no badge | Labels alone are not registered rewards |
-| Missing `jsdom` | Run `npm ci` in the project whose tests are failing |
-| PR earns only baseline | Check closing reference, bounty availability and author eligibility |
-| Sync stuck running | In-process task may have died; a later attempt releases stale runs after 30 minutes |
-| Rate limit 429 | Respect retry information; limits may come from GitBounty or GitHub |
+Database-backed tests require an isolated local database. A run that skips database tests is not full verification.
 
-For credential changes and database recovery, use [security and operations](security.md).
+## Browser checks
 
-## Deployed GitHub configuration
+Follow [../e2e/README.md](../e2e/README.md). The harness must use isolated local data and simulated GitHub unless a test explicitly documents live external effects.
 
-For the current deployment, use these exact URLs in GitHub's application settings:
+## Planned contract workspace
 
-| Setting | URL |
-|---|---|
-| OAuth App homepage | `https://gitbounty-web.vercel.app` |
-| OAuth App authorization callback | `https://gitbounty-web.vercel.app/auth/github/callback` |
-| GitHub App webhook | `https://gitbounty-web.vercel.app/webhooks/github` |
+Phase 1 will add `contracts/` using Hardhat 3, Node 24 and viem:
 
-Set the backend's Vercel production environment variables to match:
-`FRONTEND_URL=https://gitbounty-web.vercel.app`,
-`GITHUB_CALLBACK_URL=https://gitbounty-web.vercel.app/auth/github/callback`,
-`ALLOWED_ORIGINS=https://gitbounty-web.vercel.app`, and `SECURE_COOKIES=true`.
-Use the OAuth App's client ID and client secret for sign-in. The separate GitHub App needs its
-own App ID, installation configuration, accessible private key and matching webhook secret.
-Subscribe that App to pull-request and issue events with read access to issues, pull requests and metadata.
-Closed/reopened issue deliveries refresh discovery state after verification; they never award points.
-Contributor Sync GitHub also refreshes published issue states to recover missed issue deliveries.
-Redeploy after updating environment variables. Test sign-in in a browser; HTTP readiness does not
-verify GitHub authorization or actual webhook processing.
+```text
+contracts/
+  contracts/GitBountyEscrow.sol
+  test/escrow.test.ts
+  scripts/deploy-fuji.ts
+  hardhat.config.ts
+  package.json
+  package-lock.json
+  deployments/fuji.json
+```
 
-An earlier 2026-10-11 read-only check of the deployed `/auth/github` redirect showed
-`redirect_uri=http://localhost:8001/auth/github/callback` and a session cookie without `Secure`.
-The later check recorded in testing-data.md reported the production callback. Recheck after deployment;
-if localhost or missing Secure recurs, correct the environment values above. A local source edit cannot
-replace Vercel environment variables. Match the GitHub OAuth App callback to the production URL too.
+The deployment record may contain public addresses, transaction hashes, chain ID, compiler metadata, and constructor arguments. It must never contain deployer or signer private keys.
 
-If `/ready` reports `database: unreachable`, inspect the backend log's
-`Could not open the database pool (ExceptionName)` entry without sharing credentials.
-Check that the Vercel backend has the correct production `DATABASE_URL`, the database is active,
-the password is URL-encoded, TLS is configured, and network restrictions allow the deployment.
-For Supabase on an IPv4-only network, use its **Session pooler** connection string (port 5432),
-which supports this app's prepared statements. Transaction pooling requires additional driver
-configuration; do not switch to it blindly. See [Supabase connection options](https://supabase.com/docs/guides/database/connecting-to-postgres).
-No schema changes are needed to resolve a connection failure. Missing tables produce a different
-readiness result; shared migrations still require owner approval.
+Pin compiler and dependencies, set evmVersion = cancun explicitly, and retain Standard JSON build input/output and optimizer settings. [Avalanche compiler guidance](https://build.avax.network/docs/primary-network/verify-contract/hardhat) warns against relying on newer compiler defaults. Contract commands will become executable setup instructions only when this workspace exists.
 
-The deployed multi-service setup returned 404 for `/_next/image` while public PNGs returned 200.
-Next's image optimization is disabled in `frontend/web/next.config.ts`, so images use static asset
-URLs. Landing artwork is extracted from the supplied preview and rendered directly, without waiting
-for a script to assign image sources.
+Planned public configuration:
 
-## Avalanche payments through SmoothSend
+- Fuji chain ID `43113`
+- Fuji RPC URL
+- official Fuji USDC address
+- deployed escrow contract address
+- Snowtrace base URL
 
-Payments execute only on Avalanche C-Chain (43114) or Fuji (43113), through SmoothSend. The current
-local test choice is official Circle USDC on Fuji. Connected browser wallets prove GitHub identity and
-sign UserOperations; owners fund their SmoothSend smart accounts and pay fees in USDC. Points stay
-separate. GitBounty neither funds nor guarantees an owner's promise; there is no escrow or server signing key.
+Planned server-only configuration:
 
-1. Apply numbered migrations through `0016_fuji_usdc.sql` with the migration runner. Shared targets
-   require explicit owner approval. Existing mainnet promises retain their immutable network and amount.
-2. In ignored `backend/.env`, set `AVAX_PAYMENTS_ENABLED=true`, `PAYMENT_MODE=usdc_fuji`,
-   `SMOOTHSEND_PUBLIC_KEY=pk_nogas_…` (the browser key),
-   `SMOOTHSEND_SECRET_KEY=sk_nogas_…` (the backend key), and `SMOOTHSEND_FEE_LIMIT_USDC=0.1`.
-   Allow the exact frontend origin in the SmoothSend dashboard, normally `http://localhost:3000`.
-   Restart the API. Missing/invalid public keys keep execution disabled; secret keys are never exposed.
-3. Publish a fresh issue with an exact USDC promise, up to six decimals. Claim amounts, recipients,
-   network and nonce are server-resolved. Old points-only bounties cannot gain money retroactively.
-4. Each account can open **Payments** before a merge to select an installed external wallet and
-   choose **Connect receiving / payer wallet**. Finish wallet setup and unlock it first; never reset
-   an old wallet without its recovery phrase. After an eligible verified merge, the contributor signs a one-time wallet
-   challenge and claims. One receiving wallet is permanently linked to the numeric GitHub identity.
-5. The owner chooses **Review payment**, connects their payer wallet and funds the displayed SmoothSend
-   smart-account address with reward plus fee allowance in Fuji USDC. This differs from their EOA address.
-   Review the exact receiving address, full reward, network and fee. Confirm signs through SmoothSend's
-   `user-pays-erc20` flow. The allowance caps the paymaster's USDC approval; fees do not reduce the reward.
-6. **Verify payment** checks the Avalanche receipt, EntryPoint event, saved operation/nonce/calldata and
-   exact USDC Transfer in that operation's log segment. A pending/unknown operation remains unpaid.
-   Recover using its UserOperation hash. Resubmit reuses the stored signed operation; a verified failed
-   operation permits a new nonce on the same payment row. Confirmed receipts are append-only.
-7. Contributors receive USDC in their linked browser wallets. Moving it later using the wallet's Send
-   action needs Fuji AVAX for ordinary gas; sponsored withdrawals are not implemented.
+- settlement authorization signer or external signer reference
+- expected immutable signer address and deployment block
+- optional RPC provider credential
 
-One unfinished payment per payer wallet is allowed. Manual review holds block payment. There is no direct
-payout fallback when SmoothSend fails. Test tokens have no monetary value; no live wallet transfer is
-performed by automated tests. Follow the [complete two-account walkthrough](testing-data.md) for live verification.
+Planned browser configuration:
 
-Official references: [Circle USDC contracts](https://developers.circle.com/stablecoins/usdc-contract-addresses),
-[Circle test faucet](https://faucet.circle.com/), [SmoothSend Avalanche quickstart](https://docs.smoothsend.xyz/avax/quickstart).
-Only the public key is returned to the website. The secret key is used for backend SmoothSend gateway
-verification and must remain in backend/Vercel server environment variables, never `NEXT_PUBLIC_`.
-If the secret key is absent, backend verification temporarily uses the public key for compatibility;
-configure both key types for production. Both must belong to the same SmoothSend project and allow the
-site origin. The SDK is dynamically loaded from its Avalanche subpath. Project `.npmrc` uses legacy peer resolution
-because the SDK's unused Aptos wallet peers conflict; `npm ci` follows that checked-in setting.
+- Privy app ID
+- chain ID
+- escrow and token addresses
 
-The local Codex MCP server is registered as `smoothsend-mcp` using `npx -y @smoothsend/mcp@1.2.0`.
-Reload Codex to load newly registered tools. MCP provides development tools; runtime payments use the SDK.
+The API should return authoritative public payment configuration so the frontend does not duplicate it inconsistently.
+
+## Planned Privy setup
+
+When Phase 5 begins:
+
+1. Create/configure a Privy app for the exact development and production origins.
+2. Enable native GitHub OAuth; it is supported by current Privy docs. Keep the existing direct OAuth route as fallback.
+3. Configure Avalanche Fuji as the default and supported EVM chain.
+4. Enable embedded EOA creation and external EVM wallets; preserve any existing immutable receiving EOA.
+5. Verify the access token and linked identity server-side, map its numeric GitHub subject to the existing user, then establish the normal GitBounty app session. Reject conflicting app/Privy identities.
+6. Require a wallet signature challenge before persisting the payout address.
+7. Retain the separate GitHub owner-authorization token flow for permission checks and App installation reads. A Privy access token is not a GitHub API credential.
+8. Test logout, token refresh, two-account migration, same-address recovery/export and MFA. Custom JWT is an optional existing-auth alternative, not required for native GitHub login.
+
+Official references: [native GitHub OAuth](https://docs.privy.io/authentication/user-authentication/login-methods/oauth), [access tokens](https://docs.privy.io/authentication/user-authentication/access-tokens), and [connect or create a wallet](https://docs.privy.io/wallets/connectors/usage/connect-or-create).
+
+## GitHub configuration
+
+OAuth is used for user identity and user-specific GitHub actions. The GitHub App is used for repository installation scope and webhook processing.
+
+For the live demo:
+
+- use a dedicated public repository;
+- enable Issues;
+- install the GitHub App only on the selected repository;
+- configure the production webhook URL and secret;
+- request only permissions required by the actual API calls;
+- use two distinct GitHub users for payer and contributor.
+
+## Fuji assets
+
+Use faucet AVAX only for gas and official Fuji test USDC for the bounty. Test assets have no monetary value. Verify token address and decimals against current official Avalanche/Circle information before deployment rather than copying an old address blindly.
+
+Checked October 13: Fuji chain ID 43113, USDC 0x5425890298aed601595a70AB815c96711a31Bc65 has bytecode and six decimals. A needs USDC plus AVAX for exact allowance approval and funding; B needs AVAX for a direct claim. Pre-fund both before recording. SmoothSend sponsorship is an optional separately verified enhancement.
+
+## Deployment configuration
+
+The current Vercel configuration routes website, API, authentication, webhooks, and health endpoints under one origin. The target persistent Python API needs explicit proxy rewrites, host secret-file delivery and a worker restart check. Confirm operator account/budget first; a sleeping free instance is not an always-on worker. The fallback is bounded authenticated request-driven drain/sync with saved inbox state.
+
+Production must configure:
+
+- exact frontend and OAuth callback URLs;
+- secure cookies;
+- production database and migration status;
+- GitHub App private key and webhook secret;
+- Fuji RPC and contract configuration;
+- Privy public/server configuration when implemented;
+- authorization signer through secure secret storage;
+- logs that exclude secrets and transaction authorization payloads where sensitive.
+
+Before implementing the new flow, resolve the advisory findings and operational preflights in [dependency-boundaries.md](dependency-boundaries.md). Same-origin proxy cookies, callback redirects, App permissions, TLS/pool limits and worker progress need live checks after deployment.
+
+## Local-to-live promotion
+
+1. Pass deterministic contract tests.
+2. Pass backend and frontend tests locally.
+3. Run a local integration flow against a local EVM node.
+4. Deploy the exact tested contract artifact to Fuji.
+5. Verify a manual fund/settle smoke test.
+6. Deploy the application configuration.
+7. Run the two-account GitHub-to-Fuji flow in [testing-data.md](testing-data.md).
+8. Record public evidence in [hackathon-submission.md](hackathon-submission.md).
+
+Never use successful local or simulated tests as a claim that production or Fuji has been verified.

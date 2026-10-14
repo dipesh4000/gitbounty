@@ -22,10 +22,10 @@ not all GitHub issues or the Good First Issue site's index. The beginner filter 
 `good first issue`, `good-first-issue`, `good first contribution`, and `good-first-contribution` labels.
 Maintainers supply these labels; they do not verify difficulty, availability or a guaranteed payment.
 
-Wallet balances are for the permanent linked receiving EOA, not the owner's SmoothSend funding smart account.
-Fuji balances are explicitly test tokens with no monetary value. Payments and wallet linking stay on the
-website; payouts require SmoothSend, while wallet linking uses an ownership signature. The extension
-never signs or sends funds and requests no new permissions.
+Wallet balances are for the contributor's linked receiving address. Fuji balances are explicitly test
+tokens with no monetary value. Payment setup, wallet linking, and escrow claims stay on the website.
+SmoothSend may improve execution UX but is not required. The extension never signs or sends funds and
+requests no new permissions.
 Webhook processing and pre-registration claims are backend features; the extension links claims to the website.
 
 ## Run

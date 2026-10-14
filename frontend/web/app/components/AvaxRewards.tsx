@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { apiWrite } from "../lib/api";
 import { useApiResource } from "../lib/useApiResource";
-import type { SmoothPayment } from "../lib/wallet";
+import type { SmoothPayment, PaymentFunding } from "../lib/wallet";
 import type { PaymentConfig } from "../lib/payments";
 import { discoverWallets, selectWallet, walletProvider, walletError, type WalletOption } from "../lib/walletProviders";
 
@@ -39,6 +39,8 @@ export function AvaxRewards() {
   const [review, setReview] = useState<Reward | null>(null);
   const [prepared, setPrepared] = useState<SmoothPayment | null>(null);
   const [quotedFee, setQuotedFee] = useState<string | null>(null);
+  const [funding, setFunding] = useState<PaymentFunding | null>(null);
+  const [paymentError, setPaymentError] = useState("");
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (review) reviewHeading.current?.focus(); }, [review]);
   const [hashes, setHashes] = useState<Record<number, string>>({});
@@ -82,14 +84,37 @@ export function AvaxRewards() {
   }
 
   async function beginReview(reward: Reward) {
-    setBusy(reward.id); setNotice(""); setPrepared(null); setQuotedFee(null); setReview(reward);
+    if (linkedWallet) setConfirmedWallet(linkedWallet);
+    setNotice(""); setPaymentError(""); setPrepared(null); setQuotedFee(null); setFunding(null); setReview(reward);
+    if (!linkedWallet) return;
+    setBusy(reward.id);
     try {
       const wallet = await import("../lib/wallet");
-      if (!resource.data?.wallet) await wallet.connectRewardWallet();
       const payment = await apiWrite<SmoothPayment>(`/api/avax/rewards/${reward.id}/payment`);
       setPrepared(payment);
-      setQuotedFee(await wallet.quoteReward(payment));
-    } catch (error) { setNotice(walletError(error)); }
+      setFunding(await wallet.inspectRewardFunding(payment));
+    } catch (error) { setPaymentError(walletError(error)); }
+    finally { setBusy(null); }
+  }
+
+  async function checkFunding() {
+    if (!prepared || !review) return;
+    setBusy(review.id); setPaymentError(""); setFunding(null); setQuotedFee(null);
+    try { setFunding(await (await import("../lib/wallet")).inspectRewardFunding(prepared)); }
+    catch (error) { setPaymentError(walletError(error)); }
+    finally { setBusy(null); }
+  }
+
+  async function reviewFee() {
+    if (!prepared || !review) return;
+    setBusy(review.id); setPaymentError(""); setQuotedFee(null);
+    try {
+      const wallet = await import("../lib/wallet");
+      const current = await wallet.inspectRewardFunding(prepared);
+      setFunding(current);
+      if (!current.sufficient) throw new Error("Add funds to your payout account before continuing.");
+      setQuotedFee(await wallet.quoteReward(prepared));
+    } catch (error) { setPaymentError(walletError(error)); }
     finally { setBusy(null); }
   }
 
@@ -121,7 +146,7 @@ export function AvaxRewards() {
             "Transaction submitted. Use Verify payment until confirmed; do not send again.");
       }
       setReview(null); reload();
-    } catch (error) { setNotice(walletError(error)); reload(); }
+    } catch (error) { if (review) setPaymentError(walletError(error)); else setNotice(walletError(error)); reload(); }
     finally { setBusy(null); }
   }
 
@@ -132,6 +157,7 @@ export function AvaxRewards() {
         <p>Payouts via SmoothSend · owners pay fees in USDC.</p></div>
       <button type="button" onClick={reload} disabled={busy !== null}>Refresh rewards</button>
     </div>
+    <div className="payment-overview" hidden={Boolean(review)}>
     <details className="payment-help"><summary>How rewards and payments work</summary><p>GitBounty does not fund or guarantee payment. Contributors receive funds directly in their external wallets; there is no internal balance or withdrawal. Owners fund a separate SmoothSend smart account during payment review.</p><ol className="workflow-steps" aria-label="Payment workflow">
       <li><span>01</span><strong>Merge verified</strong><p>The reward is reserved for the PR author.</p></li>
       <li><span>02</span><strong>Contributor claims</strong><p>Link a receiving wallet with a signature. No transfer or gas.</p></li>
@@ -197,14 +223,37 @@ export function AvaxRewards() {
         </div>}
       </li>;
     })}</ul>
+    </div>
     {review && <div className="payment-review" role="dialog" aria-modal="false" aria-label="Review payment before signing">
-      <h2 ref={reviewHeading} tabIndex={-1}>Review your SmoothSend payment</h2><p>{review.testnet ? "Testnet transfer · tokens have no monetary value." : "Real-money transfer. Review all details in your wallet."}</p>
-      <dl><div><dt>Amount</dt><dd>{review.reward_amount} {review.symbol}</dd></div><div><dt>Network</dt><dd>{review.network}</dd></div><div><dt>Receiving wallet</dt><dd><code>{review.receiving_wallet}</code></dd></div><div><dt>Funding address</dt><dd><code>{prepared?.smart_sender ?? "Preparing smart account…"}</code></dd></div><div><dt>Estimated fee</dt><dd>{quotedFee ? `${quotedFee} USDC` : "Not quoted yet. Fund the smart account, then retry review."}</dd></div><div><dt>Fee allowance limit</dt><dd>{prepared?.fee_limit_usdc ?? config?.fee_limit_usdc} USDC, paid by you</dd></div></dl>
-      <p>Keep the reward plus the fee allowance in the funding address above. The owner wallet signs a SmoothSend UserOperation; the USDC reward reaches the contributor’s receiving wallet. SmoothSend is required; there is no direct-transfer fallback.</p>
-      <button className="payment-primary" type="button" disabled={busy !== null || !quotedFee || !prepared} onClick={() => void act(review)}>Confirm in wallet</button>
-      <button type="button" disabled={busy !== null} onClick={() => void beginReview(review)}>Refresh fee quote</button>
-      <button type="button" disabled={busy !== null} onClick={() => setReview(null)}>Close review</button>
+      <button type="button" disabled={busy !== null} onClick={() => setReview(null)}>← Back to payments</button>
+      <h2 ref={reviewHeading} tabIndex={-1}>Pay {review.contributor_login ? `@${review.contributor_login}` : "contributor"}</h2>
+      <p>{review.repository} #{review.issue_number} · {review.reward_amount} {review.symbol} · {review.network}</p>
+      <ol className="payout-steps" aria-label="Payout steps">{["Connect wallet", "Fund payout account", "Review & pay"].map((label, index) => <li key={label} aria-current={index === (!linkedWallet ? 0 : !quotedFee ? 1 : 2) ? "step" : undefined}><span>{index + 1}</span>{label}</li>)}</ol>
+      <p className="payment-test-warning">{review.testnet ? "Test mode: Fuji tokens have no real monetary value. Do not send mainnet funds." : "Mainnet: this sends real funds. Check the network and recipient carefully."}</p>
+      {paymentError && <p role="alert" className="payment-error">{paymentError}</p>}
+      {notice && <p role="status">{notice}</p>}
+      {!linkedWallet ? <section><h3>1. Connect your signing wallet</h3><p>Link the owner's wallet to GitHub. This signature links your identity; it does not pay the contributor.</p><button type="button" disabled={busy !== null} onClick={() => void setupWallet()}>Connect & link wallet</button></section>
+        : !prepared ? <section><h3>2. Prepare your payout account</h3><p>Your linked wallet signs the payment. A separate smart account holds the funds and sends the reward.</p><button type="button" disabled={busy !== null} onClick={() => void beginReview(review)}>{busy !== null ? "Preparing…" : "Prepare payout account"}</button></section>
+        : !quotedFee ? <section className="payout-funding"><h3>2. Fund your payout account</h3>
+          <p>Send funds to this address on <strong>{review.network}</strong>. Funds in your connected wallet are not automatically available here.</p>
+          <p className="wallet-address"><code>{prepared.smart_sender}</code></p>
+          <div className="payout-address-actions"><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(prepared.smart_sender); setNotice("Payout address copied."); } catch { setPaymentError("Copy unavailable. Select and copy the payout address above."); } }}>Copy payout address</button><a href={`${review.explorer}/address/${prepared.smart_sender}`} target="_blank" rel="noreferrer">View payout account ↗</a></div>
+          <dl><div><dt>Reward</dt><dd>{review.reward_amount} {review.symbol}</dd></div><div><dt>Fee reserve</dt><dd>{prepared.fee_limit_usdc} USDC maximum allowance, not an extra reward</dd></div>
+            <div><dt>Required balance</dt><dd>{funding ? `${funding.rewardRequired} ${review.symbol}${prepared.token_address?.toLowerCase() !== prepared.fee_token.toLowerCase() ? ` + ${funding.feeRequired} USDC` : ""}` : "Checking…"}</dd></div>
+            <div><dt>Payout balance</dt><dd>{funding ? `${funding.rewardBalance} ${review.symbol}${prepared.token_address?.toLowerCase() !== prepared.fee_token.toLowerCase() ? ` · fee balance ${funding.feeBalance} USDC` : ""}` : "Not verified"}</dd></div>
+          </dl>
+          <p role="status">{busy !== null ? "Checking SmoothSend and account balance…" : funding ? funding.sufficient ? "Ready: SmoothSend network and EntryPoint checked. Payout account has sufficient funds." : "Funding needed: your payout account does not have enough funds yet." : "Balance check failed. No payment was sent. Retry below."}</p>
+          {funding && <small>Checked {new Date(funding.checkedAt).toLocaleTimeString()} · balances can change before payment.</small>}
+          <button type="button" disabled={busy !== null} onClick={() => void checkFunding()}>Check funding again</button>
+          <button className="payment-primary" type="button" disabled={busy !== null || !funding?.sufficient} onClick={() => void reviewFee()}>Continue to payment review</button>
+        </section> : <section><h3>3. Review & pay</h3>
+          <dl><div><dt>Contributor</dt><dd>{review.contributor_login ? `@${review.contributor_login}` : "Verified PR author"}</dd></div><div><dt>Reward</dt><dd>{review.reward_amount} {review.symbol}</dd></div><div><dt>Network</dt><dd>{review.network}</dd></div><div><dt>Receiving wallet</dt><dd><code>{review.receiving_wallet}</code></dd></div><div><dt>Paid from</dt><dd><code>{prepared.smart_sender}</code></dd></div><div><dt>Estimated fee</dt><dd>{quotedFee} USDC</dd></div><div><dt>Fee allowance limit</dt><dd>{prepared.fee_limit_usdc} USDC, paid by you</dd></div></dl>
+          <p>SmoothSend fronts AVAX gas; you pay its fee in USDC. The contributor receives the full reward. Your wallet will ask you to sign the payment operation.</p>
+          {hashes[review.id] && <p role="status">An operation has already been submitted. Verify it; do not send another payment.</p>}
+          <button className="payment-primary" type="button" disabled={busy !== null} onClick={() => void act(review, Boolean(hashes[review.id]))}>{busy !== null ? "Signing / verifying payment…" : hashes[review.id] ? "Verify payment" : "Confirm in wallet"}</button>
+          <button type="button" disabled={busy !== null} onClick={() => { setQuotedFee(null); setPaymentError(""); }}>← Back to funding</button>
+        </section>}
     </div>}
-    <nav className="app-pager" aria-label="Reward pages"><button type="button" disabled={page === 1 || busy !== null} onClick={() => setPage(value => value - 1)}>Previous rewards</button><span>Page {page}</span><button type="button" disabled={!resource.data?.has_more || busy !== null} onClick={() => setPage(value => value + 1)}>Next rewards</button></nav>
+    {!review && <nav className="app-pager" aria-label="Reward pages"><button type="button" disabled={page === 1 || busy !== null} onClick={() => setPage(value => value - 1)}>Previous rewards</button><span>Page {page}</span><button type="button" disabled={!resource.data?.has_more || busy !== null} onClick={() => setPage(value => value + 1)}>Next rewards</button></nav>}
   </section>;
 }

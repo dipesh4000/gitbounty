@@ -1,62 +1,61 @@
 # Working rules
 
-## 1. Read history before changing anything
+## 1. Follow the authoritative documents
 
-Run `git log --stat -n 20`, `git log -p -- <path>` for the relevant files, and `git status -sb`.
-Read the files to be changed and tell the user what the history showed before editing.
-Preserve unrelated work.
+- [overview.md](overview.md) defines the product.
+- [plan.md](plan.md) defines implementation order and acceptance checks.
+- [docs/hackathon-submission.md](docs/hackathon-submission.md) tracks public proof.
+- Read the current code before claiming anything is implemented.
 
-## 2. Commit small checked steps
+## 2. Preserve identity and reward invariants
 
-Finish one logical change, check it, inspect `git status` and `git diff --staged`, then commit it locally.
-Do not start the next logical step with the previous one uncommitted.
-No secrets, unchecked claims, or unrelated files in commits.
+- A reward belongs to the stable numeric GitHub ID of the eligible merged PR author.
+- Usernames are display data and may change.
+- Clients cannot establish authorship, repository permission, reward amount, recipient, or payment success.
+- Registration and retries must not duplicate allocations, points, vouchers, or transfers.
+- Points are append-only reputation and do not convert into money.
 
-## 3. Keep the layout clear
+## 3. Keep chain and provider boundaries explicit
 
-Backend code belongs in `backend/`, website code in `frontend/web/`, extension code in
-`frontend/extension/`, SQL migrations in `migrations/`, and browser tests in `e2e/`.
-Ask before adding a top-level folder. Keep documentation status in [plan.md](plan.md), not duplicate plans.
+- Avalanche Fuji is the required hackathon settlement environment.
+- A reward is “funded” only after confirmed escrow funding.
+- A payment is “paid” only after independent verification of the expected contract event and token transfer.
+- Privy may provide authentication and wallet UX but does not own canonical reward records.
+- SmoothSend may provide execution, account abstraction, sponsorship, or recovery but is optional.
+- Mainnet, eERC, ICM/ICTT, and custom L1 work are stretch goals until the Fuji flow is complete.
 
-## 4. Database changes
+## 4. Database and contract changes
 
-- Numbered SQL files in `migrations/` remain the schema change record. SQLAlchemy ORM is approved for queries;
-  ORM schema generation, automatic migration and Alembic adoption are not part of that decision.
-- Add `NNNN_short_description.sql` with purpose and dependency comments. Check existing numbers and git history first.
-- Never edit a migration that may have been applied. Add a new one.
-- Local throwaway databases may use the migration runner. Shared Supabase changes require explicit owner authorisation;
-  do not automatically apply them from a developer machine or CI.
-- Never assume a migration is applied. Check status or ask the database owner.
-- Tell the user before writing destructive SQL: `DROP`, `TRUNCATE`, unqualified `DELETE`, or a column type change.
+- Numbered SQL migrations remain authoritative; never edit a migration that may have been applied.
+- Add the next migration with purpose and dependency comments.
+- Never apply shared-database changes without explicit owner authorization and a backup.
+- Contract deployments are immutable evidence: record source, compiler settings, constructor arguments, address, chain, and transaction.
+- Changes to authorization signers, upgrade controls, refunds, or token custody require explicit security review.
 
-## 5. Identity and security
+## 5. Secrets and financial safety
 
-- Never commit real credentials, dotenv files, database passwords, OAuth secrets, tokens or private keys.
-  Use empty secret placeholders in `.env.example`; no secret belongs in a browser bundle.
-- Flag changes handling secrets, tokens or keys in the summary.
-- Planned webhooks must verify HMAC on raw request bytes using constant-time comparison before processing.
-  Track delivery IDs and processing state so duplicate delivery cannot duplicate an award and failed work can retry.
-- Verify repository/installation scope and the merged PR author; do not trust a client-supplied identity or issue-close event.
-- Rewards belong to stable GitHub numeric IDs. Registration and claiming must preserve ownership and idempotency.
-- The ledger is append-only. Corrections are new entries with reasons.
-- Keep extension permissions minimal and do not load remote executable code.
-- Owner-funded Avalanche promises through required SmoothSend are approved in overview.md.
-  Code moving funds or signing transfers requires explicit user review; each owner reviews and authorizes the individual transfer in their browser wallet.
+- Never commit or print real credentials, OAuth tokens, session values, database URLs, private keys, authorization keys, or wallet recovery material.
+- Browser bundles receive only public identifiers and configuration.
+- Server signing keys live in a proper secret store and are separate from user wallets.
+- Use test assets on Fuji for the hackathon proof.
+- Every user-triggered transfer must show network, token, amount, recipient, and purpose before signing.
 
-## 6. Git
+## 6. Scope discipline
 
-Commits stay local. Never push, force-push, amend, rebase or reset existing history without the user's request.
-`origin` is a teammate's repository. Do not change unrelated files.
+- Build vertical slices in the order in [plan.md](plan.md).
+- Do not build a custom L1, token, bridge, governance system, generic payment abstraction, or multi-chain layer speculatively.
+- Reuse existing GitHub, points, allocation, API, styling, and test boundaries.
+- Add dependencies only when the platform or installed dependencies cannot solve the actual requirement cleanly.
 
-## 7. Respect decisions
+## 7. Git and user-owned work
 
-Use [overview.md](overview.md) for scope and [plan.md](plan.md) for implementation status.
-FastAPI, uv, SQLAlchemy and GitHub App webhooks are selected directions.
-Do not treat planned work as already built. Explain why a new dependency is needed.
-Open decisions stay open; ask rather than deciding through implementation.
+- Do not run Git commands unless the user explicitly asks.
+- Preserve unrelated files and changes.
+- Do not push, pull, commit, amend, reset, rebase, or change branches on the user's behalf without an explicit request.
 
 ## 8. Done means checked
 
-Run or test the relevant behavior before claiming it works. For documentation-only work,
-check references, commands against configuration, and current-versus-planned claims.
-Report verification limits and any unrelated issue left untouched.
+- Run the smallest relevant deterministic check after each implementation slice.
+- Security and money paths require negative tests, not only happy paths.
+- Report what was verified, what was not, and which external configuration remains.
+- Do not call the submission complete without a deployed live demo, Fuji transaction evidence, source link, <=3-minute video, pitch slides, accurate build-window delta and accepted portal receipt.

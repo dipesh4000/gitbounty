@@ -2,9 +2,10 @@
 
 Numbered SQL files are the schema change record. Current migrations run from 0001 through 0016.
 The partially adopted SQLAlchemy ORM does not replace this workflow. Migration 0015 adds immutable
-payment promises and wallet claims; 0016 adds Fuji USDC and required SmoothSend payment records.
+payment promises and wallet claims; 0016 records the earlier Fuji USDC and SmoothSend payment path.
+Future escrow migrations must preserve those records as audit history instead of rewriting them.
 
-- Add the next `NNNN_short_description.sql`; inspect filenames and git history first.
+- Add the next `NNNN_short_description.sql`; inspect the existing files and recorded checksums first.
 - Include purpose and `Depends on:` comments.
 - Never edit or rename a migration that may have been applied.
 - Tell the user before writing destructive SQL.

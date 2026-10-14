@@ -1,420 +1,202 @@
-# Progress and next steps
+# GitBounty hackathon implementation plan
 
-Updated 2026-10-11 from source, the two-account UX report and focused local verification.
-This page tracks implementation, not promises. Dated sections retain historical results and decisions;
-later entries supersede earlier payment, framework and deployment descriptions.
-Product decisions are in [overview.md](overview.md).
+Reviewed 2026-10-13 against the source tree, public endpoints, provider documentation, and the [official event](https://build.avax.network/events/3f8d455d-1eb5-425b-b859-4261a0ff8ad6). Product scope is in [overview.md](overview.md); technical decisions are in [architecture](docs/architecture.md); findings and verification limits are in the [audit](docs/implementation-audit.md).
 
-## Current implementation
+## Outcome and delivery dates
 
-| Area | Present in code | Remaining work |
+Ship one public GitHub issue bounty that a maintainer funds on Avalanche Fuji, a different contributor earns through a verified merged PR, and that contributor claims exactly once. Points remain off-chain reputation.
+
+The event narrative says October 21; its submission panel displays **October 22, 2026, 03:29 Asia/Kolkata**. Use **October 21, 18:00 IST** as our internal submission target, and recheck the portal before submitting. The portal also requests **pitch slides**, in addition to the seven submission fields supplied in the brief.
+
+| Date, IST | Milestone | Exit evidence |
 |---|---|---|
-| Sign-in | GitHub OAuth, signed cookies, encrypted stored tokens, logout | Verify real GitHub authorization end to end |
-| Maintainers | Repository permission checks; publish/edit/unpublish/archive; bounty history; GitHub App connection | Verify installation against a real GitHub App |
-| Website | Public explorer, signed-in workspace, PR/points history, claims, leaderboards and App setup | Verify the complete journey with real GitHub |
-| Contribution tracking | Contributor sync plus signed, durable GitHub App webhook processing | Verify delivery and retry behavior with GitHub |
-| Points | Bounties, baseline, append-only ledger, pre-registration allocations and idempotent claims | Verify a claim made after a real pre-registration merge |
-| Extension | Registered-only badges, stale-state refresh, points/activity popup and claim link | Verify current GitHub DOM and live browser behavior |
-| Moderation | Report/review/resolve APIs and award withdrawal | Moderation UI and stronger collusion controls |
-| Python | FastAPI, uv lockfile, async SQLAlchemy issue-board and authentication queries | Migrate remaining asyncpg queries |
-| Database | Numbered SQL migrations 0001–0016; configured Supabase application recorded with owner approval | Verify actual deployment checksums; remaining SQLAlchemy migration |
-| Payments | Fuji USDC testing, immutable promises, browser-wallet proofs, required SmoothSend owner payouts and receipt verification | Resolve live claim blocker and verify a signed SmoothSend payout |
-| Operations | Readiness, structured logs, rate limiting, CI and a durable webhook retry worker | Hosting, monitoring and production configuration |
+| October 13 | Phase 0: dependency/configuration preflight | prerequisites recorded with owners; no hidden required provider |
+| October 14 | Phase 1: local escrow and Fuji smoke test | tested artifact, address, funding and settlement transactions |
+| October 15 | Phase 2: backend integration | migration, eligibility reservation, signed authorization, verifier |
+| October 16 | Phase 3: complete direct-wallet UI | public funded bounty and usable claim/refund flow |
+| October 17 | Phase 4: live two-account proof | real GitHub delivery, points, exact Fuji settlement |
+| October 18 | Phase 5: Privy onboarding; optional SmoothSend spike | native GitHub login/wallet proof, or documented direct fallback |
+| October 19 | Phase 6: package and feature freeze | video, pitch slides, source/setup, delta and evidence links |
+| October 20 | Buffer and clean-browser rehearsal | reproducible demo, recovery paths, links checked |
+| October 21, 18:00 | Submit through Builder Hub | accepted submission receipt, team and files confirmed |
 
-The website is deployed at `https://gitbounty-web.vercel.app`. On 2026-10-11, its public `/ready`
-reported all checks configured and `database: ok`. The supplied landing design is implemented in
-React with static mascot assets and real navigation. The live image optimizer returned 404 while
-static images returned 200; the local Next configuration now serves images directly. These landing
-and image changes need redeployment. No extension-store release is documented in this repository.
-Local verification for the new landing: production build and TypeScript pass, ESLint is clean,
-all 66 website tests pass, and Chrome checks at 1440/768/375/320px pass for images, keyboard tabs,
-real route links, sticky navigation, overflow, reduced motion and WCAG A/AA accessibility scans.
-Browser API responses were stubbed for these landing checks; they do not prove live OAuth or webhook processing.
-Earlier OAuth redirect/cookie failures were followed by the production-callback check recorded in
-testing-data.md and a signed-in two-account trial. Recheck deployment settings after changes.
-The extension currently targets localhost. The live UX report reached a merged PR and a 25-point award;
-automatic-versus-manual processing remains unproven. Contributor wallet claiming was blocked by the
-browser wallet; no live SmoothSend payout or mainnet payment has been verified.
+These are execution targets, not claims of completed work. All runtime phases are open until their exit evidence exists. If implementation starts late, cut optional integrations first and preserve the live proof and submission buffer.
 
-## Execution order
+## Current baseline and limitations
 
-1. **Prove the current journey.** Run the existing checks with local Postgres; verify real OAuth, publish a bounty,
-   see it on GitHub, merge an eligible PR, sync, and inspect its award on both surfaces.
-2. **uv adopted.** Backend project metadata, lockfile, setup and CI now use uv with Python 3.12. The E2E launcher supports Windows and POSIX virtualenv paths.
-3. **SQLAlchemy migration started.** Public issue-board and authentication queries use mapped models and async sessions. Migrate remaining queries in small steps while retaining
-   API behavior, token protection, transactions and database uniqueness constraints.
-   Keep numbered SQL migrations; do not generate or apply a schema at application startup.
-4. **Reward identity model implemented.** Rewards are reserved by numeric GitHub identity and claimed once by
-   the authenticated owner. Existing ledger awards are backfilled as claimed reservations.
-5. **GitHub App path implemented.** Selected public repositories accept signed, deduplicated deliveries through
-   a durable Postgres inbox. The worker revalidates GitHub data, retries failures and shares sync award rules.
-6. **Complete extension verification.** Registered-only badges and visible-page refresh/removal are implemented.
-   Verify account points and navigation against live GitHub. Browser refresh remains independent of webhooks.
-7. **Release only after verification.** Choose hosting, finish production configuration, verify recovery,
-   and prepare extension distribution. No automatic deployment is authorised by this plan.
+Existing source includes Next.js/React/viem, FastAPI/PostgreSQL, GitHub OAuth/App, durable webhook inbox, points and allocations, browser wallet proofs, and a SmoothSend payment path. Public read-only checks on October 13 returned HTTP 200 for health, readiness, and the Fuji payment configuration. This proves reachability/configuration, not production sign-in, GitHub installation, webhook execution, or a payment.
 
-## Cleanup and GitHub App implementation
+The following need implementation or proof:
 
-- Public extension bounty lookups no longer fetch identity or cache per account; redundant tests removed.
-- Migration 0013 reserves awards by numeric GitHub ID, backfills existing awards without changing the ledger,
-  and adds GET/POST `/api/me/claims`. Sync uses the same reservation boundary.
-- Storage, claims, points API and moderation checks: 89 passed against local Postgres.
-- Migration 0014 adds selected repository connections and a durable, signed webhook inbox. The worker
-  verifies live installation/repository/PR author data, shares the award rules, and retries failures.
-- Removed duplicate bounty matching and a configuration-reloading test that contaminated later tests.
-- Website and extension claim links and website repository-connection controls are wired to these APIs.
-- The unused `/api/me/merged-prs` endpoint and its duplicate tests were removed; `/api/me/pull-requests` is the current contract.
-- Removed unused all-repository issue loading, category-count and standalone rules routes, plus the global issue-search sync service.
-  The explorer reads maintainer-published rewards; points history includes the applied rules.
-- Repeated boundary tests were consolidated and obsolete route tests removed. The backend suite now has 304 passing cases, down from 437.
-- Removed archived designs, the unused root MCP npm package and generated build/test output at the owner's request.
-  The setup guide includes the existing local Windows database and manual end-to-end verification steps.
+- No escrow source/deployment exists in the repository.
+- Privy is not installed. Its current docs **do support native GitHub OAuth**; the previous custom-JWT-first assumption was incorrect.
+- The webhook worker starts with an in-process asyncio task. Existing Vercel rewrites do not prove it stays alive after a request.
+- Existing wallets are permanently linked by an immutable database trigger.
+- Existing allocations select one bounty per issue; baseline and bounty points can be two ledger entries.
+- Existing closing-reference parsing reads title/body. Cash eligibility needs stricter body/default-branch checks and immutable award evidence.
+- Historical payment terms and triggers use the old provider flow. New escrow rewards need an explicit mode and separate records.
+- Account-specific Privy/SmoothSend entitlements, budgets, domain configuration and signing are unverified.
 
-## Evidence and verification limits
+## Decisions frozen for the MVP
 
-- Recent commits record backend, frontend component, end-to-end and accessibility checks. Those are historical results,
-  not a fresh test run on this machine.
-- On 2026-10-06, all 33 extension tests pass, including runtime popup claim behavior.
-- All 61 website component tests pass; lint, typecheck and the production vinext build pass.
-- uv lock validation and 103 backend unit tests passed on Python 3.12.13.
-- Full backend baseline: 431 passed with isolated local PostgreSQL 17.11, no skips.
-  Source and migration reads now explicitly use UTF-8 on Windows. Local checks use IPv4 to avoid localhost fallback delays.
-- Final backend verification: 304 passed, no skips, in 96.53 seconds against local Postgres with dedicated test databases.
-  One existing Starlette/AnyIO deprecation warning remains. IPv4 avoids localhost connection fallback delays.
-- All 26 E2E/accessibility checks pass on Windows with installed Chrome, local PostgreSQL, the production website build
-  and a simulated GitHub HTTP server. Bundled Chromium download timed out; that browser was not verified locally.
-  The harness rejects remote database hosts and names without the `_e2e` suffix before connecting.
-- Real GitHub OAuth, the complete live contribution flow, hosted operation and backup restoration were not verified in this review.
-- Database tests can skip without local Postgres; a run with skips does not prove database behavior.
-- Automated accessibility coverage passes in Chrome. Screen-reader use still needs human verification.
+1. **Chain and asset:** Fuji 43113, official test USDC only; direct transactions use faucet AVAX for gas.
+2. **Contract:** non-upgradeable, immutable USDC address and EOA authorization signer; OpenZeppelin EIP712/ECDSA/SafeERC20/ReentrancyGuard. No admin withdrawal, early cancellation, top-up, partial payout, token registry, pause, or signer rotation.
+3. **Toolchain:** Hardhat 3 with Node 24 and viem; pin compiler, evmVersion = cancun, package versions and lockfile. Avalanche's current deployment guide requires this explicit target. Prove the artifact on Fuji before application integration.
+4. **Identity:** stable numeric GitHub ID owns rewards; Privy native GitHub login is the preferred onboarding upgrade. Keep existing OAuth as a tested fallback. GitHub App authorization remains necessary.
+5. **Wallet:** EOA receiving address, including a Privy embedded EOA. Existing links remain unchanged; first-time links are signed and permanent for the MVP. Recovery uses the same key/address. Address replacement is deferred.
+6. **Reward:** one whole payout per issue and one winning allocation. Cash attaches only to a fresh, unawarded issue. No retroactive conversion of old points or promises.
+7. **Deadlines:** work must merge after confirmed funding and before workEndsAt. claimUntil = workEndsAt + seven days. Settlement requires block.timestamp < claimUntil; refund requires >= claimUntil. This limited claim window must be visible before work/funding.
+8. **Trust:** GitBounty's signer attests GitHub eligibility and recipient. The contract protects escrow accounting and replay, but cannot independently verify GitHub or stop a compromised signer from authorizing a wrong recipient.
+9. **Provider scope:** direct EVM funding/claim is required. Privy UX is preferred; SmoothSend developer-sponsored claim is optional after a real contract-call proof. No generic provider abstraction or additional wallet framework unless the chosen SDK requires it.
+10. **Hosting:** use an always-on Python API process for the durable inbox/reconciliation loop, while retaining the same-origin web proxy. Confirm account/budget availability first. If unavailable, implement a bounded authenticated request-driven drain and show explicit refresh/sync; do not claim autonomous background execution.
 
-## Flow repair and supplied design — 2026-10-09
+See [architecture](docs/architecture.md) for exact transaction, authorization, and deadline semantics.
 
-- Fixed direct migration launch, anchored configuration to `backend/.env`, and corrected the local
-  frontend redirect to port 3000. OAuth preserves the allowed Explore/Create destination.
-- Applied migrations 0013 and 0014 to the configured Supabase database with explicit owner approval.
-  Readiness now detects missing reward/App tables. Public issues and leaderboard return 200;
-  the live board currently has no published bounties.
-- Replaced the old landing implementation with the supplied purple design, local fonts and mascot.
-  Explore is public; Create and Leaderboard routes open functional workspaces. Extension branding
-  matches, and a claims failure no longer hides the authenticated account.
-- Current checks: 54 website component tests, 34 extension tests and all 26 browser/accessibility
-  checks passed. Website lint, typecheck and the normal production build passed.
-  Focused backend auth/migration/observability checks passed (38 cases), followed by 9 config and
-  observability cases including the added schema-readiness regression. These are targeted checks,
-  not a fresh full backend suite.
-- The browser suite uses isolated local Postgres and simulated GitHub. Live GitHub sign-in completion,
-  real contribution awards and App/webhook delivery still need the manual setup-guide checks.
-  The owner explicitly chose to retain Nishika's GitBounty (local) OAuth app.
-- Security-relevant changes: environment-file selection and signed-session OAuth return destination.
-  OAuth credentials were retained; token encryption and permissions were not broadened.
-  Points remain the only reward; Avalanche integration is deferred.
+## Phase 0 — Close prerequisites and scope
 
-## UI polish and measured read performance — 2026-10-10
+Owner: project maintainer/operator. Target: October 13.
 
-- Applied the new HTML reference's charcoal canvas, lavender accents and purple contribution graph.
-  Improved workspace surfaces, inputs, table spacing and empty states. Landing examples stay visibly
-  illustrative; account, board and leaderboard data remain API-backed.
-- Hero product preview straightens using a CSS scroll timeline, with static fallbacks for small
-  screens, unsupported browsers and reduced motion. Verified the transform changes during scrolling.
-- Public explorer/leaderboard load alongside the session check. Explorer text/language filters debounce
-  for 250ms; resource requests are aborted when superseded. Language-only empty states now clear correctly.
-- Timed read-only queries against the configured database: pooled asyncpg SELECT 1 took about 0.82s;
-  the issue-board warm median was 2.44s. Connection-scoped autocommit for its single SELECT reduced
-  the final warm median to 1.62s (five warm samples, empty board). This removes BEGIN/ROLLBACK round
-  trips without caching stale rewards or changing write transactions. Network latency remains material;
-  these are local-to-database timings, not production or populated-board benchmarks.
-- Verification: 55 website component tests, typecheck, lint and production build passed; all 26 Chrome
-  production E2E/accessibility checks passed with isolated local Postgres and simulated GitHub. Desktop
-  and mobile rendering were inspected. After the read optimization, the full backend suite passed:
-  309 tests, no skips, one existing Starlette/AnyIO deprecation warning. A regression checks that later
-  sessions still open transactions after board reads. The complete publish-to-award browser journey
-  was rerun successfully against the final optimized backend.
-- Added [copy-ready test data](docs/testing-data.md): eight issues across two repositories, publishing
-  values, lifecycle visibility, search, expected award totals and pre-registration claim checks.
-  No external test records were created. Live GitHub OAuth/App delivery and real claims remain pending.
-- No token, key, secret, schema or permission changes. Shared database access was read-only.
+- Confirm registration, team membership, portal fields, slide upload, deadline, and application availability through the judging period.
+- Record the pre-September-21 baseline versus work within the September-21–October-21 build window using dated source/deployment evidence supplied by the owner. Existing today does not imply pre-Speedrun.
+- Choose two distinct GitHub users, a public demo repository, a fresh issue, and a useful change with acceptance criteria.
+- Verify GitHub OAuth callback, App installation, minimum permissions, events and private-key delivery on the selected host.
+- Inventory secrets by variable name only: sessions, token encryption, App key/webhook secret, database, escrow signer, and optional provider configuration.
+- Confirm database TLS, connection limits, backup/restore, and availability beyond submission.
+- Check Fuji RPC chain ID, token bytecode/decimals, wallet balances, and faucets. Fund A and B with test AVAX before the demo. No claim can assume gas sponsorship.
+- Complete the [dependency preflight](docs/dependency-boundaries.md), including package peer/engine resolution and exact account entitlements.
+- Align the local SmoothSend FRONTEND_URL origin with its dashboard allowlist, then rerun the SDK preflight. This review identified HTTP 403 CORS_ORIGIN_MISMATCH; it did not change account settings.
+- Resolve the advisory findings for locked cryptography/Starlette and pytest; review the web development globbing chain. Upgrade FastAPI/Starlette together within supported bounds, then rerun OAuth, webhook, signature and browser regression checks. Do not use a forced framework downgrade suggested by npm audit.
+- Decide the worker execution mode and record who owns deployment, keys, provider credits and submission.
+- Select an explicit source license before describing a component as reusable open source. Owner handles source publication and all Git operations.
 
-## Login-first entry flow - 2026-10-10
+Exit: every required prerequisite has either a successful check or a concrete blocking owner/action. No runtime feature is marked done because documentation exists.
 
-- Owner selected login-first workspace access. Explore, Create and Leaderboard landing actions open a
-  dedicated sign-in page, preserving the destination; direct workspace routes show the same gate.
-  Informational pages and real landing bounty previews remain public.
-- Workspace data waits for confirmed identity. Failed session checks offer retry. Signed-in visitors
-  continue to their selected workspace. The extension's Points deep link survives sign-in.
-- Security-relevant change: OAuth return paths also allow internal leaderboard and Points destinations.
-  Arbitrary URLs, protocol-relative URLs and query-bearing variants remain rejected. Token encryption,
-  credentials, scopes and extension permissions are unchanged.
-- Checked: 57 website component tests and all 27 focused backend auth checks passed, with no skips.
-  Website typecheck, lint, production build and all 29 Chrome E2E/accessibility checks passed against
-  isolated local Postgres and simulated GitHub. Live GitHub OAuth remains a manual verification item.
+## Phase 1 — Escrow, tests and Fuji smoke test
 
-## Frontend cleanup and extension entry - 2026-10-10
+Owner: contract/backend implementer; operator supplies deployment and signer keys. Target: October 14.
 
-- Compared the owner-provided example folder as visual reference only; its placeholder links and
-  mock interactions were not adopted. The folder remains owner-owned and untracked.
-- Extension CTA opens a public installation guide for the actual 0.4.0 developer build, with
-  local-backend requirements, browser-specific instructions and published-bounty troubleshooting.
-  Removed outdated label-only fallback claims and the assumed main-branch source link.
-- Production browser clicks exposed a vinext beta Link runtime error (prefetch and navigation
-  functions were undefined). Replaced page links with native anchors and documented the narrow
-  framework-specific lint exception. Landing, login, docs and extension clicks now pass in production.
-- Removed 398 unused CSS lines from the previous landing design; kept shared tokens, focus and reduced
-  motion rules. Moved metadata into the shared page renderer and removed the extra helper file.
-  Framework route entry files remain thin. e2e/ and migrations/ are retained: they provide regression
-  coverage and the authoritative schema history, with no frontend runtime cost.
-- Verified desktop and 320px login rendering, public information access, signed-in redirect selection,
-  external redirect rejection and the full publish-to-award journey. Checks are recorded above.
-- No new dependencies, extension permission changes, credentials or schema changes. No shared database
-  writes or external test records were created. Copy-ready test content remains in docs/testing-data.md.
+- Add the Hardhat workspace and one GitBountyEscrow contract following [the contract specification](docs/architecture.md#escrow-contract).
+- Derive the on-chain ID from chain, contract, msg.sender payer, and immutable application reference. This prevents another address from preempting the expected bounty ID.
+- Implement fund, settle and permissionless refund-to-recorded-payer. Use exact token balance delta on funding.
+- Require an immutable work deadline and seven-day claim grace. Test the exact timestamp boundary and both transaction orderings of settlement/refund.
+- Use EIP-712 Settlement with exact types and a cross-language golden vector shared by Python eth-account, viem, and Solidity.
+- Test replay, wrong domain/signer/recipient/amount/token, malformed signatures, duplicate IDs, transfer failure, cross-bounty accounting, direct token donations, and conservation of escrow liabilities.
+- Pin an Avalanche-compatible EVM compiler target; retain full compiler/build metadata and constructor arguments.
+- Deploy the tested artifact to Fuji. Record deployment block/hash, contract bytecode, immutable signer/token, ABI and source. Verify explorer source where supported.
+- Fund a disposable bounty through an exact USDC approve followed by fund; settle once and independently decode the logs.
 
-## Standalone landing concept - 2026-10-10
+Exit: local tests and Fuji fund/settle pass; attempts to pay twice fail; public deployment and successful transactions are recorded. No production/audit certification is implied by tests.
 
-- Added frontend/web/landing-preview.html for owner design review before app integration.
-  One self-contained HTML file embeds existing Mona Sans fonts, logo and mascot, with midnight/purple
-  styling, a scroll-reactive hero, workflow tabs, role tabs and an illustrative contribution graph.
-- CTA dialogs explain intended app destinations. All sample data is labelled; no API or auth changes.
-- Checked in local Chrome: workflow and role switching, CTA dialog, no JavaScript errors and no
-  horizontal overflow at 320, 375, 768 and 1440px. Desktop and mobile screenshots captured.
-- Revised the preview from owner screenshots: larger tilted-word hero, a mascot-centred
-  issue-to-PR-to-points scene, purple texture, and a grouped footer. Local Chrome checks passed
-  at 320, 375, 768 and 1440px; footer preview links and JavaScript errors were checked.
-- Embedded the owner-provided mascot sheet once in the standalone HTML and show distinct search,
-  rocket and award poses. Added subtle entrance, float, sparkle and hover motion with reduced-motion
-  support. Checked image loading, zero external requests, tabs and 320-1440px layout in local Chrome.
-- App integration awaits owner feedback on the preview.
+## Phase 2 — Backend eligibility, migration and verification
 
-## Known limitations to retain through the migration
+Owner: backend implementer. Target: October 15. Depends on Phase 1 ABI.
 
-- No automated detection of two-account collusion or reverted merges.
-- Repository matching is not rename/transfer-aware.
-- Issue links made only through GitHub's Development sidebar are not discovered by the current REST/text matching.
-- Initial GitHub search is capped at 1000 results; repository/issue listing also has paging limits.
-- Sync jobs are in-process and can be interrupted by a restart; stale runs are released on a later attempt.
-- Rate limiting is per process, so scaling needs a shared strategy.
-- No account deletion/retention workflow, metrics service or moderation UI.
-- Frontend toolchain upgrades must verify `next start` as well as `next build`.
-  Old audit counts are not current security evidence.
+- Add a new numbered migration after 0016. Preserve applied files and historical promises/receipts.
+- Introduce explicit points-only, legacy-payment and escrow reward modes; prevent simultaneous legacy and escrow payouts for one issue.
+- Add the schema/constraints in [architecture](docs/architecture.md#data-and-api-contract). Do not reuse amount_wei as the new USDC field.
+- Reuse allocation/ledger logic, preserving baseline 5 and bounty 1–1000 rules, categories, rule version and snapshots. Bump the eligibility rule version when behavior changes.
+- Enforce cash eligibility: numeric repository/issue/PR/author IDs, active public App scope, same-repository closing keyword in the PR body, default branch, verified merge, no self-bounty, and fundedAt <= mergedAt < workEndsAt.
+- Verify the issue's actual ClosedEvent.closer is this PR using one focused GitHub GraphQL read through existing httpx; retain event ID/time and paginate as needed. A body edited after merge cannot by itself prove issue closure. Missing/ambiguous closure evidence pauses cash allocation.
+- Freeze first eligible processed allocation under a database lock; document this ordering, never promise “earliest merge wins.” Reject ambiguous multi-funded-issue PRs instead of choosing based on text order.
+- Snapshot accepted closing references and author at allocation. Later GitHub edits cannot replace the winner.
+- Persist chain funding evidence before enabling cash eligibility; a late indexing result uses the canonical funding block time, not the time the HTTP request completed.
+- Reserve cash for an unregistered GitHub author without creating a fake user; require real sign-in and wallet proof before issuing a voucher.
+- Build and persist a complete unsigned typed-data payload/digest before signing; return only the locked recipient/terms. Concurrent requests return the same live voucher. Expired vouchers may be renewed for the same recipient and nonce.
+- Decode event + exact ERC-20 Transfer and match chain/contract/bounty/amount/recipient. For direct calls, transaction.to is escrow; for AA it may be EntryPoint. Never require transaction.from == recipient.
+- Add reconciliation from the deployment block with a bounded event cursor and overlap, retries and unique event identity. Recover broadcast success even if the browser closed before recording its hash.
+- Make the durable webhook worker restart-safe; respect GitHub rate-limit/reset headers. Production proof must include one processed delivery without relying on a lucky warm function.
+- Expose separate contribution, escrow, and attempt states so a rejected signature does not erase funded state.
 
-## Standard Next.js runtime — 2026-10-11
+Exit: fake client terms fail, duplicated deliveries/sync/requests do not duplicate allocations or payout, expired/failed/mismatched receipts never mark paid, and local GitHub→chain integration passes.
 
-- Replaced Vinext and its Cloudflare Vite worker with Next.js 16.4 and React 19.3. The existing App Router
-  pages, metadata and `next/image` usage remain; Next now provides the build, server and image optimizer.
-- Standardized local and CI JavaScript tooling on Node 24 LTS. Vercel's web service now uses the `nextjs`
-  framework preset, while FastAPI remains a separate service behind the existing same-origin rewrites.
-- Updated the production E2E launcher to build and serve with the Next CLI. GitHub OAuth still requires a
-  deployed manual check with the configured callback URL and credentials.
+## Phase 3 — Direct-wallet vertical slice and public proof UI
 
-## UX report fixes — 2026-10-11
+Owner: frontend implementer. Target: October 16. Depends on Phase 2 API.
 
-- Payments now offer persistent external-wallet setup before any reward exists, EIP-6963 wallet
-  discovery/selection, and safe recovery guidance for unavailable or locked wallets. No wallet
-  account requests happen during discovery. Linking remains permanent and requires a signature.
-- Clarified direct contributor receipts versus owner SmoothSend funding, closing-keyword workflow,
-  automatic-reward prerequisites, and bounty-plus-base point totals. PR and payment reads refresh
-  on return to the tab and every 30 seconds while visible; this does not start GitHub reconciliation.
-- GitHub App missing/invalid signing keys, rejected credentials, missing installation and network
-  failures now have actionable responses instead of uncaught key-loading errors. The cause of the
-  deployed connection failure has not been established from server diagnostics.
-- Verified 68 website tests and the focused backend missing-key regression. Live wallet setup,
-  signatures and transfers were not performed. Publication enforcement, closed-issue reconciliation,
-  live webhook-versus-sync provenance remain outstanding.
+- Reuse API/CSRF helpers, wallet discovery, viem and existing styles.
+- Show a public bounty detail route with issue/PR, points, amount, funding, work deadline, claim deadline, contract and verified transaction links. No login required to inspect proof.
+- Give A a review → exact allowance approval → fund flow. Approval alone must never show funded.
+- Give B a signed wallet-link challenge → voucher → settle flow. Give payer an explicit refund action only after claimUntil.
+- Check account, chain and live contract state immediately before every signature; show USDC and AVAX needs independently.
+- Preserve existing permanently linked wallet, reject accidental switching, and provide recovery/export guidance.
+- Recover from refresh, transaction replacement, unknown receipts, rejected signatures and RPC timeouts. Retry verification before offering a new send.
+- Show points totals accurately: a 40-point bounty plus eligible 5-point baseline totals 45 across distinct award types.
+- Show wallet-provider errors separately from reward eligibility and chain settlement. No fabricated zero balances.
+- Verify keyboard/mobile/contrast, empty/loading/error states and plain testnet labels.
 
-## Issue reconciliation and workspace readability — 2026-10-11
+Exit: the deployed direct-wallet journey can fund, award, claim, verify and display evidence; a signed-out judge can inspect the same completed bounty.
 
-- Signed issue closed/reopened deliveries now verify the active repository installation and live
-  GitHub issue before updating discovery state. Contributor sync also rechecks published issues,
-  recovering old missed deliveries. Unavailable issues retain their prior state; closure never
-  awards or removes points. Subscribe the deployed GitHub App to issue events (see setup.md).
-- Sync displays elapsed seconds and completed duration. Successful sync logs record GitHub fetch,
-  reconciliation/write and total durations. No schema migration is required.
-- Workspace-only GitHub-style typography, neutral dark surfaces, 13–16px labels/body text,
-  consistent controls, clearer open/merged colors and quieter workflow guidance improve scanning.
-  Payment workflow instructions are expandable. Public landing styles remain independent.
-- Verified 68 website tests, TypeScript and ESLint; focused backend reconciliation, webhook and
-  award-detection checks pass. Shared database, live GitHub App settings and wallet settings
-  were not changed. Live webhook delivery and manual visual review remain to be verified.
+## Phase 4 — Real two-account proof
 
-## SmoothSend documentation verification — 2026-10-11
+Owner: implementer + operator using accounts A/B. Target: October 17.
 
-- Rechecked frontend quote/submit/recovery against the installed SDK declarations and backend
-  claim/operation/receipt verification code. Provider attribution and demo value are documented in
-  README and architecture, with role separation, USDC-paid fees and live verification limits.
-- Reviewed all 19 repository Markdown files and checked local links; corrected stale deployment, migration, payment,
-  claim, webhook-event and workspace-design descriptions where applicable. Historical plan entries
-  remain dated rather than presented as current behavior.
-- Focused frontend payment/wallet tests: 6 passed. Backend payment checks: 7 passed, 6 database
-  cases skipped because local test Postgres was unavailable; one existing AnyIO deprecation warning.
-  SDK submission and chain responses are substituted in tests. No live payment or settings changes.
+Execute [testing-data.md](docs/testing-data.md) using real GitHub and Fuji:
 
-## Documentation maintenance
+- A installs/connects the App, creates the issue, and funds the exact test USDC bounty.
+- B authors a meaningful PR with Closes #issue in its body targeting the default branch.
+- A reviews/merges. Capture actual delivery ID, processed result, and B's numeric author ID.
+- Confirm one bounty allocation, at most one baseline allocation per PR, and correct ledger totals; pending registration remains supported.
+- B proves the receiving EOA and settles. Check B's balance change and matching contract/token logs.
+- Re-run sync/refresh/voucher/receipt recovery; replay must never transfer again.
+- Restart the worker and recover a deliberately pending delivery; close the browser after a broadcast and recover the settlement from logs.
+- Save public evidence and exact test output. Use a separate disposable bounty for refund tests.
 
-## Owner payment discovery — 2026-10-11
+Exit: a complete production run with issue, PR, processed GitHub delivery, funding hash, settlement hash and public completed-bounty page. Sync recovery is disclosed if used; it does not substitute for claiming webhook automation works.
 
-- Read-only diagnosis of Orbit issue #1 found a 2 Fuji USDC promise by dipesh4000 but no bounty
-  allocation/claim. Public GitHub PR #2 was authored by dipesh-BS and merged with no closing reference in its body;
-  the current text-based matcher cannot associate that contribution with issue #1.
-- Payments now includes paginated owner promises awaiting allocation, clear verification/claim
-  prerequisites, and explicit owner next steps. No reward allocation or transfer was created.
-  Retroactive discretionary rewards and Development-sidebar matching are not implemented.
+## Phase 5 — Privy onboarding and optional sponsored claim
 
-Keep status here, product decisions in the overview, and runnable instructions in setup.
-Update the relevant page when code changes. Do not add a separate audit, handoff or feature-status document.
-Git history retains superseded plans and historical verification details.
+Owner: identity/frontend implementer. Target: October 18. Depends on the direct-wallet proof.
 
-## Public bounty cache - 2026-10-10
+Privy preferred path:
 
-- Public issue listings use a bounded, per-tab 30-second cache that survives native page navigation.
-  Filter/page keys stay separate; Refresh bypasses the cache. Writes invalidate before and after completion,
-  and a read started before invalidation cannot repopulate stale data. Storage failure falls back to API reads.
-- Identity, points, claims, leaderboard personalization and payment data are not cached.
-- Verified 61 website tests, including expiry, refresh, private-read exclusion, write races and capacity.
-  No new dependencies or shared database changes. First-load database latency remains unchanged.
+- Pin @privy-io/react-auth after peer/engine checks against Next 16.4.0, React 19.3.0, Node 24 and installed viem.
+- Enable native GitHub OAuth in Privy. Set exact origins/callbacks and Fuji defaultChain/supportedChains; configure a suitable RPC explicitly.
+- Exchange a verified Privy access token plus server-fetched or signed identity data for the existing application session. Validate issuer/audience/expiry/algorithm and DID consistency.
+- Resolve github_oauth subject to a numeric GitHub ID, cross-check its semantics against GitHub, and map to the existing user. Never map by email or username; block mismatched existing sessions/DIDs.
+- Keep GitHub API authorization separate: retain a verified owner OAuth token for permission checks or implement GitHub App user authorization. Native Privy login alone does not supply repository permissions.
+- Create an embedded EOA when needed; use existing externally linked EOA when present. Do not delegate wallet control to the server.
+- Require a fresh signed challenge and explicit receiving address. Test two accounts, login migration, MFA, logout, token refresh, and same-address recovery/export.
+- Make logout clear both app and Privy state; API actions check the app session and privileged actions require fresh proof. Remove ambiguity between an A GitHub session and a B Privy wallet.
 
-## Owner-funded AVAX promises and browser-wallet payments - 2026-10-10
+SmoothSend optional spike:
 
-- Owner approved exact AVAX amounts at first publication, individual owner payments, no GitBounty
-  funding/guarantee, and browser wallets with each party paying gas. This supersedes the supplied
-  Privy/SmoothSend, sponsored withdrawal and points-conversion design. Points remain separate.
-- Migration 0015 stores immutable promises, merge-linked cash reservations, signature challenges,
-  immutable wallet links, one payment row per claim and append-only confirmed receipt history.
-  No old points awards acquire cash value. Claim amount and recipient never come from payout inputs.
-- Contributors explicitly sign a one-time, expiring wallet challenge and claim. Owners review and sign
-  each transfer in their own wallet. Server verification checks mainnet chain, sender, recipient, exact
-  value, calldata, nonce and receipt. Pending transactions remain unpaid. Manual review holds are supported.
-- Payment intents reserve a nonce before wallet interaction and serialize unfinished payments per payer.
-  Concurrent/repeated calls reuse the same row/nonce. Only a confirmed reverted transaction allows a new
-  nonce on that row; paid rows return without another RPC. Existing transaction hashes can be reconciled.
-- Added paginated AVAX rewards, exact publication fields and owner-guarantee wording. viem loads only
-  on wallet action. eth-account verifies signatures; no private keys or provider secrets are stored.
-  Live wallet actions reject development identity fallback outside the automated test environment.
-- Verified: full backend suite 317 passed without skips, then final focused wallet/payment checks 5 passed.
-  Website 64 tests, typecheck, lint and production build passed. All 29 production Chrome E2E/accessibility
-  checks passed; the new AVAX view and publication form also passed focused production accessibility checks.
-  Production runtime npm audit reports zero vulnerabilities after the ws override; existing development
-  toolchain advisories remain outside this change.
-- Tests use local PostgreSQL and simulated chain RPC. No real-money transaction, live wallet signing,
-  or withdrawal was performed. The payment flag defaults false for new installations.
-- After explicit owner approval, backed up the configured Supabase public schema to the user's local
-  temp directory (`gitbounty-before-0015-20261010T114024Z.dump`), applied migration 0015 and verified all
-  15 migration checksums. Enabled AVAX_PAYMENTS_ENABLED in the ignored local backend configuration.
-  Real OAuth is configured and the development identity stub is disabled. All six new tables exist;
-  cash promises, claims and payments are empty. Verified the configured RPC reports Avalanche mainnet
-  and the running local backend reports ready. Hosted deployments need the same payment environment flag.
+- Use Avalanche /avax documentation and the installed real SDK; choose developer-sponsored claim only.
+- Prove an arbitrary settle call on Fuji, with the user-controlled embedded EOA signing and the ERC-4337 smart account executing.
+- Keep recipient independent of msg.sender. Store userOpHash and resolved transactionHash separately.
+- Verify bundler network/EntryPoint/paymaster code, exact origin/key, account credit budget and inner UserOperation success.
+- If the gateway accepts but the UI times out, reconcile before re-submitting. On gateway failure, submit the same valid voucher directly with AVAX gas.
+- Do not migrate maintainer funding to a smart account during this sprint: that changes payer/refund addresses and USDC allowance ownership.
 
-## Session-read latency - 2026-10-10
+Exit: native GitHub login + embedded-wallet creation + funded claim works for a new user, or the tested direct fallback remains the submission path. Sponsorship is included only after its actual live contract-call evidence exists.
 
-- Session identity remains uncached and fresh on every request. Its single SELECT now uses connection-
-  scoped autocommit, removing BEGIN/ROLLBACK network round trips while later write sessions retain transactions.
-- Read-only measurements against the configured remote database: warm median 2.475s with a transaction,
-  1.638s with autocommit (three warm samples per mode; about 34% lower database-read latency).
-  These are database timings, not full-page or production benchmarks. No shared data was changed.
-- Verified 34 focused auth, cash-payment and claim tests, including fresh username reads and transaction
-  restoration. Public bounty listings retain the separate bounded 30-second browser cache.
+## Phase 6 — Submission, judging and feature freeze
 
-## Fuji USDC, required SmoothSend and interior workflow — 2026-10-10
+Owner: project owner with implementation support. Target: October 19.
 
-- Latest owner decisions supersede the earlier direct-wallet payment design: Avalanche only,
-  official Circle USDC on Fuji for testing, mandatory SmoothSend execution, connected browser wallets
-  for identity/signing, and owner-paid USDC fees (`user-pays-erc20`). No direct payout fallback.
-- Immutable promises include their original network; existing mainnet promises are preserved.
-  Exact full rewards are transferred separately from a capped USDC paymaster allowance. The server
-  derives smart-account addresses and saves signed operations before broadcast. Recovery resubmits the
-  same operation/nonce; only verified failed operations release a nonce. Receipt checks isolate the
-  operation's own EntryPoint event and exact token Transfer, including bundled transactions.
-- Migration 0016 was explicitly approved, backed up and applied to configured Supabase. All 16 migration
-  checksums verified; the new receipt table exists and cash promises remain empty. Backup:
-  `gitbounty-before-0016-20261010T171431Z.dump` in the user's local temp directory.
-- Ignored local settings select `PAYMENT_MODE=usdc_fuji`, enabled execution flag, and 0.1 USDC fee allowance.
-  No public SmoothSend key is configured yet: execution correctly remains disabled until the owner adds
-  their `pk_nogas_…` key and allows the website origin in the provider dashboard. No private keys are stored.
-- Registered Codex MCP server `smoothsend-mcp` with pinned @smoothsend/mcp 1.2.0; reload Codex to load it.
-  Runtime uses the Avalanche subpath of SDK 2.3.8, loaded only for wallet actions. Reproducible installs use
-  project legacy peer resolution because unused Aptos wallet peers conflict. Runtime npm audit: zero findings.
-- Interior workspace now has persistent navigation, next-step guides, network context, three-stage
-  publication, and payment review showing recipient, smart-account funding address, reward and USDC fee.
-  Mobile navigation, responsive tables and focus states improved. Landing page remains unchanged.
-- Replaced testing-data.md with a complete A-owner/B-contributor walkthrough: five issues, expected
-  +90 points across four eligible PRs, exact 1.25 USDC payout, recovery, authorization and UI checks.
-  First-registration testing is conditional on B actually being new; no third account is required.
-- Verified 324 backend tests without skips, 65 website tests, typecheck, lint and production build.
-  All 30 production Chrome E2E/accessibility checks passed. Payment cards passed axe/reflow checks at
-  1440/960/320px. Independently matched the operation hash against the SmoothSend SDK; live read-only RPC
-  confirms Fuji chain 43113 and official USDC decimals 6. Public SmoothSend Fuji defaults are available.
-- Automated tests substitute GitHub, wallet signatures and chain responses. No live SmoothSend submission,
-  real GitHub two-account run, payment or withdrawal was performed. The walkthrough remains the live check.
-- Final layout corrections passed three focused production browser/accessibility checks, including
-  every workspace view at 960/320px. Rebuilt against the normal local API after the E2E harness.
-  Stopped local PostgreSQL and all spawned services; development/test ports were verified closed.
+- Fill [submission package](docs/hackathon-submission.md) with verified links, team, description, stack, live app, source, <=180-second video, AI disclosure and portal pitch slides.
+- Present the pre-build-window baseline and actual within-window delta using dated evidence; do not label every existing component pre-hackathon.
+- Explain originality using concrete workflow differences and one real maintainer/contributor use case. Do not claim to be the first bounty platform.
+- Explain Avalanche's role as public funded escrow and final settlement; admit the GitHub signer trust boundary. No claim of exclusive Avalanche capabilities.
+- Prepare five concise slides: problem/user, live flow, architecture/trust, Avalanche proof, shipped delta/next step.
+- Record an honest walkthrough of funding, merged PR, author, claim and explorer receipt; pre-stage accounts/assets and trim waiting, with cuts labelled where relevant.
+- Owner publishes source without secrets and selects a license. An unlicensed public repository is source-visible, not reusable open source.
+- Rehearse in a clean browser; verify all URLs and uploads; keep the site/API/database/keys available during judging.
+- Submit early, confirm portal receipt and membership, and preserve the accepted files.
 
-## Extension discovery and wallet reads — 2026-10-10
+Exit: every submission item is present and accessible; the portal acknowledges receipt. This is the completion condition, not merely a successful build.
 
-- Added a read-only, authenticated linked-wallet balance endpoint on the configured Avalanche chain.
-  Reports exact USDC/native AVAX separately, preserves missing-wallet and RPC-error states, and works
-  independently of payout configuration. No signing, new host permissions or shared migration.
-- Added case-insensitive maintainer-label beginner filtering before pagination and stable issue ordering.
-  Only open, published GitBounty bounties are included. Verified 17 focused issue/payment tests locally.
-- Extension 0.5.0 now defaults to Discover with separate Account & wallet controls and a compact balance
-  summary. Added title/language/category/beginner filters, stable paging, safe GitHub issue links and
-  separate points/payment metadata. Search cancellation prevents stale responses replacing fresh filters.
-- Fixed all-time points mislabeled as weekly, failed sign-out falsely hiding a live session, menu Escape/
-  expanded state, and account-wide failures caused by optional data. Late wallet reads cannot reappear after logout.
-- Verified extension syntax and 39 DOM/logic tests. Real Chrome renders the popup with fixture APIs and
-  passes axe/keyboard/navigation checks. Unpacked cookie access and live-wallet reads still need the documented
-  manual run. No runtime dependencies, permissions or remote executable code were added.
-- Full backend regression suite passed: 327 tests without skips.
+## Judging priorities and cut line
 
-## Supplied landing preview assessment — 2026-10-10
+| Criterion | Weight | Required product evidence |
+|---|---|---|
+| Works | 30% | deployed real GitHub→Fuji settlement and recovery |
+| Originality | 25% | author-based attribution, visible prefunding, late-registration claim, useful maintainer scenario |
+| Technical depth | 20% | own escrow/tests, explicit trust model, shared eligibility, replay/idempotency, durable verification |
+| Avalanche fit | 15% | C-Chain contract, USDC, transaction evidence, reason for public escrow |
+| Demo/communication | 10% | <=3-minute working demo, slides, accessible links, clear shipped delta |
 
-- Fixed the owner's supplied `../web/index.html` and mirrored it to the existing repository
-  `frontend/web/landing-preview.html`. Original source backup in local temp:
-  `gitbounty-landing-source-20261010T174344Z.html`. The new preview is about 354 KB versus the
-  previous 2.6 MB preview; this is a preview-file comparison, not a live-site performance benchmark.
-- Fixed JavaScript parallax ignoring reduced motion, low-contrast extension-example text and
-  Terms dialog incorrectly implying sign-in. The live React homepage remains unchanged.
-- Documented the shared visual direction and contributor/maintainer/payment flows in DESIGN.md.
-  The HTML is suitable as a landing design foundation, but sample data and explanatory CTA dialogs
-  require real React/auth/API integration before it becomes the production homepage.
-- Chrome checks passed at 1440/960/320px: no horizontal overflow, local artwork/fonts loaded,
-  no external requests or JavaScript errors, keyboard role/workflow tabs, Terms/Escape dialog,
-  reduced-motion preference changes and axe accessibility. Reviewed desktop/mobile screenshots.
-- The extension's wallet/discovery browser checks use fixtures. No live payout, GitHub OAuth,
-  unpacked Chrome cookie access or live wallet transfer was performed in this change.
+Weights and the existing-project allowance are from the user-supplied official brief. The live [event page](https://build.avax.network/events/3f8d455d-1eb5-425b-b859-4261a0ff8ad6) was also checked.
 
-## Repository authorization recovery — 2026-10-11
+Cut in order: SmoothSend enhancement, full Privy rollout, extension polish, nonessential moderation/treasury UI, mainnet, privacy, interchain, custom L1. Keep tested direct funding/settlement, visible deadlines, real proof, slides/video and submission buffer. Provider pricing or native-login migration must never force a partial payment demo.
 
-- Read-only diagnosis against configured GitHub credentials returned 401 Bad credentials. The
-  repository picker incorrectly mapped rejected authorization to a generic 502 with an ineffective retry.
-  No credential values were printed and no stored credentials or shared database rows were changed.
-- Shared repository/issue GitHub client calls now distinguish rejected credentials. Maintainer reads
-  and writes return 401 with a reauthorization instruction; the workspace links directly to GitHub OAuth
-  with a return to `/maintainers`. Missing/unreadable tokens use the same recovery action. Transient
-  errors retain retry, and rate limits preserve Retry-After. No permission or ownership checks were relaxed.
-- Styled error actions for dark-theme contrast, wrapping and keyboard focus; hide the empty table on
-  failure, normalize installation-link spacing and debounce repository search to avoid per-keystroke requests.
-- Verified 17 focused backend tests, all 66 website tests, typecheck, lint and production build.
-  Chrome recovery/retry/focus/reflow/axe checks passed at 1440/960/320px in development and production.
-  The person must reconnect GitHub to obtain a valid credential; automated checks substitute GitHub responses.
-  Existing user-started development servers are preserved; the temporary production test server is stopped.
-
-## Landing hero repair — 2026-10-11
-
-- Replaced the oversized headline with “Build open source. Get rewarded.” and clear copy about
-  eligible merged PRs, points and optional owner-funded payments. CTAs keep their real destinations.
-- Mascot occupies its own desktop grid column instead of floating beneath the text. Headline size
-  is bounded and description alignment is explicit; mobile centers the copy without the mascot.
-- Landing component checks, production build/TypeScript and ESLint pass. Production Chrome checks
-  at 1920/1440/768/375/320px pass for assets, overflow, accessibility, navigation, reduced motion
-  and explicit headline/mascot separation. Desktop and mobile screenshots were visually reviewed.
-
-## Payment clarity — 2026-10-11
-
-- Wallet panel separates the permanent GitHub-linked address from the current browser connection.
-  Explicit read-only connection checks show locked/disconnected, matching and mismatched accounts;
-  account-change events invalidate the checked state. Linking retains signature and server verification.
-- Owner payouts and contributor rewards have separate views, role-specific statuses, a three-step
-  progress row and one primary next action. Waiting, submitted, failed, paid and review states explain
-  who acts next. Setup, payment-workflow and recovery details are expandable.
-- Website regression suite: 71 passed; TypeScript, lint and production build passed. Read-only Chrome
-  fixture checks pass at 1440/960/320px for wallet state, role filtering, disabled actions, overflow
-  and accessibility. No live wallet signatures, transfers or deployment were performed.
+After submission readiness, the best low-risk bonus is a licensed reusable escrow/verifier example. Mainnet, eERC, ICM/ICTT and L1 deployment remain separate scoped work only if meaningful to the product. This plan does not authorize spending funds, publishing source, or operating Git for the owner.

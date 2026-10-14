@@ -1,111 +1,128 @@
-# Security and operations
+# Security and trust boundaries
 
-This is guidance for local and deployed operation. Deployment does not establish production readiness.
-See [setup](setup.md) for commands and [progress](../plan.md) for outstanding work.
+GitBounty joins GitHub identity to transactions that can move tokens. Treat identity mapping, settlement authorization, contract state, and receipt verification as security-critical.
 
-## Current controls
+## Trust model
 
-- GitHub OAuth uses one-time state validation and rotates the signed session on login.
-- Session cookies are HttpOnly and SameSite=Lax. Set `SECURE_COOKIES=true` explicitly for an HTTPS deployment.
-- GitHub tokens are Fernet-encrypted at rest, excluded from public response models, and cleared on logout.
-  Authentication now uses SQLAlchemy; its user mapping defers the token column unless explicitly requested.
-  Real-database tests cover encrypted storage, identity-preserving renames, public response filtering and logout removal.
-- Maintainer writes re-check GitHub admin/maintain permission. The client does not establish ownership.
-- Cookie-authenticated writes require CSRF headers; OAuth and logout are explicitly exempt.
-- Configure an explicit browser-origin allowlist. Development/test sign-in paths must be disabled in production.
-- SQL queries are parameterised; keep this and token filtering intact during SQLAlchemy migration.
-- The extension contains public code only and uses minimal permissions.
+| Actor or system | Trusted for | Not trusted for |
+|---|---|---|
+| GitHub | Repository, PR, merge, and numeric user identity | Wallet ownership or payment success |
+| Privy | Auth token issuance and wallet operations within configured controls | Reward eligibility, amount, or canonical GitBounty data |
+| Browser wallet | User-approved signatures from its selected address | GitHub identity or server-derived payment terms |
+| GitBounty backend | Eligibility rules and settlement authorization | Custody of user wallets |
+| Escrow contract | Fund custody, voucher verification, replay protection, transfer execution | GitHub semantics |
+| RPC/provider | Chain data transport | Final truth without cross-checking receipt contents |
+| SmoothSend | Optional transaction execution | Reward ownership or proof of payment |
 
-## Secrets and rotation
+## Identity controls
 
-Never put secrets or database dumps in git, logs, screenshots or chat.
-Earlier project records report credentials shared during development; rotate affected credentials before exposure.
-This document does not establish whether any particular current secret has already been rotated.
+- Use the numeric GitHub ID for ownership; logins are mutable display data.
+- Verify Privy access-token ES256 signature, issuer, audience, expiry and DID on the backend. Obtain linked identity from a server fetch or verified identity token, never a browser object.
+- Privy natively supports GitHub OAuth. Resolve its linked numeric subject to the same GitHub ID as the application user; reject conflicting DID/session mappings. Native login does not authorize repository API calls.
+- Require a fresh, one-use challenge bound to origin, GitHub ID, address, chain and expiry before recording an address. Preserve existing immutable links.
+- Prevent one wallet from being silently reassigned across incompatible GitHub identities.
+- Test Privy MFA and same-address export/recovery. An external wallet cannot replace control of an unavailable embedded wallet, and expired vouchers cannot be renewed to another recipient.
 
-| Setting | Rotation effect |
-|---|---|
-| `SESSION_SECRET` | Invalidates sessions; users sign in again |
-| `GITHUB_CLIENT_SECRET` | Update the backend with the new OAuth secret, then retire the old one |
-| Database password / `DATABASE_URL` | Coordinate database and backend updates; verify connectivity afterwards |
-| `TOKEN_ENCRYPTION_KEY` | Existing encrypted GitHub tokens become unreadable without the old key; users must reauthenticate |
+## GitHub controls
 
-Key rotation does not erase points. A multi-key re-encryption workflow is not implemented.
-GitHub App private keys, installation tokens and webhook secrets must stay server-side.
-Webhook verification must use the raw body, HMAC-SHA256 and constant-time comparison.
-Persist delivery processing state, verify installation scope and prevent duplicate awards.
+- Verify OAuth state and rotate authenticated sessions.
+- Encrypt GitHub access tokens at rest and never return them through public schemas.
+- Verify GitHub webhook HMAC over raw request bytes with constant-time comparison.
+- Persist delivery IDs and reject duplicate processing.
+- Verify installation, repository, issue, PR, merge, and author through GitHub before awarding.
+- Share the same eligibility implementation between webhook processing and reconciliation.
+- Cash eligibility requires the default branch, supported body reference, funding/merge cutoff, numeric identities and actual issue ClosedEvent.closer matching the PR. Keep an immutable evidence snapshot; later body edits cannot invent closure.
+- Persist exactly one winner per issue. The MVP uses first eligible allocation processed, not earliest merge ordering.
 
-After rotation, check readiness, a fresh login, sync, and logout.
-Do not share actual cookie/token values as verification evidence.
+## Contract controls
 
-## Payment trust boundary
+- Use EIP-712 typed settlement authorizations with chain ID and verifying contract in the domain.
+- Freeze the exact version-1 schema in architecture.md and prove a Python/viem/Solidity golden vector. Bind bounty ID, recipient, token, amount, nonce zero, and deadline.
+- Consume state before external token transfer and protect against reentrancy.
+- Reject zero addresses, zero amounts, unsupported tokens, duplicate bounty IDs, expired vouchers, wrong signers, and already-settled bounties.
+- Derive bounty IDs from chain, contract, recorded payer and application reference; copied references from another sender cannot preempt the expected ID.
+- Set claimUntil = workEndsAt + seven days. Settlement requires block.timestamp < deadline <= claimUntil; refund requires >= claimUntil. No early cancellation. Test equality and both race orderings.
+- Use SafeERC20-compatible transfers and explicitly exclude unsupported fee-on-transfer or rebasing tokens for the MVP.
+- Use a non-upgradeable contract with immutable USDC and EOA authorization signer. No admin withdrawal, pause, signer rotation or rescue path in this MVP.
 
-SmoothSend is required for owner payouts. The browser receives only `SMOOTHSEND_PUBLIC_KEY`;
-`SMOOTHSEND_SECRET_KEY` stays on the backend. Configure the exact frontend origin in the dashboard.
-Wallet signatures prove permanent links to numeric GitHub identities; they do not grant custody to GitBounty.
-The server derives payment terms, nonce and calldata, verifies the owner's signed operation, and
-independently checks the chain receipt before marking paid. Never mark a submitted operation paid
-from its hash alone. Recovery reuses the saved signature and nonce; verify before retrying.
-The full reward and capped USDC fee approval are separate. There is no escrow, server signing key,
-internal wallet balance or automatic withdrawal. Fuji tokens have no monetary value.
+## Authorization signer
 
-## Database migrations and recovery
+The backend settlement signer is powerful: compromise could authorize payouts from funded escrows. Therefore:
 
-The numbered files in [migrations](../migrations/) are the schema change record.
-Run `uv run --locked python dev/migrate.py status` and `up` from the backend environment.
-The runner applies each file transactionally, records checksums and rejects numbering gaps.
-Never edit an applied migration; add the next numbered file with its dependencies.
+- Keep it separate from deployer, treasury, and user wallet keys.
+- Store it only in the deployment platform's secret facility or an external signer/KMS.
+- Never expose it to the browser or logs.
+- Rate-limit voucher issuance and record every issued digest.
+- Make voucher creation idempotent for a bounty and recipient.
+- If the immutable signer is compromised, stop new off-chain issuance and new funding, investigate issued vouchers, and deploy a separately reviewed contract. Existing valid vouchers cannot be revoked, and old escrows retain their claim/refund rules.
+- Use only test assets on Fuji until key management and incident procedures are reviewed.
 
-Shared database changes need explicit owner authorisation and a backup.
-The runner refuses non-local targets without `--i-have-approval`; that flag is not permission by itself.
-Check which migrations are applied rather than assuming the hosted database matches git.
+The signer can authorize a malicious recipient if compromised. Contract tests/replay protection do not remove this trust. An off-chain allocation or moderation hold does not extend claimUntil.
 
-Upgrade notes retained from the existing migration history:
+## Funding and settlement verification
 
-- 0007 rejects values outside 1–1000. Unpublishing alone does not satisfy that check;
-  inspect out-of-range rows and agree on a data correction before retrying.
-- When upgrading the old merged-PR totals to the ledger, include 0010's backfill.
-  Stopping after 0008 leaves old contributions out of the new totals.
-- Report checksum changes; recover the original file and use a new migration for intended changes.
+Funding verification checks:
 
-Back up before shared changes and practise restoring to a separate database.
-A local container dump can be created without shell binary redirection:
+- expected chain;
+- expected escrow contract;
+- successful receipt;
+- correct `BountyFunded` event;
+- correct payer, token, amount, and bounty ID;
+- observed token transfer into escrow.
+- exact USDC allowance and separate fund transaction; approval alone is never funding evidence.
 
-```text
-docker exec gitbounty_dev_db pg_dump -U gitbounty -d gitbounty_dev -Fc -f /tmp/gitbounty-backup.dump
-docker cp gitbounty_dev_db:/tmp/gitbounty-backup.dump <secure-backup-directory>/gitbounty-backup.dump
-```
+Settlement verification checks:
 
-Replace the destination with a protected directory outside the repository.
-For hosted Postgres, use a protected connection configuration with `pg_dump -Fc --file=<backup-file>`;
-do not paste credentials into commands or logs.
-Restore using `pg_restore --dbname=<separate-restore-database> --no-owner --no-privileges <backup-file>`.
-Compare user/ledger row counts, ledger totals, migration history, readiness and leaderboard reads.
-A real hosted backup restore has not been verified in this review.
+- expected chain and contract;
+- successful receipt;
+- correct `BountySettled` event;
+- exact bounty ID and recipient;
+- exact ERC-20 token and amount;
+- no conflicting settlement record.
+- matching canonical receipt block hash, rechecked after at least one subsequent block under the demo policy.
 
-Do not repair points by editing ledger rows. Append a reasoned adjustment using the application's correction path.
-Account deletion/retention is not implemented; deleting user rows can cascade into awards and published bounties.
+Direct calls target escrow; an AA transaction can target EntryPoint. Verify inner UserOperation success and matching escrow/token logs. The receiving EOA need not equal msg.sender or transaction.from.
 
-## Logs and rate limits
+Use one verifier for browser-submitted hashes and a bounded persisted log scanner. Recover mined transactions after browser closure without creating another reward.
 
-Structured JSON logs include `X-Request-ID` correlation and events for requests, syncs, bounties and awards.
-`LOG_LEVEL` and `JSON_LOGS` control output. Bodies, query strings and credentials are excluded from request logs;
-redaction is a backstop, not permission to log secrets.
+A transaction hash, provider callback, or pending UserOperation is never enough to mark a reward paid.
 
-Rate limiting is implemented. A 429 includes retry information.
-Counters live in one process and need a shared strategy before scaling.
-Proxy configuration must establish trusted client addresses.
-`RATE_LIMIT_SCALE` only affects the exact test environment.
-There is no metrics or external error-reporting service.
+## Secrets
 
-## Before public release
+Never put the following in source, documentation, screenshots, video, logs, analytics, or chat:
 
-- Verify real OAuth and a complete publish → merge → award journey.
-- Configure production database, backups, OAuth callback, HTTPS cookies and allowed origins.
-- Disable the development login stub and test-auth configuration.
-- Choose hosting and a durable worker/recovery strategy; configure proxy trust and rate limiting for that topology.
-- Recheck dependencies and runtime behavior; old audit counts are not evidence of current safety.
-- Set moderator GitHub numeric IDs and a security contact.
-- Resolve licensing, privacy/terms and retention policy with the owner.
-- Replace extension localhost URLs and verify browser/session behavior before store submission.
+- OAuth client secrets or access tokens;
+- session cookies or CSRF values;
+- database URLs/passwords;
+- GitHub App private keys or webhook secrets;
+- Privy app secrets or authorization keys;
+- escrow settlement signer private key;
+- wallet private keys, seed phrases, or recovery material;
+- SmoothSend secret keys.
 
-No deployment, shared database operation, credential rotation or external telemetry is authorised by this document.
+Public identifiers such as app IDs, wallet addresses, contract addresses, transaction hashes, public dashboard keys, and RPC URLs may be exposed only when their provider classifies them as public.
+
+## Database and operations
+
+- Apply schema changes only through new numbered migrations.
+- Back up shared databases before migrations and require explicit owner authorization.
+- Keep the points ledger append-only; corrections are new entries.
+- Preserve historical payment evidence when changing providers.
+- Redact request bodies and authorization headers from logs.
+- Rate-limit login, wallet challenge, funding refresh, voucher issuance, and transaction verification.
+- Ensure production test-auth paths and development stubs are disabled.
+- Prove worker progress after a restart on the selected deployment; an untracked asyncio task is not durable execution.
+- Deliver the GitHub App RSA key through a real host secret file or deliberate environment loader.
+- Resolve the locked cryptography/Starlette advisories listed in implementation-audit.md and rerun middleware, OAuth, webhook, encryption and signature tests.
+
+## Demo safety
+
+- Use Fuji and test USDC.
+- Prepare wallets before recording; never display secret material.
+- Show public addresses and transaction hashes only.
+- Cap bounty amounts to the minimum needed for a clear demo.
+- Rehearse wrong-network and rejected-signature recovery without risking real funds.
+
+## Mainnet gate
+
+Do not deploy or advertise mainnet settlement until contract review, signer management, monitoring, refund behavior, legal/product disclosures, and incident response are explicitly approved. A mainnet bonus is not worth risking user funds.
