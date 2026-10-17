@@ -31,8 +31,10 @@ from .routes.maintainer import router as maintainer_router
 from .routes.payments import router as payments_router
 from .routes.moderation import router as moderation_router
 from .routes.github_app import router as github_app_router
+from .routes.escrow import router as escrow_router
 from .github_app import configured as app_configured
 from .services.webhooks import run_worker
+from .escrow import signer_address
 
 configure_logging(settings.log_level, json_logs=settings.json_logs)
 
@@ -88,6 +90,7 @@ app.include_router(maintainer_router)
 app.include_router(payments_router)
 app.include_router(moderation_router)
 app.include_router(github_app_router)
+app.include_router(escrow_router)
 # Mounted only in a test environment. In any other configuration the path is not routed at all, so it
 # cannot be reached even with the right header.
 if test_auth_enabled():
@@ -160,6 +163,19 @@ async def ready(response: Response) -> dict[str, object]:
         "session_secret": "configured" if settings.session_secret else "not configured",
         "token_encryption": "configured" if settings.token_encryption_key else "not configured",
     }
+    if settings.escrow_enabled:
+        key = settings.escrow_signer_private_key.get_secret_value()
+        try:
+            escrow_valid = bool(
+                settings.escrow_contract_address
+                and settings.escrow_authorization_signer
+                and settings.escrow_deployment_block
+                and key
+                and signer_address(key).lower() == settings.escrow_authorization_signer.lower()
+            )
+        except ValueError:
+            escrow_valid = False
+        checks["escrow"] = "configured" if escrow_valid else "not configured"
 
     if not is_configured():
         checks["database"] = "unreachable" if db.last_connect_error else "not configured"
@@ -177,6 +193,11 @@ async def ready(response: Response) -> dict[str, object]:
                        and to_regclass('public.avax_payments') is not null
                        and to_regclass('public.avax_payment_receipts') is not null
                        and to_regclass('public.smoothsend_payment_receipts') is not null
+                       and to_regclass('public.escrow_reward_terms') is not null
+                       and to_regclass('public.escrow_funding_events') is not null
+                       and to_regclass('public.escrow_allocations') is not null
+                       and to_regclass('public.escrow_vouchers') is not null
+                       and to_regclass('public.escrow_chain_events') is not null
                 """)
             checks["database"] = "ok" if complete else "schema incomplete"
         except Exception:

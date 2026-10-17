@@ -122,7 +122,9 @@ async def upsert_user(
     )
 
 
-async def published_bounties(connection: asyncpg.Connection) -> dict[tuple[str, int], PublishedBounty]:
+async def published_bounties(
+    connection: asyncpg.Connection, *, include_escrow: bool = False
+) -> dict[tuple[str, int], PublishedBounty]:
     """Every currently published bounty, keyed for matching against a pull request's closing references.
 
     Unpublished and archived bounties are excluded: they are not on offer, so they do not award. A bounty
@@ -138,8 +140,9 @@ async def published_bounties(connection: asyncpg.Connection) -> dict[tuple[str, 
         from issue_points ip
         left join repositories r on lower(r.full_name) = lower(ip.repo_full_name)
         left join issues i on i.repository_id = r.id and i.number = ip.issue_number
-        where ip.status = 'published'
-        """
+        where ip.status = 'published' and ($1 or ip.reward_mode <> 'escrow')
+        """,
+        include_escrow,
     )
     found: dict[tuple[str, int], PublishedBounty] = {}
     for row in rows:

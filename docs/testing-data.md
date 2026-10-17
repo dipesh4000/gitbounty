@@ -10,7 +10,7 @@ Use this runbook for deterministic testing and the final live proof. Account A i
 - Baseline points: use the configured rule version
 - Fuji USDC reward: `1.00` test USDC or another deliberately small amount
 - Chain: Avalanche Fuji, chain ID `43113`
-- Escrow address: `TODO after deployment`
+- Escrow address: `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`
 - Funding transaction: `TODO`
 - Settlement transaction: `TODO`
 - Work cutoff / claim deadline: `TODO` / `work cutoff + seven days`

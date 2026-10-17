@@ -15,7 +15,8 @@ without provenance is not auditable.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+import secrets
 from typing import Any, Literal
 
 import asyncpg
@@ -31,6 +32,7 @@ from ..auth import CurrentUser, get_current_user_with_token
 from ..categories import classify
 from ..db import DatabaseNotConfigured, pool
 from ..features.points.rules import MAX_ISSUE_POINTS, MIN_ISSUE_POINTS, suggested_bounty_points
+from ..escrow_chain import derive_bounty_id
 
 Category = Literal[
     "frontend", "backend", "fullstack", "docs", "testing",
@@ -59,6 +61,7 @@ class BountyInput(BaseModel):
     reward_avax: str | None = Field(default=None, max_length=79)
 
     reward_usdc: str | None = Field(default=None, max_length=67)
+    escrow_work_ends_at: datetime | None = None
 
     @field_validator("reward_usdc")
     @classmethod
@@ -69,6 +72,13 @@ class BountyInput(BaseModel):
     @classmethod
     def exact_avax(cls, value: str | None) -> str | None:
         return wei_to_avax(avax_to_wei(value)) if value is not None else None
+
+    @field_validator("escrow_work_ends_at")
+    @classmethod
+    def aware_deadline(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("Use a timezone-aware escrow work deadline.")
+        return value.astimezone(UTC) if value is not None else None
 
 
 class PublishRequest(BaseModel):
@@ -150,6 +160,9 @@ class PublishedBounty(BaseModel):
     reward_avax: str | None = None
     reward_usdc: str | None = None
     reward_chain_id: int | None = None
+    reward_mode: Literal["points_only", "legacy_payment", "escrow"] = "points_only"
+    work_ends_at: datetime | None = None
+    claim_until: datetime | None = None
 
 
 class BountyList(BaseModel):
@@ -454,9 +467,13 @@ async def _existing_bounties(repository: str) -> dict[int, PublishedBounty]:
     try:
         rows = await db_pool.fetch(
             """
-            select ip.repo_full_name, ip.issue_number, ip.points, ip.status,
-                   (select amount_wei::text from avax_reward_terms where bounty_id = ip.id) as reward_wei,
-                   (select chain_id from avax_reward_terms where bounty_id = ip.id) as reward_chain_id,
+            select ip.repo_full_name, ip.issue_number, ip.points, ip.status, ip.reward_mode,
+                   coalesce((select amount_wei::text from avax_reward_terms where bounty_id = ip.id),
+                            (select amount_units::text from escrow_reward_terms where bounty_id = ip.id)) as reward_wei,
+                   coalesce((select chain_id from avax_reward_terms where bounty_id = ip.id),
+                            (select chain_id from escrow_reward_terms where bounty_id = ip.id)) as reward_chain_id,
+                   (select work_ends_at from escrow_reward_terms where bounty_id = ip.id) as work_ends_at,
+                   (select claim_until from escrow_reward_terms where bounty_id = ip.id) as claim_until,
                    ip.created_at, ip.updated_at,
                    u.github_login as set_by,
                    i.title as issue_title, i.state as issue_state, i.html_url as issue_url,
@@ -555,7 +572,42 @@ async def publish_bounties(
                     chain_id = 43113 if item.reward_usdc is not None else 43114
                     if item.reward_usdc is not None and item.reward_avax is not None:
                         raise HTTPException(422, "Choose one reward asset.")
-                    if cash is not None:
+                    if item.escrow_work_ends_at is not None:
+                        if item.reward_usdc is None or item.reward_avax is not None:
+                            raise HTTPException(422, "Escrow rewards require a Fuji USDC amount only.")
+                        if before is not None:
+                            raise HTTPException(409, "Escrow must be fixed on first publication. Create a fresh issue bounty.")
+                        if not settings.escrow_enabled or not settings.escrow_contract_address:
+                            raise HTTPException(503, "Escrow publishing is not enabled.")
+                        if item.escrow_work_ends_at <= datetime.now(UTC) + timedelta(minutes=15):
+                            raise HTTPException(422, "The escrow work deadline must be more than 15 minutes away.")
+                        payer_address = await connection.fetchval(
+                            "select address from wallets where github_id = $1", user.github_id,
+                        )
+                        if payer_address is None:
+                            raise HTTPException(409, "Link the funding wallet before publishing an escrow bounty.")
+                        amount = amount_to_units(item.reward_usdc, 6)
+                        reference_id = "0x" + secrets.token_hex(32)
+                        contract = settings.escrow_contract_address.lower()
+                        payer_address = payer_address.lower()
+                        onchain_bounty_id = derive_bounty_id(
+                            settings.escrow_chain_id, contract, payer_address, reference_id,
+                        )
+                        await connection.execute(
+                            "update issue_points set reward_mode = 'escrow' where id = $1", bounty_id,
+                        )
+                        await connection.execute(
+                            """insert into escrow_reward_terms
+                               (bounty_id, chain_id, contract_address, token_address, reference_id,
+                                onchain_bounty_id, repository_github_id, issue_github_id,
+                                payer_github_id, payer_address, amount_units, work_ends_at, claim_until)
+                               values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)""",
+                            bounty_id, settings.escrow_chain_id, contract,
+                            settings.escrow_token_address.lower(), reference_id, onchain_bounty_id,
+                            repo["id"], issue["id"], user.github_id, payer_address, amount,
+                            item.escrow_work_ends_at, item.escrow_work_ends_at + timedelta(days=7),
+                        )
+                    elif cash is not None:
                         amount = amount_to_units(cash, 6 if chain_id == 43113 else 18)
                         if terms and (int(terms["amount_wei"]) != amount or terms["chain_id"] != chain_id):
                             raise HTTPException(409, "The published payment promise cannot be changed.")
@@ -585,7 +637,8 @@ async def publish_bounties(
                         status_before=before["status"] if before else None,
                         status_after="published",
                         category_after=item.category,
-                        reason=(f"Published with owner-promised {cash} {'USDC (Fuji testnet)' if chain_id == 43113 else 'AVAX'}; GitBounty does not guarantee payment."
+                        reason=(f"Published with {'Fuji USDC escrow terms' if item.escrow_work_ends_at else 'owner-promised ' + str(cash)}"
+                                f"{' USDC (Fuji testnet)' if not item.escrow_work_ends_at and chain_id == 43113 else ' AVAX' if not item.escrow_work_ends_at else ''}."
                                 if cash else "Published from the maintainer workspace."),
                     )
     except asyncpg.UndefinedTableError as error:

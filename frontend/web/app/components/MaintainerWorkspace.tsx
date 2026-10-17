@@ -32,7 +32,7 @@ import { useApiResource } from "../lib/useApiResource";
 */
 
 type Tab = "publish" | "published";
-type Draft = { selected: boolean; points: string; category: BountyCategory; rewardAvax: string };
+type Draft = { selected: boolean; points: string; category: BountyCategory; rewardAvax: string; workEnds?: string };
 
 const MIN_POINTS = 1;
 /** Only reached if an issue vanishes from the list mid-edit; "other" is the safe category to fall back on. */
@@ -211,6 +211,7 @@ function IssuePicker({
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const { resource: paymentMode } = useApiResource<PaymentConfig>("/api/avax/config");
   const payment = paymentMode.data;
+  const { resource: escrowConfig } = useApiResource<{ enabled: boolean }>("/api/escrow/config");
   const [publishError, setPublishError] = useState("");
   const [success, setSuccess] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -271,6 +272,7 @@ function IssuePicker({
             points: Number(drafts[issue.number].points),
             category: drafts[issue.number].category,
             ...(!issue.existing && drafts[issue.number].rewardAvax && payment ? { [payment.testnet ? "reward_usdc" : "reward_avax"]: drafts[issue.number].rewardAvax } : {}),
+            ...(!issue.existing && drafts[issue.number].rewardAvax && drafts[issue.number].workEnds ? { escrow_work_ends_at: new Date(drafts[issue.number].workEnds!).toISOString() } : {}),
           })),
         },
       });
@@ -431,6 +433,12 @@ function IssuePicker({
                   disabled={!payment || !current.selected || Boolean(issue.existing)} placeholder={payment?.testnet ? "e.g. 1.25" : "e.g. 0.1"}
                   onChange={event => update(issue.number, { rewardAvax: event.target.value })} />
               </label>
+                {escrowConfig.data?.enabled && payment?.testnet && !issue.existing && <label>
+                  <span>Escrow work deadline (optional; local time)</span>
+                  <input type="datetime-local" value={current.workEnds ?? ""} disabled={!current.selected}
+                    onChange={event => update(issue.number, { workEnds: event.target.value })} />
+                  <small>Set this to escrow the USDC reward. Link your wallet first. Claims expire seven days later; funding follows publication.</small>
+                </label>}
               </div>
             </div>
           );

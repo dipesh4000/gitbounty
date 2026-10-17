@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from dataclasses import replace
 
 import httpx
 
@@ -15,6 +16,11 @@ from ..features.merged_prs.lifecycle import assess
 from ..features.merged_prs.service import DetectedMerge
 from ..features.points.store import published_bounties, record_merges, record_pull_requests
 from .issue_state import store_issue_states
+from .escrow_rewards import (
+    EscrowIneligible,
+    reserve_cash_allocation,
+    validate_cash_eligibility,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,17 +85,34 @@ async def apply_delivery(connection, event: str, payload: dict) -> str:
                               "pull_request": {"merged_at": pr_data["merged_at"]}})
         if user_id is not None:
             pr = pr.with_author_user_id(user_id)
-        bounties = await published_bounties(connection)
+        bounties = await published_bounties(connection, include_escrow=True)
         paths = await fetch_changed_paths(client, full_name, number, token)
         tracked = assess(pr, review=None, inferred_category=categorise(pr, paths), published=bounties,
                          tracked_repositories=frozenset(repo for repo, _ in bounties))
         if not tracked.eligible:
             return "ignored"
+        cash_evidence = None
+        if tracked.bounty is not None:
+            mode = await connection.fetchval(
+                """select reward_mode from issue_points
+                   where lower(repo_full_name) = lower($1) and issue_number = $2""",
+                tracked.bounty.repo_full_name, tracked.bounty.issue_number,
+            )
+            if mode == "escrow":
+                try:
+                    cash_evidence = await validate_cash_eligibility(
+                        connection, client, token, repo, pr_data, author["id"], tracked.bounty.issue_number,
+                    )
+                except EscrowIneligible:
+                    # The baseline may still be valid, but unsafe cash evidence must never reserve the bounty.
+                    tracked = replace(tracked, bounty=None, category_source="inferred")
         if user_id is not None:
             await record_pull_requests(connection, user_id, [tracked])
         merge = DetectedMerge(pr.as_merged(), tracked.category, tuple(pr.closed_issues),
                               tracked.bounty, tracked.baseline_eligible)
         await record_merges(connection, user_id, [merge], github_id=author["id"])
+        if cash_evidence is not None:
+            await reserve_cash_allocation(connection, cash_evidence, pr_data, author["id"])
     return "processed"
 
 

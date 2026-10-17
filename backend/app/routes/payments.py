@@ -111,7 +111,8 @@ async def check_chain():
 
 @router.post("/wallet/challenge")
 async def wallet_challenge(user: CurrentUser = Depends(get_current_user)):
-    require_enabled()
+    if not settings.escrow_enabled:
+        require_enabled()
     async with pool().acquire() as connection:
         await _actor_id(connection, user)
         message = (f"{settings.frontend_url}\nGitBounty: connect my receiving/payment wallet.\n"
@@ -128,7 +129,8 @@ async def wallet_challenge(user: CurrentUser = Depends(get_current_user)):
 
 @router.post("/wallet")
 async def connect_wallet(proof: WalletProof, user: CurrentUser = Depends(get_current_user)):
-    require_enabled()
+    if not settings.escrow_enabled:
+        require_enabled()
     try:
         async with pool().acquire() as connection, connection.transaction():
             message = await connection.fetchval(

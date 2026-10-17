@@ -9,7 +9,7 @@ The plan now has concrete decisions for the gaps below. Implementation gates rem
 | Priority | Finding and evidence | Decision / required proof | Phase |
 |---|---|---|---|
 | P1 | Earlier docs missed native GitHub OAuth in Privy | Use native GitHub onboarding; verify linked numeric ID and app session; custom JWT is optional | 5 |
-| P1 | No escrow source/deployment exists | One non-upgradeable USDC escrow; local tests then real Fuji fund/settle | 1 |
+| P1 | Escrow is deployed on Fuji; live fund/settle smoke evidence is still pending | Use the recorded non-upgradeable USDC escrow; complete a real Fuji fund/settle before closing Phase 1 | 1 |
 | P1 | Refund policy promised protection after award without an on-chain reservation | Fixed work cutoff + seven-day claim grace; disjoint claim/refund conditions; disclose expiry even after points award | 1–3 |
 | P1 | Backend signer trust understated | Immutable signer is trusted for GitHub eligibility/recipient; no fully trustless claim | 1–6 |
 | P1 | Predictable caller-supplied bounty ID could be preemptively funded | Derive ID from chain, contract, payer and application reference on-chain | 1 |
@@ -73,7 +73,7 @@ The [live event portal](https://build.avax.network/events/3f8d455d-1eb5-425b-b85
 
 1. Actual production OAuth, App installation/permissions, and processed webhook after restart.
 2. Owner-approved persistent hosting/account budget, App secret-file delivery and database retention/backup.
-3. New escrow artifact, migrations, local integration and Fuji proof.
+3. Live Fuji funding/settlement proof and deployment of migration 0017 plus the Phase 2 backend configuration.
 4. Privy dashboard, native GitHub subject mapping, wallet signing/recovery and exact SDK build compatibility.
 5. SmoothSend local origin/dashboard alignment, sponsorship credits and live contract-call evidence if included.
 6. Dated build-window provenance, source license/publication, video/slides, team and accepted portal receipt.

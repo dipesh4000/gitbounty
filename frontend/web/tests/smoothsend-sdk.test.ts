@@ -33,7 +33,7 @@ const operationHash = "0x" + "a".repeat(64);
 beforeEach(() => {
   events = []; predictedFee = "2000"; rejectSave = false; gatewayChain = "0xa869";
   chain.readContract.mockResolvedValue(BigInt(2_000_000)); chain.signMessage.mockClear();
-  selectWallet({ request: async () => [] });
+  selectWallet({ request: vi.fn(), on: vi.fn(), removeListener: vi.fn() });
   const create = axios.create.bind(axios);
   vi.spyOn(axios, "create").mockImplementation(config => create({ ...config, adapter: async request => {
     const body = JSON.parse(request.data);

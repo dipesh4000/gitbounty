@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useAuth, loginHref } from "./AuthProvider";
 
 const primaryLinks = [
+  ["/bounties", "Fuji bounties"],
   ["/explore", "Explore"],
   ["/how-it-works", "How it works"],
   ["/leaderboard", "Leaderboard"],

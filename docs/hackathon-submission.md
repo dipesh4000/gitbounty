@@ -43,7 +43,8 @@ State each integration as shipped or omitted in the final version:
 - Public source repository: **TODO — owner supplies/publishes URL**
 - Public completed-bounty page: **TODO**
 - GitHub demo issue and merged PR: **TODO**
-- Fuji escrow contract and deployment transaction: **TODO**
+- Fuji escrow contract: [0xc8ff…9f65](https://testnet.snowtrace.io/address/0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65)
+- Deployment transaction: [0x302e…52e4d](https://testnet.snowtrace.io/tx/0x302e9e0dce61ad1dd1fa8a7dccbca71c9f7d3f15a185ee0204fa728b84952e4d)
 - Funding and settlement transactions: **TODO**
 - Video: **TODO**
 - Pitch slides: **TODO**
@@ -103,7 +104,7 @@ Build window: September 21–October 21, 2026. Existing source today is not proo
 | Web/API, GitHub OAuth, points/leaderboard | Yes | TODO dated verification | TODO | TODO |
 | GitHub App/inbox, numeric allocations, extension | Yes | TODO dated verification | TODO | TODO |
 | Legacy SmoothSend payments/recovery | Yes | TODO dated verification | TODO | TODO |
-| USDC escrow contract and funding | Planned | TODO | Pending | TODO |
+| USDC escrow contract and funding | Contract deployed; smoke funding pending | [Contract](https://testnet.snowtrace.io/address/0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65) | Deployment recorded | [Deployment](https://testnet.snowtrace.io/tx/0x302e9e0dce61ad1dd1fa8a7dccbca71c9f7d3f15a185ee0204fa728b84952e4d) |
 | GitHub closure/eligibility→voucher settlement | Planned | TODO | Pending | TODO |
 | Privy native GitHub + embedded wallet | Planned | TODO | Pending or omitted | TODO |
 | Sponsored claim | Optional | TODO | Pending or omitted | TODO |
