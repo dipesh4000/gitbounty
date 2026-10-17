@@ -4,6 +4,15 @@ Updated October 17, 2026.
 
 Migration 0017 was applied to the configured Supabase database with owner authorization. All migration checksums through 0017 were verified afterwards. Existing rows were preserved.
 
+Production verification on October 17: `/ready` returned 200 with escrow configured;
+`/api/escrow/config` returned `enabled: true`, Fuji 43113, the recorded contract and
+signer, and direct execution. `/api/escrow/bounties` returned an empty list.
+The public issue board returned 500. A read-only database diagnostic independently
+reported `EMAXCONNSESSION`, with a session-pool limit of 15 clients. The local fix
+reduces asyncpg to two connections with no preallocated connections and a ten-second
+idle lifetime, and uses SQLAlchemy NullPool. The fix requires an owner Git push and
+Vercel redeployment before production recovery can be verified.
+
 Contract: `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`, Fuji 43113, deployment block 59609397. Read-only deployment checks confirmed the official USDC token and immutable signer. No funding or settlement transaction has been broadcast by this implementation session.
 
 ## Application flow

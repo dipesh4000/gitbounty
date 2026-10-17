@@ -10,6 +10,7 @@ import logging
 
 import asyncpg
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from .config import settings
 
@@ -42,16 +43,19 @@ async def connect() -> None:
     if _pool is not None or not settings.database_url:
         return
     try:
-        _pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10)
+        # Vercel can run several instances against a small Supabase session pool.
+        # Keep no startup connections and release idle sockets promptly.
+        _pool = await asyncpg.create_pool(
+            settings.database_url, min_size=0, max_size=2,
+            max_inactive_connection_lifetime=10, timeout=15,
+        )
         database_url = settings.database_url
         _engine = create_async_engine(
             "postgresql+asyncpg://",
             # Keep asyncpg's DSN options (including sslmode) and keep credentials
             # out of SQLAlchemy's URL and exception representations.
             async_creator=lambda: asyncpg.connect(database_url),
-            pool_size=5,
-            max_overflow=0,
-            pool_pre_ping=True,
+            poolclass=NullPool,
             hide_parameters=True,
         )
         _sessions = async_sessionmaker(_engine, expire_on_commit=False)
