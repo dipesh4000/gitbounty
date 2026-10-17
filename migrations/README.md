@@ -1,9 +1,9 @@
 # SQL migrations
 
-Numbered SQL files are the schema change record. Current migrations run from 0001 through 0016.
+Numbered SQL files are the schema change record. Current migrations run from 0001 through 0017.
 The partially adopted SQLAlchemy ORM does not replace this workflow. Migration 0015 adds immutable
 payment promises and wallet claims; 0016 records the earlier Fuji USDC and SmoothSend payment path.
-Future escrow migrations must preserve those records as audit history instead of rewriting them.
+Migration 0017 adds a separate escrow path and preserves those records as audit history.
 
 - Add the next `NNNN_short_description.sql`; inspect the existing files and recorded checksums first.
 - Include purpose and `Depends on:` comments.

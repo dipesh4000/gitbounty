@@ -4,13 +4,13 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Which dotenv file to read, if any. Normally `.env` next to this package. The test suite sets
+# Which dotenv file to read, if any. Normally the project-root `.env`. The test suite sets
 # GITBOUNTY_ENV_FILE="" so that a result never depends on what a particular developer happens to have in
 # their `.env` -- a suite that passes on one machine and fails on another is not a safety net.
-_ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", str(Path(__file__).resolve().parent.parent / ".env")) or None
+_ENV_FILE = os.environ.get("GITBOUNTY_ENV_FILE", str(Path(__file__).resolve().parents[2] / ".env")) or None
 
 
 class Settings(BaseSettings):
@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     smoothsend_secret_key: str = ""
     smoothsend_fee_limit_usdc: str = "0.1"
     avax_rpc_url: str = "https://api.avax.network/ext/bc/C/rpc"
+
+    # Phase 2 escrow. The signer key is a backend bearer secret and must never reach a response or log.
+    escrow_enabled: bool = False
+    escrow_execution_mode: Literal["direct", "direct_with_optional_aa"] = "direct"
+    escrow_chain_id: int = 43113
+    escrow_rpc_url: str = "https://api.avax-test.network/ext/bc/C/rpc"
+    escrow_token_address: str = "0x5425890298aed601595a70ab815c96711a31bc65"
+    escrow_contract_address: str = ""
+    escrow_authorization_signer: str = ""
+    escrow_signer_private_key: SecretStr = SecretStr("")
+    escrow_deployment_block: int = 0
 
     github_client_id: str = ""
     github_client_secret: str = ""

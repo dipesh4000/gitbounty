@@ -8,17 +8,17 @@ Ship one public GitHub issue bounty that a maintainer funds on Avalanche Fuji, a
 
 The event narrative says October 21; its submission panel displays **October 22, 2026, 03:29 Asia/Kolkata**. Use **October 21, 18:00 IST** as our internal submission target, and recheck the portal before submitting. The portal also requests **pitch slides**, in addition to the seven submission fields supplied in the brief.
 
-| Date, IST | Milestone | Exit evidence |
-|---|---|---|
-| October 13 | Phase 0: dependency/configuration preflight | prerequisites recorded with owners; no hidden required provider |
-| October 14 | Phase 1: local escrow and Fuji smoke test | tested artifact, address, funding and settlement transactions |
-| October 15 | Phase 2: backend integration | migration, eligibility reservation, signed authorization, verifier |
-| October 16 | Phase 3: complete direct-wallet UI | public funded bounty and usable claim/refund flow |
-| October 17 | Phase 4: live two-account proof | real GitHub delivery, points, exact Fuji settlement |
-| October 18 | Phase 5: Privy onboarding; optional SmoothSend spike | native GitHub login/wallet proof, or documented direct fallback |
-| October 19 | Phase 6: package and feature freeze | video, pitch slides, source/setup, delta and evidence links |
-| October 20 | Buffer and clean-browser rehearsal | reproducible demo, recovery paths, links checked |
-| October 21, 18:00 | Submit through Builder Hub | accepted submission receipt, team and files confirmed |
+|Milestone | Exit evidence |
+|---|---|
+| Phase 0: dependency/configuration preflight | prerequisites recorded with owners; no hidden required provider |
+| Phase 1: local escrow and Fuji smoke test | tested artifact, address, funding and settlement transactions |
+| Phase 2: backend integration | migration, eligibility reservation, signed authorization, verifier |
+| Phase 3: complete direct-wallet UI | public funded bounty and usable claim/refund flow |
+| Phase 4: live two-account proof | real GitHub delivery, points, exact Fuji settlement |
+| Phase 5: Privy onboarding; optional SmoothSend spike | native GitHub login/wallet proof, or documented direct fallback |
+| Phase 6: package and feature freeze | video, pitch slides, source/setup, delta and evidence links |
+| Buffer and clean-browser rehearsal | reproducible demo, recovery paths, links checked |
+| Submit through Builder Hub | accepted submission receipt, team and files confirmed |
 
 These are execution targets, not claims of completed work. All runtime phases are open until their exit evidence exists. If implementation starts late, cut optional integrations first and preserve the live proof and submission buffer.
 

@@ -30,7 +30,7 @@ contracts/           planned Solidity workspace
 
 ## Database
 
-Use a throwaway local PostgreSQL database for development and tests. Configure `DATABASE_URL` in the ignored `backend/.env` file. Apply migrations through the existing runner:
+Use a throwaway local PostgreSQL database for development and tests. Configure `DATABASE_URL` in the ignored `project-root .env` file. Apply migrations through the existing runner:
 
 ```powershell
 cd backend
@@ -43,7 +43,7 @@ Never apply migrations to a shared database without explicit owner approval and 
 
 ## Existing backend configuration
 
-Copy `backend/.env.example` to ignored `backend/.env` and configure only the values required for the feature under test:
+Copy `.env.example` to ignored `project-root .env` and configure only the values required for the feature under test:
 
 - `DATABASE_URL`
 - `SESSION_SECRET`
@@ -75,6 +75,10 @@ Useful endpoints:
 - `http://localhost:8001/docs`
 
 ## Website
+
+Backend, Next.js and contract commands all read the same `gitbounty/.env`, located next to this project's `agent.md`. Copy the root `.env.example` for a new checkout. Set only `NEXT_PUBLIC_*` variables for values intended for browser code; server secrets must never use that prefix. Restart running processes after changing settings. Deployment hosts still use their environment settings; those override the local file.
+
+`GITBOUNTY_ENV_FILE=""` disables file loading for isolated tests. Existing process environment variables take precedence over file values.
 
 ```powershell
 cd frontend/web

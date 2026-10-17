@@ -1,4 +1,12 @@
 import type { NextConfig } from "next";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { loadEnvFile } from "node:process";
+
+// Next only exposes NEXT_PUBLIC_* variables to the browser. Never add server secrets to `env` below.
+const envFile = process.env.GITBOUNTY_ENV_FILE === "" ? undefined
+  : resolve(__dirname, process.env.GITBOUNTY_ENV_FILE || "../../.env");
+if (envFile && existsSync(envFile)) loadEnvFile(envFile);
 
 const nextConfig: NextConfig = {
   // Vercel's multi-service deployment serves public files, but /_next/image returns 404.

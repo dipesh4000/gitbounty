@@ -17,7 +17,15 @@ def test_defaults_are_isolated_and_safe() -> None:
         )
     )
     assert settings.dev_login_stub_enabled is False
+    assert settings.escrow_enabled is False
+    assert settings.escrow_contract_address == ""
+    assert settings.escrow_signer_private_key.get_secret_value() == ""
     assert "*" not in settings.allowed_origin_list
+
+
+def test_escrow_signer_key_is_redacted() -> None:
+    settings = Settings(escrow_signer_private_key="0x" + "11" * 32)
+    assert "11" * 32 not in repr(settings)
 
 
 def test_cors_allowlist_is_trimmed() -> None:

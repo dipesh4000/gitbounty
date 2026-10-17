@@ -5,6 +5,8 @@ Includes public landing and informational pages, plus the signed-in explorer, ma
 
 From this folder:
 
+Configuration comes from the shared project-root `../../.env`. Only `NEXT_PUBLIC_*` settings are exposed to browser code. Restart Next.js after changing them.
+
 ```text
 npm ci
 npm run dev

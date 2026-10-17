@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
 # Run against the declared defaults, not against whoever's machine this is. `app.config` reads
-# backend/.env by default, so without this a developer's own ALLOWED_ORIGINS, DATABASE_URL or OAuth
+# project-root .env by default, so without this a developer's own ALLOWED_ORIGINS, DATABASE_URL or OAuth
 # credentials leak into the suite and a test can pass here and fail in CI (or the reverse). This has to
 # happen before anything imports `app`, which is why it sits at module scope in conftest.
 os.environ["GITBOUNTY_ENV_FILE"] = ""
@@ -27,6 +27,9 @@ for _leaked in (
     "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_CALLBACK_URL", "FRONTEND_URL",
     "SESSION_SECRET", "TOKEN_ENCRYPTION_KEY", "DATABASE_URL", "ALLOWED_ORIGINS",
     "DEV_LOGIN_STUB_ENABLED", "DEV_GITHUB_LOGIN", "DEV_GITHUB_TOKEN", "DEV_GITHUB_ID",
+    "ESCROW_ENABLED", "ESCROW_EXECUTION_MODE", "ESCROW_CHAIN_ID", "ESCROW_RPC_URL",
+    "ESCROW_TOKEN_ADDRESS", "ESCROW_CONTRACT_ADDRESS", "ESCROW_AUTHORIZATION_SIGNER",
+    "ESCROW_SIGNER_PRIVATE_KEY", "ESCROW_DEPLOYMENT_BLOCK",
 ):
     os.environ.pop(_leaked, None)
 

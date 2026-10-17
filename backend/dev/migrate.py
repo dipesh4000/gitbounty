@@ -197,7 +197,7 @@ async def up(database_url: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=["status", "up"])
-    parser.add_argument("--database-url", default=None, help="Defaults to DATABASE_URL from the environment or backend/.env.")
+    parser.add_argument("--database-url", default=None, help="Defaults to DATABASE_URL from the environment or project-root .env.")
     parser.add_argument(
         "--i-have-approval",
         action="store_true",

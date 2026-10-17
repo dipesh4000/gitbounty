@@ -10,7 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:smoothsend": "node --env-file-if-exists=../../backend/.env scripts/check-smoothsend.mjs"
+    "check:smoothsend": "node --env-file-if-exists=../../.env scripts/check-smoothsend.mjs"
   },
   "dependencies": {
     "@smoothsend/sdk": "^2.3.8",

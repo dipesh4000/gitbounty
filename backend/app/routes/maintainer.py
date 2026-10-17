@@ -566,6 +566,10 @@ async def publish_bounties(
                             if before is not None:
                                 raise HTTPException(409, "Cash rewards must be agreed on first publication. Create a new bounty.")
                             await connection.execute(
+                                "update issue_points set reward_mode = 'legacy_payment' where id = $1",
+                                bounty_id,
+                            )
+                            await connection.execute(
                                 "insert into avax_reward_terms (bounty_id, payer_github_id, amount_wei, chain_id) values ($1, $2, $3, $4)",
                                 bounty_id, user.github_id, amount, chain_id,
                             )

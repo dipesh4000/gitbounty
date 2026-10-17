@@ -87,7 +87,7 @@ def pool() -> asyncpg.Pool:
             # operator reads /ready and the log, a stranger learns nothing.
             raise DatabaseNotConfigured("The database is not reachable right now. Try again shortly.")
         raise DatabaseNotConfigured(
-            "No database connection. Set DATABASE_URL in backend/.env (see backend/dev/README.md)."
+            "No database connection. Set DATABASE_URL in project-root .env (see backend/dev/README.md)."
         )
     return _pool
 

@@ -3,6 +3,7 @@
 *.env
 .env.*
 !.env.example
+.env-backups/
 
 # Python
 __pycache__/
@@ -19,5 +20,9 @@ venv/
 
 # Node
 node_modules/
+contracts/artifacts/
+contracts/cache/
+contracts/ignition/deployments/
 
 /example/
+*.json

@@ -57,7 +57,7 @@ def get_current_user() -> CurrentUser:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 "GitHub login isn't built yet. For local development, set DEV_GITHUB_LOGIN in "
-                "backend/.env (see .env.example)."
+                "project-root .env (see .env.example)."
             ),
         )
 
@@ -81,7 +81,7 @@ def get_current_user_with_token() -> CurrentUser:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 "No GitHub token for this user, so GitHub can't be queried. For local development, set "
-                "DEV_GITHUB_TOKEN in backend/.env (see .env.example)."
+                "DEV_GITHUB_TOKEN in project-root .env (see .env.example)."
             ),
         )
     return user
