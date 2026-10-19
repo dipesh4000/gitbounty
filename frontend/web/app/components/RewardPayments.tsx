@@ -1,9 +1,13 @@
 "use client";
-import { AvaxRewards } from "./AvaxRewards";
+import { ManagedWallet } from "./ManagedWallet";
+import { RecentWalletActivity } from "./WalletActivity";
 import { useApiResource } from "../lib/useApiResource";
 
 export function RewardPayments(){
-  const {resource}=useApiResource<{execution_mode:string}>("/api/escrow/config");
-  if(resource.data?.execution_mode!=="sponsored")return <AvaxRewards/>;
-  return <section className="escrow-card"><p className="escrow-eyebrow">Your contribution, rewarded</p><h2>Everything starts with your app wallet.</h2><p className="escrow-muted">Your GitHub account owns your reward record. Open your managed wallet to check funding, or inspect an escrow bounty to fund, claim or refund. Supported transactions use SmoothSend sponsorship.</p><div className="escrow-actions"><a className="escrow-button" href="/wallet">Open app wallet →</a><a className="escrow-button secondary" href="/bounties">View escrow rewards ↗</a></div></section>;
+  const {resource,reload}=useApiResource<{enabled:boolean;execution_mode:string}>("/api/escrow/config");
+  return <div className="managed-payments">
+    {resource.status === "loading" ? <p role="status">Checking sponsored payments…</p> : resource.error ? <div className="escrow-alert" role="alert"><p>{resource.error}</p><button className="escrow-button secondary" onClick={reload}>Retry configuration</button></div> : (resource.status === "ready" && (!resource.data.enabled || resource.data.execution_mode !== "sponsored")) && <div className="escrow-alert" role="status">Sponsored payments are not enabled on this deployment. Your app wallet is the payment method; contact the operator to finish activation.</div>}
+    <div className="escrow-grid"><ManagedWallet/><section className="escrow-card"><p className="escrow-eyebrow">From contribution to reward</p><h2>Fund. Build. Get rewarded.</h2><p className="escrow-muted">Deposit Fuji test USDC into your app wallet, then open a bounty to review funding, claim or refund details. GitBounty signs the action you confirm; SmoothSend sponsors supported network gas.</p><div className="escrow-actions"><a className="escrow-button" href="/bounties">View escrow rewards →</a><a className="escrow-button secondary" href="/wallet">Manage wallet</a></div><p className="escrow-muted">Points and historical owner promises are separate from funded escrow USDC. An old promise is not automatically funded by this wallet.</p></section></div>
+    <RecentWalletActivity/>
+  </div>;
 }

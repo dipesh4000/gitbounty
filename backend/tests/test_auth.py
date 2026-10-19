@@ -44,7 +44,7 @@ def test_callback_rejects_missing_or_mismatched_state_before_using_code(oauth_co
         assert client.get(f"/auth/github/callback?code=code&state={expected}").status_code == 400
 
 
-@pytest.mark.parametrize("destination", ["/explore", "/explore#points", "/maintainers", "/leaderboard", "https://attacker.example/", "//attacker.example/", "/explore?next=https://attacker.example/"])
+@pytest.mark.parametrize("destination", ["/explore", "/explore#points", "/maintainers", "/leaderboard", "/wallet", "https://attacker.example/", "//attacker.example/", "/explore?next=https://attacker.example/"])
 def test_callback_stores_user_and_returns_to_workspace(
     destination: str, oauth_config: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -80,7 +80,7 @@ def test_callback_stores_user_and_returns_to_workspace(
         )
 
     assert callback.status_code == 302
-    expected_path = destination if destination in {"/explore", "/maintainers", "/leaderboard", "/explore#points"} else "/explore"
+    expected_path = destination if destination in {"/explore", "/maintainers", "/leaderboard", "/explore#points", "/wallet"} else "/explore"
     assert callback.headers["location"] == f"http://localhost:8000{expected_path}"
 
 

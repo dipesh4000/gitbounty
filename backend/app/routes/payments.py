@@ -81,7 +81,7 @@ class PaymentRequest(BaseModel):
 
 
 def require_enabled():
-    if settings.escrow_execution_mode == "sponsored":
+    if settings.managed_wallets_enabled or settings.escrow_execution_mode == "sponsored":
         raise HTTPException(409, "Use the app wallet and sponsored escrow flow. Legacy user-paid transfers are disabled.")
     if not settings.avax_payments_enabled:
         raise HTTPException(503, "AVAX payment execution is not enabled yet.")

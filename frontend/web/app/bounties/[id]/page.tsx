@@ -3,6 +3,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { api, apiWrite } from "../../lib/api";
 import { useAuth } from "../../components/AuthProvider";
+import { refreshWalletActivity } from "../../components/WalletActivity";
 import { MarketingShell } from "../../components/MarketingShell";
 
 type Bounty = { bounty_id:number; repo_full_name:string; issue_number:number; points:number; amount_units:string; payer_github_id:number; contract_address:string; escrow_state:string; work_ends_at:string; claim_until:string; funding_tx_hash:string|null; settlement_tx_hash:string|null; author_github_id:number|null };
@@ -26,7 +27,7 @@ export default function BountyPage({params}:{params:Promise<{id:string}>}) {
   const load=useCallback(async()=>setBounty(await api<Bounty>(`/api/escrow/bounties/${id}`)),[id]);
   useEffect(()=>{let active=true;api<Bounty>(`/api/escrow/bounties/${id}`).then(data=>{if(active)setBounty(data);}).catch(e=>{if(active)setError(e.message);});const timer=setInterval(()=>setNow(Date.now()),1000);return()=>{active=false;clearInterval(timer);};},[id]);
   useEffect(()=>{if(user)api<{items:Operation[]}>(`/api/sponsored/operations?bounty_id=${id}`).then(data=>setOp(data.items[0]??null)).catch(e=>setError(e.message));},[id,user]);
-  async function action(work:()=>Promise<void>){setBusy(true);setError("");setMessage("");try{await work();await load();}catch(e){setError(e instanceof Error?e.message:"Retry verification.");}finally{setBusy(false);}}
+  async function action(work:()=>Promise<void>){setBusy(true);setError("");setMessage("");try{await work();await load();refreshWalletActivity();}catch(e){setError(e instanceof Error?e.message:"Retry verification.");}finally{setBusy(false);}}
   async function check(operation:Operation){const result=await apiWrite<Operation>(`/api/sponsored/operations/${operation.id}/verify`);setOp(result);setMessage(result.status==="verified"?"Transfer verified. Your receipt is ready.":result.status==="failed"?"Transaction failed. No successful reward transfer recorded.":"Submitted to Avalanche. Check confirmation shortly; your operation is saved.");}
   const pending=op&&!["verified","failed"].includes(op.status);
   const payer=Boolean(user&&user.github_id===bounty?.payer_github_id);

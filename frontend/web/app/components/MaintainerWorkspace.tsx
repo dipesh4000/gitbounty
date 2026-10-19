@@ -209,10 +209,9 @@ function IssuePicker({
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
-  const { resource: paymentMode } = useApiResource<PaymentConfig>("/api/avax/config");
   const { resource: escrowConfig } = useApiResource<{ enabled: boolean; execution_mode: string }>("/api/escrow/config");
   const sponsored = escrowConfig.data?.execution_mode === "sponsored";
-  const payment: PaymentConfig | null = sponsored ? { enabled: true, chain_id: 43113, symbol: "USDC", network: "Avalanche Fuji", testnet: true, token_address: null, decimals: 6, explorer: "https://testnet.snowtrace.io" } : paymentMode.data;
+  const payment: PaymentConfig | null = sponsored && escrowConfig.data?.enabled ? { enabled: true, chain_id: 43113, symbol: "USDC", network: "Avalanche Fuji", testnet: true, token_address: null, decimals: 6, explorer: "https://testnet.snowtrace.io" } : null;
   const [publishError, setPublishError] = useState("");
   const [success, setSuccess] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -298,7 +297,7 @@ function IssuePicker({
         <div>
           <strong>{repository.full_name}</strong>
           <span>Open issues on GitHub. Choose the ones to publish as bounties.</span>
-          <span>Optional payment rewards are your promise, fixed at first publication. GitBounty does not fund or guarantee them.</span>
+          <span>Set points and an optional USDC escrow reward. Deposit USDC into your app wallet, then fund the reward after publishing.</span>
         </div>
         <button type="button" className="app-back-action" onClick={onBack}>Change repository</button>
       </div>
@@ -307,6 +306,7 @@ function IssuePicker({
       {success && (
         <div className="bounty-message is-success" role="status">
           <strong>Published.</strong><span>{success}</span>
+          <a href="/bounties">View & fund USDC rewards →</a>
         </div>
       )}
 

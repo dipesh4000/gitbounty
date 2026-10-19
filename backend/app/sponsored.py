@@ -69,8 +69,29 @@ async def provision(user: CurrentUser = Depends(get_current_user)):
     require_sponsorship()
     async with pool().acquire() as connection:
         account = await smart_account(connection, user.github_id)
-    balance = int(await rpc("eth_call", [{"to": settings.escrow_token_address, "data": smoothsend.call("balanceOf(address)", ["address"], [account["address"]])}, "latest"]), 16)
+    return await wallet_balance(account)
+
+
+async def wallet_balance(account):
+    if int(await rpc("eth_chainId", []), 16) != 43113:
+        raise HTTPException(503, "RPC network mismatch.")
+    try:
+        balance = int(await rpc("eth_call", [{"to": settings.escrow_token_address, "data": smoothsend.call("balanceOf(address)", ["address"], [account["address"]])}, "latest"]), 16)
+        if not 0 <= balance < 2**256:
+            raise ValueError("Invalid balance")
+    except (TypeError, ValueError):
+        raise HTTPException(502, "Avalanche returned an invalid balance. Refresh to retry.") from None
     return {"address": account["address"], "balance_units": str(balance), "chain_id": 43113, "custody": "app-managed", "gas": "SmoothSend sponsored"}
+
+
+@router.get("/wallet")
+async def wallet_status(user: CurrentUser = Depends(get_current_user)):
+    # Reading an existing deposit address must not unlock keys, provision or need sponsor credits.
+    if settings.escrow_chain_id != 43113:
+        raise HTTPException(503, "App wallets support Avalanche Fuji only.")
+    async with pool().acquire() as connection:
+        account = await connection.fetchrow("select address from managed_smart_accounts where github_id=$1", user.github_id)
+    return await wallet_balance(account) if account else None
 
 
 class Action(BaseModel):

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { API_BASE, ApiError, api, type User } from "../lib/api";
 
-export type WorkspaceDestination = "/explore" | "/explore#points" | "/maintainers" | "/leaderboard";
+export type WorkspaceDestination = "/explore" | "/explore#points" | "/maintainers" | "/leaderboard" | "/wallet";
 export function loginHref(destination: WorkspaceDestination = "/explore") {
   return `/login?next=${encodeURIComponent(destination)}`;
 }

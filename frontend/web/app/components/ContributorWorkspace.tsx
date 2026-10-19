@@ -30,6 +30,7 @@ import { MaintainerWorkspace, Pager } from "./MaintainerWorkspace";
 import { useAuth, LoginScreen } from "./AuthProvider";
 import { promisedReward, type PaymentConfig } from "../lib/payments";
 import { RewardPayments } from "./RewardPayments";
+import { WalletActivity } from "./WalletActivity";
 
 /*
   The signed-in application. Deliberately not a copy of the marketing page: a compact operations shell with
@@ -112,6 +113,7 @@ export function ContributorWorkspace({ initialView = "issues" }: { initialView?:
             <span>GitBounty</span>
           </a>
           <div className="app-header-meta">
+            <WalletActivity />
             {user && <span
               className="app-nav-points"
               aria-label={points ? `${points.total_points} points earned` : "Points not loaded"}
@@ -150,7 +152,7 @@ export function ContributorWorkspace({ initialView = "issues" }: { initialView?:
           )}
         </div>
 
-        {view !== "rewards" && <div className="workspace-next-step"><div><span className="workspace-eyebrow">{view === "maintain" ? "OWNER WORKFLOW" : "CONTRIBUTOR WORKFLOW"}</span><strong>{view === "maintain" ? "Publish → review a closing PR → merge → pay" : view === "pulls" ? "Track your PR → get merged → claim your reward" : view === "history" ? "Points recognize work. Payments are tracked separately." : view === "leaderboard" ? "Rankings come from verified contribution points." : "Find an issue → open a closing PR → get merged → claim"}</strong><p>{view === "maintain" ? "Set the points and optional payment promise before publishing. After a verified merge, the contributor claims and you sign the payment." : view === "pulls" ? "Sync GitHub to reconcile recent activity. A closed issue alone does not earn a reward." : "Work and review happen on GitHub; claim and payment status live here."}</p></div><button type="button" onClick={() => setView(view === "issues" ? "pulls" : "rewards")}>{view === "issues" ? "Track my PRs →" : "Open payments →"}</button></div>}
+        {view !== "rewards" && <div className="workspace-next-step"><div><span className="workspace-eyebrow">{view === "maintain" ? "OWNER WORKFLOW" : "CONTRIBUTOR WORKFLOW"}</span><strong>{view === "maintain" ? "Publish → review a closing PR → merge → pay" : view === "pulls" ? "Track your PR → get merged → claim your reward" : view === "history" ? "Points recognize work. Payments are tracked separately." : view === "leaderboard" ? "Rankings come from verified contribution points." : "Find an issue → open a closing PR → get merged → claim"}</strong><p>{view === "maintain" ? "Set the points and optional payment promise before publishing. Fund USDC rewards from your app wallet. Eligible contributors claim after a verified merge." : view === "pulls" ? "Sync GitHub to reconcile recent activity. A closed issue alone does not earn a reward." : "Work and review happen on GitHub; claim and payment status live here."}</p></div><button type="button" onClick={() => setView(view === "issues" ? "pulls" : "rewards")}>{view === "issues" ? "Track my PRs →" : "Open payments →"}</button></div>}
         {view === "issues" && <Opportunities onPublishClick={() => setView("maintain")} />}
         {view === "maintain" && <MaintainerWorkspace onPublished={() => void loadPoints()} />}
         {view === "pulls" && (
@@ -256,7 +258,7 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
             </span>
             {query || language || category !== "all"
               ? <button type="button" onClick={() => { setQuery(""); setLanguage(""); setCategory("all"); setPage(1); }}>Clear filters</button>
-              : <button type="button" onClick={onPublishClick}>Publish your first bounty</button>}
+              : <button className="app-add-issues" type="button" onClick={onPublishClick}>Publish your first bounty</button>}
           </div>
         )}
       </div>

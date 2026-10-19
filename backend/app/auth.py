@@ -143,7 +143,7 @@ async def github_login(request: Request, next: str = "/explore") -> RedirectResp
     _require_oauth_configuration()
     state = secrets.token_urlsafe(32)
     request.session[SESSION_STATE_KEY] = state
-    request.session["oauth_next"] = next if next in {"/explore", "/maintainers", "/leaderboard", "/explore#points"} else "/explore"
+    request.session["oauth_next"] = next if next in {"/explore", "/maintainers", "/leaderboard", "/explore#points", "/wallet"} else "/explore"
     query = urlencode(
         {
             "client_id": settings.github_client_id,
@@ -165,7 +165,7 @@ async def github_callback(
     _require_oauth_configuration()
     expected_state = request.session.pop(SESSION_STATE_KEY, None)
     destination = request.session.pop("oauth_next", "/explore")
-    if destination not in {"/explore", "/maintainers", "/leaderboard", "/explore#points"}:
+    if destination not in {"/explore", "/maintainers", "/leaderboard", "/explore#points", "/wallet"}:
         destination = "/explore"
     if not state or not expected_state or not secrets.compare_digest(state, expected_state):
         raise HTTPException(status_code=400, detail="Invalid OAuth state. Start the login again.")

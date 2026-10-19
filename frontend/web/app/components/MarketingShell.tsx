@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useAuth, loginHref } from "./AuthProvider";
+import { WalletActivity } from "./WalletActivity";
 
 const primaryLinks = [
   ["/bounties", "Fuji bounties"],
@@ -40,7 +41,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
             <a href="https://github.com/dipesh4000/gitbounty">GitHub ↗</a>
           </nav>
           <div className="mp-actions">
-            <a className="mp-button mp-button-quiet" href="/extension">Install extension</a>
+            {user ? <WalletActivity /> : <a className="mp-button mp-button-quiet" href="/extension">Install extension</a>}
             {accountAction}
           </div>
           <details className="mp-mobile-menu">

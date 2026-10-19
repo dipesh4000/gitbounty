@@ -88,3 +88,38 @@ async def test_sponsor_builder_persists_signed_exact_call_before_broadcast(monke
     assert args[4] == digest
     assert Account.recover_message(encode_defunct(hexstr=digest), signature=op["signature"]) == owner.address
     assert all(call.args[0] != "eth_sendUserOperation" for call in gateway.await_args_list)
+
+
+async def test_read_wallet_does_not_unlock_or_provision_and_checks_chain(monkeypatch):
+    from contextlib import asynccontextmanager
+    from app import sponsored
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value={"address": ACCOUNT["address"]}))
+    @asynccontextmanager
+    async def acquire():
+        yield connection
+    monkeypatch.setattr(sponsored, "pool", lambda: SimpleNamespace(acquire=acquire))
+    provision = AsyncMock(side_effect=AssertionError("Read must not provision"))
+    monkeypatch.setattr(sponsored, "smart_account", provision)
+    monkeypatch.setattr(sponsored, "rpc", AsyncMock(side_effect=["0xa869", "0x1312d0"]))
+    user = SimpleNamespace(github_id=42)
+    result = await sponsored.wallet_status(user)
+    assert result["address"] == ACCOUNT["address"] and result["balance_units"] == "1250000"
+    assert "encrypted_key" not in result and "owner_address" not in result
+    assert connection.fetchrow.await_args.args[1] == 42
+    provision.assert_not_awaited()
+    monkeypatch.setattr(sponsored, "rpc", AsyncMock(return_value="0x1"))
+    with pytest.raises(HTTPException, match="RPC network mismatch"):
+        await sponsored.wallet_status(user)
+    monkeypatch.setattr(sponsored, "rpc", AsyncMock(side_effect=["0xa869", "-0x1"]))
+    with pytest.raises(HTTPException, match="invalid balance"):
+        await sponsored.wallet_status(user)
+    connection.fetchrow.return_value = None
+    assert await sponsored.wallet_status(user) is None
+
+
+def test_custody_blocks_legacy_wallet_signing_even_if_execution_is_misconfigured(monkeypatch):
+    from app.routes.payments import require_enabled
+    monkeypatch.setattr(settings, "managed_wallets_enabled", True)
+    monkeypatch.setattr(settings, "escrow_execution_mode", "direct")
+    with pytest.raises(HTTPException, match="Legacy user-paid transfers are disabled"):
+        require_enabled()

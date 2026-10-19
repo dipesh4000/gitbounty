@@ -1,5 +1,32 @@
 # App custody rollout
 
+## October 19 workspace correction
+
+The workspace Payments screen now always uses the custodial app wallet. Loading,
+failed or direct-mode configuration never mounts legacy browser-wallet controls.
+Publishing new cash rewards in the web UI requires enabled sponsored escrow; points-only
+publishing remains available. The backend blocks legacy payment signing while custody is
+enabled, and sponsored publishing provisions the smart account before checking a legacy
+wallet address. Historical external receiving addresses and issued rewards remain immutable.
+
+The shared header reads the existing smart account balance through authenticated
+`GET /api/sponsored/wallet`, without unlocking keys or creating an account. It checks
+the RPC chain before displaying USDC. The dropdown reads saved operations and labels
+submitted, confirmed-but-unverified, verified and failed states separately. Wallet status
+and activity refresh after app actions, on focus and every 30 seconds. A missing account
+is created only through the authenticated, CSRF-protected wallet POST or an approved bounty flow.
+External wallets can deposit official Fuji USDC directly into the displayed smart account.
+Generic transfers/withdrawals are not implemented.
+
+The public production config was read on October 19: escrow was enabled on 43113,
+but `execution_mode` was still `direct`. Deploy both frontend and backend changes and set
+`ESCROW_EXECUTION_MODE=sponsored`, `MANAGED_WALLETS_ENABLED=true`, keeping the existing
+`WALLET_ENCRYPTION_KEY` and `SMOOTHSEND_SECRET_KEY` in backend secret storage.
+Do not regenerate an existing custody key. Verify migrations 0018–0020, sponsor origin
+allowlist and credits. No deployment settings or shared database were changed in this pass.
+The existing GitHub OAuth session and numeric GitHub identity remain authoritative;
+Privy is not required for this custody implementation.
+
 The owner authorized GitBounty custody on October 17, 2026. GitHub OAuth remains
 the login mechanism. Privy is not part of this rollout.
 

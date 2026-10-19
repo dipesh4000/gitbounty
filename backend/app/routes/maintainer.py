@@ -569,6 +569,8 @@ async def publish_bounties(
                         bounty_id,
                     )
                     cash = item.reward_usdc if item.reward_usdc is not None else item.reward_avax
+                    if settings.managed_wallets_enabled and cash is not None and settings.escrow_execution_mode != "sponsored":
+                        raise HTTPException(503, "Enable sponsored escrow execution before publishing custodial USDC rewards.")
                     if settings.escrow_execution_mode == "sponsored" and cash is not None and item.escrow_work_ends_at is None:
                         raise HTTPException(422, "Set a work deadline for the sponsored escrow reward.")
                     chain_id = 43113 if item.reward_usdc is not None else 43114
@@ -583,14 +585,16 @@ async def publish_bounties(
                             raise HTTPException(503, "Escrow publishing is not enabled.")
                         if item.escrow_work_ends_at <= datetime.now(UTC) + timedelta(minutes=15):
                             raise HTTPException(422, "The escrow work deadline must be more than 15 minutes away.")
-                        payer_address = await connection.fetchval(
-                            "select address from wallets where github_id = $1", user.github_id,
-                        )
-                        if payer_address is None:
-                            raise HTTPException(409, "Link the funding wallet before publishing an escrow bounty.")
                         if settings.escrow_execution_mode == "sponsored":
-                            from ..sponsored import smart_account
+                            from ..sponsored import require_sponsorship, smart_account
+                            require_sponsorship()
                             payer_address = (await smart_account(connection, user.github_id))["address"]
+                        else:
+                            payer_address = await connection.fetchval(
+                                "select address from wallets where github_id = $1", user.github_id,
+                            )
+                            if payer_address is None:
+                                raise HTTPException(409, "Link the funding wallet before publishing an escrow bounty.")
                         amount = amount_to_units(item.reward_usdc, 6)
                         reference_id = "0x" + secrets.token_hex(32)
                         contract = settings.escrow_contract_address.lower()

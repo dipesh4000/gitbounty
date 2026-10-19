@@ -6,6 +6,7 @@ import "./workspace.css";
 import "./reward.css";
 import "./landing.css";
 import "./escrow.css";
+import "./wallet.css";
 import { AuthProvider } from "./components/AuthProvider";
 
 export async function generateMetadata(): Promise<Metadata> {
