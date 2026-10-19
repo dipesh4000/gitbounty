@@ -2,7 +2,7 @@
 
 Updated October 17, 2026.
 
-Migration 0017 was applied to the configured Supabase database with owner authorization. All migration checksums through 0017 were verified afterwards. Existing rows were preserved.
+Migrations through 0020 are applied to the configured Supabase database with owner authorization. Existing receiving wallet addresses and rows were preserved. The current release uses GitHub login, app custody and SmoothSend developer sponsorship; the production observations below describe the older deployed build, not proof of this release.
 
 Production verification on October 17: `/ready` returned 200 with escrow configured;
 `/api/escrow/config` returned `enabled: true`, Fuji 43113, the recorded contract and
@@ -17,25 +17,26 @@ Contract: `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`, Fuji 43113, deployment b
 
 ## Application flow
 
-1. Sign in through GitHub, install/connect the App on a public repository, and link the permanent wallet on a bounty page (wallet setup is also available in the existing workspace).
-2. In Maintainers, select a fresh issue, enter Fuji USDC and a work deadline. The deadline opts into escrow; without it, the historical promise path remains available. The API freezes payer, reference, amount, work deadline and seven-day claim grace.
-3. Open `/bounties`, select the new record, approve the exact allowance, then fund. Funding requires two canonical confirmations and the exact escrow event plus USDC transfer.
+1. Sign in through GitHub and install/connect the GitHub App on a public repository. Login provisions an encrypted managed signer. `/wallet` derives its SmoothSend smart account; no external wallet connection is needed.
+2. Deposit Fuji test USDC at the app wallet address. In Maintainers, select a fresh issue, enter USDC and a required work deadline. Points-only bounties remain available. The API freezes the smart-account payer, reference, amount, work deadline and seven-day claim grace.
+3. Open `/bounties`, select the new record, review and confirm funding. The server signs an exact approval/fund batch with SmoothSend developer-sponsored gas. Funding requires two canonical confirmations, inner UserOperation success and the exact escrow event plus USDC transfer.
 4. A different GitHub author submits a PR whose body closes the issue, targeting the repository default branch. Merge within the funded work window.
 5. Process the durable GitHub delivery using the public bounty page’s authenticated refresh. Cash eligibility requires the actual GraphQL ClosedEvent closer, numeric identities, exactly one funded issue, and a non-self author. Ordinary points sync excludes escrow awards to prevent bypassing these checks.
-6. The verified author links their permanent EOA, requests a voucher, and claims. The public page shows verified transaction evidence. A saved transaction hash can be verified after reload. Chain recovery advances up to 1,000 blocks per request with overlap and a persisted cursor.
-7. After expiry, the payer can submit a refund. Verification requires the exact refund event and return transfer.
+6. The verified author opens their app wallet, reviews and confirms a sponsored claim. New unbound recipients use their smart account; historical voucher bindings remain unchanged. Pending signed operations survive reload and retries reuse the stored authorization. Chain recovery advances up to 1,000 blocks per request with overlap and a persisted cursor.
+7. After expiry, the payer can confirm a sponsored refund. Verification requires inner operation success, the exact refund event and return transfer.
 
 ## Runtime configuration
 
-Copy the public deployment values from `contracts/deployments/fuji/backend.env` into the hosted backend. Keep the signing private key in server secret storage. Set `ESCROW_ENABLED=true` only on the backend version containing these routes and set `ESCROW_EXECUTION_MODE=direct`. Confirm `/ready`, `/api/escrow/config`, `/bounties`, GitHub App installation and callback settings after deployment.
+Copy the public deployment values from `contracts/deployments/fuji/backend.env` into the hosted backend. Keep the voucher signing key and SmoothSend server key in server secret storage. Configure a separate backed-up Fernet `WALLET_ENCRYPTION_KEY` (never reuse the token key). On the deployed version containing these routes, set `ESCROW_ENABLED=true`, `MANAGED_WALLETS_ENABLED=true` and `ESCROW_EXECUTION_MODE=sponsored`. Confirm `/ready`, `/api/escrow/config`, `/wallet`, `/bounties`, GitHub App installation/callback settings, and SmoothSend sponsor credits plus the exact production origin allowlist.
 
-The request-driven delivery drain is explicit recovery, not proof of autonomous webhook processing. A persistent worker still requires a restart/recovery demonstration if advertised. Privy and sponsored execution remain optional until the direct-wallet live proof is complete.
+The request-driven delivery drain is explicit recovery, not proof of autonomous webhook processing. A persistent worker still requires a restart/recovery demonstration if advertised. Privy is excluded by the owner's decision. Sponsorship failure must not fall back to user-paid gas. The owner handles the Git push; no Git commands were used for this release.
 
 ## Verification and open acceptance work
 
 - Contract suite: 9 passing; read-only Fuji configuration check passed.
-- Frontend suite: 78 passing; production build and TypeScript passed after adding bounty routes.
-- Focused backend escrow checks: 11 passing; Ruff passed.
+- Frontend suite: 82 passing, including managed wallet and explicit sponsored confirmation tests.
+- Focused backend custody/sponsorship/escrow/configuration/security checks: 36 passing.
+- Read-only SmoothSend server-key Fuji gateway check passed. This is not a live sponsorship or funding proof.
 - Database-dependent regression tests were previously skipped because local PostgreSQL was unavailable; they must run against an isolated test database, never the shared application database.
 - Still required: deployed application proof, a real two-account issue/PR/delivery, funding and settlement hashes, gas/token balance checks, restart and browser-close recovery, browser accessibility checks, and the submission video/slides/owner provenance and portal receipt.
 

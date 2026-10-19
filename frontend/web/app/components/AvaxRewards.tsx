@@ -232,7 +232,7 @@ export function AvaxRewards() {
       <p className="payment-test-warning">{review.testnet ? "Test mode: Fuji tokens have no real monetary value. Do not send mainnet funds." : "Mainnet: this sends real funds. Check the network and recipient carefully."}</p>
       {paymentError && <p role="alert" className="payment-error">{paymentError}</p>}
       {notice && <p role="status">{notice}</p>}
-      {!linkedWallet ? <section><h3>1. Connect your signing wallet</h3><p>Link the owner's wallet to GitHub. This signature links your identity; it does not pay the contributor.</p><button type="button" disabled={busy !== null} onClick={() => void setupWallet()}>Connect & link wallet</button></section>
+      {!linkedWallet ? <section><h3>1. Connect your signing wallet</h3><p>Link the owner&apos;s wallet to GitHub. This signature links your identity; it does not pay the contributor.</p><button type="button" disabled={busy !== null} onClick={() => void setupWallet()}>Connect & link wallet</button></section>
         : !prepared ? <section><h3>2. Prepare your payout account</h3><p>Your linked wallet signs the payment. A separate smart account holds the funds and sends the reward.</p><button type="button" disabled={busy !== null} onClick={() => void beginReview(review)}>{busy !== null ? "Preparing…" : "Prepare payout account"}</button></section>
         : !quotedFee ? <section className="payout-funding"><h3>2. Fund your payout account</h3>
           <p>Send funds to this address on <strong>{review.network}</strong>. Funds in your connected wallet are not automatically available here.</p>

@@ -34,13 +34,13 @@ def fee_token(chain_id):
     return asset(43113)["token_address"] if chain_id == 43113 else "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e"
 
 
-async def gateway_rpc(method, params, chain_id):
+async def gateway_rpc(method, params, chain_id, mode="user-pays-erc20"):
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(GATEWAY + "/", headers={
                 "Authorization": "Bearer " + gateway_key(),
                 "X-Chain": "avalanche", "X-Network": "testnet" if chain_id == 43113 else "mainnet",
-                "X-Sponsorship-Mode": "user-pays-erc20", "Origin": settings.frontend_url,
+                "X-Sponsorship-Mode": mode, "Origin": settings.frontend_url,
             }, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
             r.raise_for_status()
             body = r.json()

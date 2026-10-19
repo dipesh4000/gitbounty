@@ -43,8 +43,8 @@ def require_enabled() -> None:
     )
     if not configured:
         raise HTTPException(503, "Escrow is not enabled.")
-    if settings.escrow_execution_mode != "direct":
-        raise HTTPException(503, "Only the verified direct-wallet execution path is available.")
+    if settings.escrow_execution_mode not in ("direct", "sponsored"):
+        raise HTTPException(503, "Select direct or sponsored escrow execution.")
     if key and signer_address(key).lower() != settings.escrow_authorization_signer.lower():
         raise HTTPException(503, "Escrow signer configuration does not match the deployed contract.")
 
@@ -156,7 +156,8 @@ async def verify_funding(bounty_id: int, proof: TransactionProof, user: CurrentU
         terms = _terms(row)
         try:
             tx, receipt, block_time = await transaction_evidence(tx_hash)
-            if (tx.get("to") or "").lower() != terms["contract_address"]:
+            sponsored = await connection.fetchval("select 1 from sponsored_operations where bounty_id=$1 and tx_hash=$2 and kind='fund' and status in ('confirmed','verified')", bounty_id, tx_hash) if settings.escrow_execution_mode == "sponsored" else False
+            if (tx.get("to") or "").lower() != terms["contract_address"] and not sponsored:
                 raise ValueError("Funding transaction did not call the escrow contract.")
             event_terms = {**terms, "funded_at": int(block_time.timestamp()),
                            "work_ends_at": int(terms["work_ends_at"].timestamp()),
@@ -199,14 +200,16 @@ async def voucher(allocation_id: int, user: CurrentUser = Depends(get_current_us
         raise HTTPException(503, "Escrow authorization signing is unavailable.")
     async with pool().acquire() as connection, connection.transaction():
         row = await connection.fetchrow(
-            """select a.*, t.*, w.address as recipient
+            """select a.*, t.*, coalesce(b.recipient, case when $3 then m.address else w.address end) as recipient
                from escrow_allocations a join escrow_reward_terms t on t.bounty_id = a.bounty_id
                join escrow_funding_events f on f.bounty_id = t.bounty_id
                join wallets w on w.github_id = a.author_github_id
+               left join managed_smart_accounts m on m.github_id = a.author_github_id
+               left join escrow_recipient_bindings b on b.allocation_id = a.allocation_id
                where a.allocation_id = $1 and a.author_github_id = $2 for update of a""",
-            allocation_id, user.github_id,
+            allocation_id, user.github_id, settings.escrow_execution_mode == "sponsored",
         )
-        if row is None:
+        if row is None or row["recipient"] is None:
             raise HTTPException(404, "Eligible funded escrow claim not found.")
         terms = _terms(row)
         block = await rpc("eth_getBlockByNumber", ["latest", False])
@@ -420,7 +423,8 @@ async def verify_refund(bounty_id: int, proof: TransactionProof, user: CurrentUs
         tx_hash = proof.tx_hash.lower()
         try:
             tx, receipt, block_time = await transaction_evidence(tx_hash)
-            if (tx.get("to") or "").lower() != row["contract_address"]:
+            sponsored = await connection.fetchval("select 1 from sponsored_operations where bounty_id=$1 and tx_hash=$2 and kind='refund' and status in ('confirmed','verified')", bounty_id, tx_hash) if settings.escrow_execution_mode == "sponsored" else False
+            if (tx.get("to") or "").lower() != row["contract_address"] and not sponsored:
                 raise ValueError("Refund did not call escrow.")
             event = verify_refund_receipt(receipt, dict(row))
         except (ValueError, RuntimeError) as error:

@@ -89,12 +89,12 @@ export const pages: Record<PageKey, PageSpec> = {
   docs: {
     path: "/docs",
     title: "The operating manual, without the fog.",
-    lede: "Start with the workflow that matches your role. Points recognize contributions; optional AVAX promises are paid by individual owners.",
+    lede: "Start with your role. Points recognize contributions; escrow rewards hold funded test USDC on Avalanche Fuji. The app-wallet path uses SmoothSend gas sponsorship.",
     status: "Documentation index",
     evidence: [["CONTRIBUTORS", "Find · build · merge"], ["MAINTAINERS", "Publish · review · merge"], ["EXTENSION", "Optional"], ["MONEY", "Owner-funded AVAX promises"]],
     sections: [
       { heading: "For contributors.", body: "How bounties are discovered, how merged work is verified, and what appears in a contribution record.", items: ["Explore published bounties.", "Understand where each point came from.", "Read the leaderboard model."] },
-      { heading: "For maintainers and builders.", body: "Set an exact Avalanche payment promise on first publication. Current testing uses USDC on Avalanche Fuji. After the contributor claims, open Payments, fund the displayed SmoothSend smart account, review the reward and USDC fee, and sign with your connected wallet. The owner pays the fee. GitBounty verifies receipts and does not fund or guarantee payment.", code: "published promise → verified merge → contributor claim → owner-signed payment → verified receipt" },
+      { heading: "For maintainers and builders.", body: "Open your app wallet and deposit official Fuji test USDC. On a fresh issue, set points, a reward and a work deadline, then review and publish. Confirm funding on the bounty page. SmoothSend sponsors the managed-account transaction gas; you supply the reward USDC. Claims must settle before the displayed deadline.", code: "publish → fund → verified merge → contributor claim → verified receipt" },
     ],
     next: [["/how-it-works", "Contributor workflow"], ["/maintainers", "Maintainer setup"], ["/extension", "Extension setup"]],
   },
@@ -105,7 +105,7 @@ export const pages: Record<PageKey, PageSpec> = {
     status: "Privacy summary · pre-launch, not legally reviewed",
     evidence: [["OAUTH", "read:user"], ["SESSION", "Signed user ID only"], ["TOKEN", "Encrypted at rest"], ["EXTENSION", "No analytics"]],
     sections: [
-      { heading: "What is stored.", body: "Your GitHub numeric id, login, display name and avatar URL; an encrypted GitHub access token; the merged pull requests GitBounty has counted for you; the points entries behind your total; and the bounties you have published.", items: ["The OAuth flow requests read:user, not private-repository access.", "The browser session cookie holds only a signed internal user ID — never a token.", "Access tokens are encrypted before storage and are cleared when you sign out."] },
+      { heading: "What is stored.", body: "Your GitHub identity, encrypted access token, contribution records, rewards and transaction evidence are stored by GitBounty. When managed wallets are enabled, GitBounty also holds an encrypted wallet signing key and signs the reward actions you confirm. This is custodial: wallet access depends on GitBounty and your GitHub account.", items: ["The OAuth flow requests read:user, not private-repository access.", "Private signing keys are not returned to your browser.", "Signing out clears the GitHub token; it does not delete wallet keys or transaction history."] },
       { heading: "What the extension does.", body: "It asks the GitBounty API which bounties are published for the repository you are looking at, and reads the issue numbers already on the page. It contains no analytics, no remotely loaded code and no credentials.", code: "permission surface: activeTab + the GitBounty API" },
     ],
     next: [["/terms", "Read the pre-launch terms"], ["/status", "See what is built"]],
@@ -117,7 +117,7 @@ export const pages: Record<PageKey, PageSpec> = {
     status: "Terms summary · pre-launch, not legally reviewed",
     evidence: [["POINTS", "Non-transferable"], ["CASH VALUE", "None"], ["WORKFLOW", "Repository-controlled"], ["AVAILABILITY", "Not deployed"]],
     sections: [
-      { heading: "Points and payment promises.", body: "GitBounty points are not currency or redeemable value. They cannot be purchased, sold, transferred, or withdrawn. A separately published payment promise is the owner’s responsibility. GitBounty does not fund or guarantee it; payment requires the owner’s signature through SmoothSend. Fuji test tokens have no monetary value." },
+      { heading: "Points, escrow and app wallets.", body: "Points are not currency or redeemable value. Fuji test tokens have no monetary value. Maintainers supply reward USDC; SmoothSend developer sponsorship covers supported network gas. Managed wallets are controlled by GitBounty using encrypted server-held keys. Claims expire at the displayed deadline, after which unclaimed funds may return to the payer. Historical external-wallet promises retain their original terms." },
       { heading: "Repositories set the rules for contribution.", body: "Using GitBounty does not override a repository’s license, contribution guide, code of conduct, review decisions, or maintainer authority.", items: ["A published bounty does not guarantee merge or acceptance.", "Awards obtained by manipulation may be withdrawn; a withdrawal is a recorded entry, not a deletion.", "Features and availability can change."] },
     ],
     next: [["/privacy", "Privacy summary"], ["/docs", "Return to docs"]],

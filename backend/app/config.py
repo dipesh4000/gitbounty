@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Phase 2 escrow. The signer key is a backend bearer secret and must never reach a response or log.
     escrow_enabled: bool = False
-    escrow_execution_mode: Literal["direct", "direct_with_optional_aa"] = "direct"
+    escrow_execution_mode: Literal["direct", "direct_with_optional_aa", "sponsored"] = "direct"
     escrow_chain_id: int = 43113
     escrow_rpc_url: str = "https://api.avax-test.network/ext/bc/C/rpc"
     escrow_token_address: str = "0x5425890298aed601595a70ab815c96711a31bc65"
@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     escrow_authorization_signer: str = ""
     escrow_signer_private_key: SecretStr = SecretStr("")
     escrow_deployment_block: int = 0
+    # Custody is opt-in; keep this independent from OAuth token encryption.
+    managed_wallets_enabled: bool = False
+    wallet_encryption_key: SecretStr = SecretStr("")
 
     github_client_id: str = ""
     github_client_secret: str = ""

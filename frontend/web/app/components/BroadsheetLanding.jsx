@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth, loginHref } from "./AuthProvider";
-import { useApiResource } from "../lib/useApiResource";
-import { formatPoints } from "../lib/api";
+import { LandingBounties } from "./LandingBounties";
 
 const flows=[['01 / Published bounty','A clear issue. A visible reward.','Published by a maintainer through the GitBounty GitHub App. Read the requirements and discuss your approach before you start.','acme/webkit #128\nMake keyboard navigation work for everyone','Frontend · Accessibility','40 bounty points'],['02 / Pull request','Your code. Their review.','Open a pull request that closes the issue and go through the normal GitHub review process. No GitBounty account needed yet — eligibility follows the PR.','feat: add keyboard focus to filter menu\nCloses #128 · PR #142 by @sam-dev','Review and merge on GitHub','Contribution in progress'],['03 / Contribution recorded','Merged work. Lasting credit.','GitHub sends a webhook when the PR merges. GitBounty checks it against eligibility rules, then allocates points to the author’s GitHub ID — even before they’ve signed up.','@sam-dev · acme/webkit #142\n40 bounty points + 5 baseline points','Recorded for the PR author','45 points to claim']];
 const roles={contributor:[['01 / CONNECT','Bring your GitHub identity.','Sign in to explore bounties and keep your work connected to your account.'],['02 / CONTRIBUTE','Find something you can fix.','Choose an issue, follow the contribution guide, and open your pull request.'],['03 / BUILD YOUR RECORD','Make the merge count.','After an eligible merge, claim your allocated points and see the contribution in your history.']],maintainer:[['01 / CONNECT','Bring your project.','Sign in with GitHub, then connect the GitBounty GitHub App to a public repository you administer or maintain.'],['02 / PUBLISH','Point to the work that matters.','Choose an open issue, set a category and point reward, then review and publish.'],['03 / REVIEW','Keep your GitHub workflow.','Review the contribution and merge when ready. Connect the GitHub App for automatic merge processing.']]};
@@ -24,8 +23,6 @@ function onTabKey(event) {
 
 export default function BroadsheetLanding() {
   const {user,error}=useAuth();
-  const {resource,reload}=useApiResource("/api/issues?per_page=4&sort=updated");
-  const issues=resource.data?.items ?? [];
   const destination=path => user ? path : loginHref(path);
   const [flow,setFlow]=useState(0);
   const [role,setRole]=useState("contributor");
@@ -73,13 +70,15 @@ export default function BroadsheetLanding() {
     <a className="brand" href="/"><Image src="/favicon.svg" width={32} height={32} unoptimized alt="" />GitBounty</a>
     <nav className="navlinks" aria-label="Primary">
       <a href="#workflow">How it works</a>
+      <a href="#published">Browse issues</a>
       <a href="#identity">For contributors</a>
-      <a href="#extension">Extension</a>
+      <a href="/wallet">App wallet</a>
     </nav>
     <div className="actions">
       <a className="signin btn"  href={user ? "/explore" : loginHref()}>{user ? "@"+user.github_login : "Sign in with GitHub"}</a>
       <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
     </div>
+    <details className="landing-mobile-menu"><summary>Menu</summary><nav aria-label="Mobile navigation"><a href="#published">Browse issues</a><a href="/bounties">Fuji escrow bounties</a><a href="#workflow">How it works</a><a href="/maintainers">Maintainer workspace</a><a href="/docs">Docs</a></nav></details>
   </div>
 </header>
 
@@ -92,12 +91,13 @@ export default function BroadsheetLanding() {
     <div className="hero-copy">
     <a className="announcement reveal" href="#workflow"><span>OPEN SOURCE, WITH REWARDS</span><b aria-hidden="true">→</b></a>
     <h1 className="reveal">Build open source.<span>Get rewarded.</span></h1>
-    <p className="intro reveal">Find a GitHub issue. Open a pull request. Earn points for an eligible merge, with owner-funded payments on select bounties.</p>
+    <p className="intro reveal">Pick an issue worth solving. Ship your fix on GitHub. Build your reputation and claim funded rewards—all from one place.</p>
     <div className="actions reveal">
       <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
       <a className="btn"  href={destination("/maintainers")}>Create a bounty <span aria-hidden="true">→</span></a>
     </div>
-    <p className="micro reveal">For contributors who build. For maintainers who support them.</p>
+    <p className="micro reveal"><a href="#published">Browse without signing in ↓</a> · App-managed wallets · SmoothSend-sponsored flow</p>
+    <p className="sample">Avalanche Fuji demo · Test USDC has no monetary value</p>
     </div>
     <Image className="hero-mascot" src="/mascot-backpack_phone.svg" width={270} height={297} unoptimized alt="" aria-hidden="true" />
     </div>
@@ -181,7 +181,21 @@ export default function BroadsheetLanding() {
   </div>
 </div>
 
-<section className="section" aria-labelledby="published-heading"><div className="wrap"><p className="eyebrow">From the community</p><h2 id="published-heading">Published bounties</h2><div aria-live="polite">{resource.status === "loading" && <p className="api-notice">Loading published bounties…</p>}{resource.error && <div className="api-notice"><p>Published bounties didn’t load. {resource.error}</p><button className="btn" onClick={reload}>Retry</button></div>}{resource.status === "ready" && !issues.length && <div className="api-notice"><p>No bounties have been published yet.</p><a className="btn" href={destination("/maintainers")}>Publish the first bounty</a></div>}<ul className="published-list">{issues.map(issue => <li key={issue.id}><a href={user ? issue.html_url : loginHref()}><div><b>{issue.title}</b><small>{issue.repository} #{issue.number} · {issue.language || issue.category}</small></div><strong>+{formatPoints(issue.points)}</strong></a></li>)}</ul></div></div></section>
+<LandingBounties />
+<section className="section reward-guide" aria-labelledby="reward-guide-title"><div className="wrap">
+  <p className="eyebrow">Before you start</p><h2 id="reward-guide-title">Know what you’re earning.</h2>
+  <div className="reward-guide-grid">
+    <article><span>01 / REPUTATION</span><h3>Points follow your work.</h3><p>A 40-point bounty plus an eligible 5-point baseline earns 45 points, recorded as separate awards. Points cannot be exchanged for money.</p></article>
+    <article><span>02 / FUNDING</span><h3>Check the deposit.</h3><p>For escrow rewards, inspect the public proof page. An approval or published amount alone does not mean USDC is funded.</p><a href="/bounties">Inspect escrow rewards ↗</a></article>
+    <article><span>03 / CLAIM</span><h3>Claim inside the app.</h3><p>Merge within the funded work window, then confirm your claim before the seven-day grace expires. The sponsored path uses your app wallet and SmoothSend gas credits.</p></article>
+  </div>
+  <div className="landing-faq"><h3>A few things worth knowing</h3>
+    <details><summary>Do I need a wallet to start contributing?</summary><p>No. Browse issues and contribute through GitHub first. With managed wallets enabled, GitBounty creates and controls an encrypted signing wallet for your account. Supported reward transactions use SmoothSend sponsorship.</p></details>
+    <details><summary>Does merging a pull request automatically pay me?</summary><p>No. GitBounty verifies eligibility and reserves the reward for the PR author’s numeric GitHub identity. The author submits a claim, and the app verifies the on-chain transfer.</p></details>
+    <details><summary>What happens if I miss the claim deadline?</summary><p>The escrow can return unclaimed USDC to the payer after the displayed deadline, including when points were already awarded. An off-chain award does not extend the claim window.</p></details>
+    <details><summary>Who verifies the contribution?</summary><p>GitBounty checks GitHub evidence and its backend signer authorizes the recipient. The Avalanche contract enforces that authorization and prevents a second payout.</p></details>
+  </div>
+</div></section>
 <section className="section">
   <div className="wrap">
     <div className="section-head reveal">

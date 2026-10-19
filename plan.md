@@ -1,5 +1,44 @@
 # GitBounty hackathon implementation plan
 
+## Owner scope update — October 17, 2026
+
+The owner now requires automatic wallet creation for new users at login and
+SmoothSend developer-sponsored gas for every supported on-chain user action.
+This supersedes the direct-wallet-first product decisions and optional sponsorship
+scope below; those sections remain historical context until the migration is verified.
+
+Owner clarification: retain the existing GitHub OAuth login and do not add Privy.
+All supported on-chain transactions must use SmoothSend developer sponsorship.
+
+The owner explicitly authorized app custody of user wallet keys. New users should
+receive an app-managed wallet at verified GitHub sign-in, with no external-wallet
+connection and no Privy. This supersedes the earlier non-custodial wallet assumption.
+
+Implementation target: verified GitHub login → app-managed signing wallet →
+SmoothSend ERC-4337 smart account → developer-sponsored approval, funding, claim
+and refund. SmoothSend's Avalanche SDK supplies smart-account deployment and
+sponsorship. GitHub OAuth does not supply a wallet signing key, and SmoothSend
+requires a signer to control the smart account. Custody provisioning now generates
+that signer on the backend, encrypts its private key under a separate server-only
+wallet encryption secret, and binds ciphertext to the numeric GitHub identity.
+Keys never reach browser storage or API responses. Preserve existing external
+wallets; custody approval does not authorize silently taking over their funds.
+
+Required migration work: bind new funding terms, token ownership and refunds to
+the executing smart-account address; preserve existing immutable receiving wallets
+and any issued authorization. Verify each UserOperation's inner success and exact
+escrow/token logs. Persist operations before broadcast and reconcile before retry.
+Do not charge users an ERC-20 fee or silently request AVAX when sponsorship fails.
+Explain service unavailability and retain the operation for retry instead.
+
+Custody and sponsored escrow execution are implemented behind
+MANAGED_WALLETS_ENABLED and ESCROW_EXECUTION_MODE=sponsored. Migrations 0018–0020
+are applied with owner authorization. Landing, app wallet, public bounty and
+reward screens now expose the managed flow; historic receiving wallets stay intact.
+Production activation and the live two-account proof are not complete.
+Allowed origins, SmoothSend sponsor policy/credits and a live sponsored escrow
+run must be verified before describing the full journey as gasless.
+
 Reviewed 2026-10-13 against the source tree, public endpoints, provider documentation, and the [official event](https://build.avax.network/events/3f8d455d-1eb5-425b-b859-4261a0ff8ad6). Product scope is in [overview.md](overview.md); technical decisions are in [architecture](docs/architecture.md); findings and verification limits are in the [audit](docs/implementation-audit.md).
 
 ## Outcome and delivery dates

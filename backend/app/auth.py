@@ -188,6 +188,10 @@ async def github_callback(
         await db_session.commit()
     if user_id is None:
         raise HTTPException(status_code=500, detail="Could not save the signed-in user.")
+    if settings.managed_wallets_enabled:
+        from .managed_wallets import ensure_wallet
+        async with pool().acquire() as connection:
+            await ensure_wallet(connection, profile["id"])
     # Rotate the session rather than adopting whatever session the browser arrived with. An attacker who
     # can set a cookie before sign-in otherwise ends up holding a session that is now authenticated.
     request.session.clear()

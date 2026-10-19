@@ -1,4 +1,32 @@
 .landing-preview {
+.landing-mobile-menu{display:none;position:relative}
+.landing-mobile-menu summary{cursor:pointer;padding:10px;border:1px solid var(--line);border-radius:8px;min-height:44px}
+.landing-mobile-menu nav{position:absolute;right:0;top:100%;width:min(280px,80vw);padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 40px #0008}
+.landing-mobile-menu nav a{display:block;padding:12px;min-height:44px}
+.discovery-intro{margin-top:20px;max-width:65ch}
+.discovery-controls{display:flex;gap:24px;align-items:end;flex-wrap:wrap;margin:28px 0}
+.discovery-controls>label:first-child{display:grid;gap:8px;flex:1;min-width:180px}
+.discovery-controls label{font-size:14px;color:var(--muted)}
+.discovery-controls input[type=search]{width:100%;min-height:48px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit}
+.beginner-toggle{display:flex;gap:10px;align-items:center;min-height:48px;cursor:pointer}
+.beginner-toggle input{width:20px;height:20px;accent-color:var(--purple)}
+.published-list strong small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.escrow-preview{border:1px solid var(--line);border-radius:14px;padding:28px;margin-top:32px;background:var(--panel)}
+.escrow-preview>p{margin-top:12px;font-size:14px}
+.reward-guide{background:#100d1a;border-block:1px solid var(--line)}
+.reward-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:40px}
+.reward-guide-grid article{padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.reward-guide-grid span{font-size:11px;color:var(--light);letter-spacing:.08em}
+.reward-guide-grid h3{font-size:23px;margin:14px 0}
+.reward-guide-grid p{font-size:14px}
+.reward-guide-grid a{display:inline-block;margin-top:16px;color:var(--light);text-decoration:underline}
+.landing-faq{max-width:800px;margin:56px auto 0}
+.landing-faq>h3{font-size:26px;margin-bottom:20px}
+.landing-faq details{border-bottom:1px solid var(--line);padding:16px 0}
+.landing-faq summary{cursor:pointer;min-height:44px;align-content:center;font-weight:500}
+.landing-faq details p{padding:8px 0 16px;font-size:15px}
+@media(max-width:1000px){.landing-mobile-menu{display:block}.navrow{gap:12px}.navlinks{display:none}}
+@media(max-width:700px){.reward-guide-grid{grid-template-columns:1fr}.escrow-preview{padding:18px}.nav .actions .primary{display:none}.navrow{height:auto;min-height:72px;flex-wrap:wrap;padding-block:10px}.nav .actions{margin-left:auto}.published-list a{gap:12px}.published-list a>div{min-width:0;overflow-wrap:anywhere}}
 &{--bg:#090a10;--panel:#11131d;--line:#272936;--text:#f5f3fc;--muted:#a7a8bc;--purple:#8957e5;--light:#c9adff;--ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box}
 &{scroll-behavior:smooth;scroll-padding-top:90px}
@@ -322,6 +350,7 @@ footer{border-top:1px solid var(--line);background:#07080d}
 .published-list small{display:block;color:var(--muted)}
 .published-list strong{color:var(--light);white-space:nowrap}
 .api-notice{margin-top:22px}.api-notice .btn{margin-top:12px}
+@media(max-width:650px){.navrow{height:auto;min-height:72px}.landing-mobile-menu nav{z-index:30}.discovery-controls{gap:12px}.section-head>.btn{margin-top:20px}.published-list a{padding:16px;flex-wrap:wrap}.published-list a>div{flex:1 1 170px}.reward-guide-grid{gap:16px}}
 }
 @keyframes landing-float{50%{transform:translateY(-14px) rotate(1.2deg)}}
 @keyframes landing-bob{50%{transform:translateY(-9px)}}
@@ -331,4 +360,9 @@ footer{border-top:1px solid var(--line);background:#07080d}
 @keyframes landing-ticker{to{transform:translateX(-50%)}}
 @keyframes landing-headline-pop{from{opacity:0;transform:translateY(24px) rotate(-12deg) scale(.86)}to{opacity:1;transform:translateY(0) rotate(-7deg) scale(1)}}
 @keyframes landing-wiggle{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(3deg) translateY(-8px)}}
+.landing-preview{--bg:#0b0d14;--panel:#151825;--line:#303449;--muted:#b7bdd0;--purple:#7957df;--light:#cdbfff}
+.landing-preview .hero{background:radial-gradient(ellipse at 80% 20%,#6043ac38,transparent 55%),linear-gradient(160deg,#151425,#0b0d14);padding-top:76px}
+.landing-preview .hero h1{font-size:clamp(46px,5.8vw,78px);font-weight:700;letter-spacing:-.055em;line-height:1.04}.landing-preview .hero h1>span{color:#c7b4ff}.landing-preview .hero .intro{color:#c2c7d8;font-size:18px}.landing-preview .hero-mascot{filter:drop-shadow(0 20px 48px #7653d94d);animation:none}.landing-preview .hero .sample{text-align:left;color:#929bb3;margin-top:12px}
+.landing-preview .btn{border-radius:12px;min-height:46px;padding:12px 20px}.landing-preview .btn.primary{background:#7853dc;border-color:#9270ee;box-shadow:0 7px 22px #6745c133}.landing-preview .btn.primary:hover{background:#8964ea;transform:translateY(-1px)}.landing-preview .btn:hover{transform:translateY(-1px)}.landing-preview .nav{background:#0b0d14f0;border-bottom:1px solid #303449}.landing-preview .navrow{gap:22px}.landing-preview .navlinks{gap:20px}.landing-preview .section{padding-block:80px}.landing-preview .showcase{padding-block:64px;background:linear-gradient(160deg,#141522,#10121b)}.landing-preview .showcase-card{background:#1c1c30;border-color:#454061;box-shadow:0 12px 32px #0003}.landing-preview .showcase-card:hover{translate:none}.landing-preview .card{background:#131723}.landing-preview .card:hover{background:#1a1e2e}.landing-preview .published-list a:hover{border-color:#9680c5;background:#1b1e2d}.landing-preview .ticker{animation:none;flex-wrap:wrap;width:auto;justify-content:center}.landing-preview .ticker span[aria-hidden]{display:none}.landing-preview .ticker span{font-size:12px}.landing-preview .receipt-float{animation:none}.landing-preview .announcement{border-color:#66508e}.landing-preview .micro a{text-decoration:underline;text-underline-offset:5px}
+@media(max-width:700px){.landing-preview .hero{padding-top:44px}.landing-preview .section{padding-block:56px}.landing-preview .navrow{gap:10px}.landing-preview .hero .intro{font-size:16px}.landing-preview .hero .actions .btn{flex:1 1 160px}}
   @keyframes landing-straighten{from{transform:rotateX(13deg) scale(.93)}to{transform:rotateX(0) scale(1)}}

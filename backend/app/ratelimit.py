@@ -48,6 +48,7 @@ class Limit:
 #: round trip behind it. OAuth is limited to blunt a flood of state-generating requests. The list
 #: endpoints are generous -- they are reads a page makes several of.
 RULES: tuple[tuple[str, Limit], ...] = (
+    ("/api/sponsored", Limit(30, 60)),
     ("/api/me/sync", Limit(6, 60)),
     ("/api/maintainer/bounties", Limit(30, 60)),
     ("/api/maintainer/repositories", Limit(60, 60)),

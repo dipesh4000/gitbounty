@@ -569,6 +569,8 @@ async def publish_bounties(
                         bounty_id,
                     )
                     cash = item.reward_usdc if item.reward_usdc is not None else item.reward_avax
+                    if settings.escrow_execution_mode == "sponsored" and cash is not None and item.escrow_work_ends_at is None:
+                        raise HTTPException(422, "Set a work deadline for the sponsored escrow reward.")
                     chain_id = 43113 if item.reward_usdc is not None else 43114
                     if item.reward_usdc is not None and item.reward_avax is not None:
                         raise HTTPException(422, "Choose one reward asset.")
@@ -586,6 +588,9 @@ async def publish_bounties(
                         )
                         if payer_address is None:
                             raise HTTPException(409, "Link the funding wallet before publishing an escrow bounty.")
+                        if settings.escrow_execution_mode == "sponsored":
+                            from ..sponsored import smart_account
+                            payer_address = (await smart_account(connection, user.github_id))["address"]
                         amount = amount_to_units(item.reward_usdc, 6)
                         reference_id = "0x" + secrets.token_hex(32)
                         contract = settings.escrow_contract_address.lower()

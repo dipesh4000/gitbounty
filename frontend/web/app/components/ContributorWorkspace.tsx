@@ -29,7 +29,7 @@ import { useApiResource } from "../lib/useApiResource";
 import { MaintainerWorkspace, Pager } from "./MaintainerWorkspace";
 import { useAuth, LoginScreen } from "./AuthProvider";
 import { promisedReward, type PaymentConfig } from "../lib/payments";
-import { AvaxRewards } from "./AvaxRewards";
+import { RewardPayments } from "./RewardPayments";
 
 /*
   The signed-in application. Deliberately not a copy of the marketing page: a compact operations shell with
@@ -162,7 +162,7 @@ export function ContributorWorkspace({ initialView = "issues" }: { initialView?:
         )}
         {view === "history" && <PointsHistory onClaimed={loadPoints} />}
         {view === "leaderboard" && <Leaderboard login={user?.github_login ?? ""} />}
-        {view === "rewards" && <AvaxRewards />}
+        {view === "rewards" && <RewardPayments />}
       </main>
     </div>
   );

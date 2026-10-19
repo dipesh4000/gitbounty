@@ -35,6 +35,8 @@ from .routes.escrow import router as escrow_router
 from .github_app import configured as app_configured
 from .services.webhooks import run_worker
 from .escrow import signer_address
+from .managed_wallets import router as managed_wallets_router
+from .sponsored import router as sponsored_router
 
 configure_logging(settings.log_level, json_logs=settings.json_logs)
 
@@ -91,6 +93,8 @@ app.include_router(payments_router)
 app.include_router(moderation_router)
 app.include_router(github_app_router)
 app.include_router(escrow_router)
+app.include_router(managed_wallets_router)
+app.include_router(sponsored_router)
 # Mounted only in a test environment. In any other configuration the path is not routed at all, so it
 # cannot be reached even with the right header.
 if test_auth_enabled():
@@ -176,6 +180,20 @@ async def ready(response: Response) -> dict[str, object]:
         except ValueError:
             escrow_valid = False
         checks["escrow"] = "configured" if escrow_valid else "not configured"
+    if settings.managed_wallets_enabled:
+        from .managed_wallets import key_cipher
+        try:
+            key_cipher()
+            checks["managed_wallets"] = "configured" if settings.escrow_chain_id == 43113 else "not configured"
+        except Exception:
+            checks["managed_wallets"] = "not configured"
+    if settings.escrow_execution_mode == "sponsored":
+        from .sponsored import require_sponsorship
+        try:
+            require_sponsorship()
+            checks["sponsorship"] = "configured"
+        except Exception:
+            checks["sponsorship"] = "not configured"
 
     if not is_configured():
         checks["database"] = "unreachable" if db.last_connect_error else "not configured"
@@ -200,6 +218,13 @@ async def ready(response: Response) -> dict[str, object]:
                        and to_regclass('public.escrow_chain_events') is not null
                 """)
             checks["database"] = "ok" if complete else "schema incomplete"
+            if settings.managed_wallets_enabled:
+                async with pool().acquire() as connection:
+                    custody_schema = await connection.fetchval("""select to_regclass('public.managed_wallet_keys') is not null
+                        and to_regclass('public.managed_smart_accounts') is not null
+                        and to_regclass('public.sponsored_operations') is not null""")
+                if not custody_schema:
+                    checks["database"] = "schema incomplete"
         except Exception:
             logging.getLogger(__name__).exception("readiness: database check failed")
             checks["database"] = "unreachable"

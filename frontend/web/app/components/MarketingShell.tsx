@@ -5,6 +5,7 @@ import { useAuth, loginHref } from "./AuthProvider";
 
 const primaryLinks = [
   ["/bounties", "Fuji bounties"],
+  ["/wallet", "Wallet"],
   ["/explore", "Explore"],
   ["/how-it-works", "How it works"],
   ["/leaderboard", "Leaderboard"],
@@ -67,7 +68,7 @@ export function MarketingShell({ children, current }: { children: React.ReactNod
             </div>
           ))}
         </div>
-        <div className="mp-shell mp-footer-bottom"><span>Points, not money or tokens.</span><span>GitBounty · developer preview</span></div>
+        <div className="mp-shell mp-footer-bottom"><span>Points are reputation. Fuji test USDC has no monetary value.</span><span>GitBounty · developer preview</span></div>
       </footer>
     </div>
   );

@@ -210,8 +210,9 @@ function IssuePicker({
   const [page, setPage] = useState(1);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const { resource: paymentMode } = useApiResource<PaymentConfig>("/api/avax/config");
-  const payment = paymentMode.data;
-  const { resource: escrowConfig } = useApiResource<{ enabled: boolean }>("/api/escrow/config");
+  const { resource: escrowConfig } = useApiResource<{ enabled: boolean; execution_mode: string }>("/api/escrow/config");
+  const sponsored = escrowConfig.data?.execution_mode === "sponsored";
+  const payment: PaymentConfig | null = sponsored ? { enabled: true, chain_id: 43113, symbol: "USDC", network: "Avalanche Fuji", testnet: true, token_address: null, decimals: 6, explorer: "https://testnet.snowtrace.io" } : paymentMode.data;
   const [publishError, setPublishError] = useState("");
   const [success, setSuccess] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -240,8 +241,8 @@ function IssuePicker({
   const invalid = useMemo(() => selected.filter((issue) => {
     const points = Number(drafts[issue.number]?.points);
     const avax = drafts[issue.number]?.rewardAvax;
-    return !Number.isInteger(points) || points < MIN_POINTS || points > MAX_POINTS || Boolean(avax && !validAvax(avax, issue.existing?.reward_usdc ? 6 : issue.existing?.reward_avax ? 18 : payment?.decimals ?? 18));
-  }), [drafts, selected, payment?.decimals]);
+    return !Number.isInteger(points) || points < MIN_POINTS || points > MAX_POINTS || Boolean(avax && !validAvax(avax, issue.existing?.reward_usdc ? 6 : issue.existing?.reward_avax ? 18 : payment?.decimals ?? 18)) || Boolean(sponsored && avax && !issue.existing && !drafts[issue.number]?.workEnds);
+  }), [drafts, selected, payment?.decimals, sponsored]);
 
   /*
     Seed from draftFor() when there is no stored draft yet.
@@ -323,7 +324,7 @@ function IssuePicker({
         </button>
       </div>
 
-      <p className="bounty-payment-note">{payment ? `${payment.network} · ${payment.symbol}${payment.testnet ? " test tokens with no monetary value" : " real-money payments"}. Set the optional promise before first publication; it cannot change. Points are separate.` : "Payment configuration is loading or unavailable. You can still publish a points-only bounty."}</p>
+      <p className="bounty-payment-note">{payment ? `${payment.network} · ${payment.symbol}${payment.testnet ? " test tokens with no monetary value" : " real-money payments"}. ${sponsored ? "Set a reward and work deadline before first publication. Fund it from your app wallet afterwards; SmoothSend sponsors gas." : "Set the optional promise before first publication; it cannot change."} Points are separate.` : "Payment configuration is loading or unavailable. You can still publish a points-only bounty."} {sponsored && <a href="/wallet">Open app wallet →</a>}</p>
       {reviewing ? (
         <div className="bounty-review" aria-label="Review before publishing">
           <h3>Review {selected.length} {selected.length === 1 ? "bounty" : "bounties"}</h3>
@@ -369,6 +370,7 @@ function IssuePicker({
         <p className="bounty-footnote" role="alert">
           {invalid.length} selected {invalid.length === 1 ? "issue needs" : "issues need"} a whole-number
           value between {MIN_POINTS} and {formatPoints(MAX_POINTS)}, and any payment promise must be positive with at most {payment?.decimals ?? 18} decimals.
+          {sponsored && " USDC rewards also require a work deadline."}
         </p>
       )}
 
@@ -427,17 +429,17 @@ function IssuePicker({
                 />
               </label>
               <label>
-                <span>{payment?.symbol ?? "Payment"} promise (optional)</span>
+                <span>{payment?.symbol ?? "Payment"} {sponsored ? "reward" : "promise"} (optional)</span>
                 <input type="text" inputMode="decimal" value={current.rewardAvax}
                   aria-label={`${payment?.symbol ?? "Payment"} promise for issue #${issue.number}`}
                   disabled={!payment || !current.selected || Boolean(issue.existing)} placeholder={payment?.testnet ? "e.g. 1.25" : "e.g. 0.1"}
                   onChange={event => update(issue.number, { rewardAvax: event.target.value })} />
               </label>
                 {escrowConfig.data?.enabled && payment?.testnet && !issue.existing && <label>
-                  <span>Escrow work deadline (optional; local time)</span>
+                  <span>Escrow work deadline ({sponsored ? "required for USDC" : "optional"}; local time)</span>
                   <input type="datetime-local" value={current.workEnds ?? ""} disabled={!current.selected}
                     onChange={event => update(issue.number, { workEnds: event.target.value })} />
-                  <small>Set this to escrow the USDC reward. Link your wallet first. Claims expire seven days later; funding follows publication.</small>
+                  <small>{sponsored ? "Your app wallet funds the reward; SmoothSend pays gas. No external wallet connection needed." : "Set this to escrow the USDC reward. Link your wallet first."} Claims expire seven days later; funding follows publication.</small>
                 </label>}
               </div>
             </div>
