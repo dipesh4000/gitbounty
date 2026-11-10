@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     session_secret: str = ""
     token_encryption_key: str = ""
     database_url: str = ""
+    db_pool_min_size: int = 0
+    db_pool_max_size: int = 2
+    db_pool_max_inactive_lifetime: float = 10.0
+    db_pool_timeout: float = 15.0
 
     # Browser origins allowed to call this API. The website is served separately (a static file server in
     # development, a static host in production), so it is always a different origin from this API.

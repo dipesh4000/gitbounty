@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+import "./styles/primer.css";
 import "./multi-page.css";
 import "./workspace.css";
 import "./reward.css";

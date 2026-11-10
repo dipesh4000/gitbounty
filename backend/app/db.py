@@ -43,11 +43,13 @@ async def connect() -> None:
     if _pool is not None or not settings.database_url:
         return
     try:
-        # Vercel can run several instances against a small Supabase session pool.
-        # Keep no startup connections and release idle sockets promptly.
+        # Configurable connection pool with robust persistent defaults (min 1, max 10, 300s idle).
         _pool = await asyncpg.create_pool(
-            settings.database_url, min_size=0, max_size=2,
-            max_inactive_connection_lifetime=10, timeout=15,
+            settings.database_url,
+            min_size=settings.db_pool_min_size,
+            max_size=settings.db_pool_max_size,
+            max_inactive_connection_lifetime=settings.db_pool_max_inactive_lifetime,
+            timeout=settings.db_pool_timeout,
         )
         database_url = settings.database_url
         _engine = create_async_engine(

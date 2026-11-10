@@ -343,7 +343,7 @@ export class ApiError extends Error {
 /** Read of the API. Never falls back to canned data; a failure throws an ApiError. */
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const isWrite = (options.method ?? "GET").toUpperCase() !== "GET";
-  const cacheable = !isWrite && /^\/api\/issues(?:\?|$)/.test(path) && typeof window !== "undefined";
+  const cacheable = !isWrite && /^\/api\/(issues|escrow\/bounties|avax\/config)(?:\?|$)/.test(path) && typeof window !== "undefined";
   const cacheKey = `${API_BASE}${path}`;
   if (isWrite) clearPublicCache();
   if (cacheable && options.cache !== "no-store" && options.cache !== "reload") {

@@ -31,6 +31,8 @@ import { useAuth, LoginScreen } from "./AuthProvider";
 import { promisedReward, type PaymentConfig } from "../lib/payments";
 import { RewardPayments } from "./RewardPayments";
 import { WalletActivity } from "./WalletActivity";
+import { Octicon } from "./primer/Octicon";
+import { ContributionHeatmap } from "./primer/ContributionHeatmap";
 
 /*
   The signed-in application. Deliberately not a copy of the marketing page: a compact operations shell with
@@ -109,7 +111,7 @@ export function ContributorWorkspace({ initialView = "issues" }: { initialView?:
       <header className="app-header">
         <div className="app-header-main">
           <a className="app-brand" href="/" aria-label="GitBounty home">
-            <Image src="/favicon-32.png" alt="" width={28} height={28} priority />
+            <Octicon name="mark-github" size={26} />
             <span>GitBounty</span>
           </a>
           <div className="app-header-meta">
@@ -234,7 +236,10 @@ function Opportunities({ onPublishClick }: { onPublishClick: () => void }) {
           <div className="app-table-row" key={issue.id}>
             <div className="app-primary-cell">
               <small>#{issue.number} · {issue.language || "Any language"}</small>
-              <a href={issue.html_url} target="_blank" rel="noreferrer">{issue.title}</a>
+              <a href={issue.html_url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <Octicon name="issue-opened" size={16} style={{ color: "#3fb950" }} />
+                <span>{issue.title}</span>
+              </a>
             </div>
             <div data-label="Published by">{issue.posted_by ? `@${issue.posted_by}` : "Maintainer"}</div>
             <div className="app-repo" data-label="Repository">github.com/{issue.repository}</div>
@@ -390,7 +395,10 @@ function MyPullRequests({
           <div className="app-table-row" key={pull.github_pr_id}>
             <div className="app-primary-cell">
               <small>#{pull.number} · {whenLabel(pull)}</small>
-              <a href={pull.url} target="_blank" rel="noreferrer">{pull.title}</a>
+              <a href={pull.url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <Octicon name="git-pull-request" size={16} style={{ color: pull.state === "merged" ? "#a371f7" : pull.state === "open" ? "#3fb950" : "#7d8590" }} />
+                <span>{pull.title}</span>
+              </a>
               <span>{detailFor(pull)}</span>
             </div>
             <div className="app-repo" data-label="Repository">github.com/{pull.repo_full_name}</div>
@@ -709,6 +717,7 @@ function Leaderboard({ login }: { login: string }) {
 
   return (
     <section aria-label="Leaderboard">
+      <ContributionHeatmap />
       <div className="app-category-filter" role="group" aria-label="Time window">
         {PERIODS.map((item) => (
           <button

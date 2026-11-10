@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth, loginHref } from "./AuthProvider";
 import { LandingBounties } from "./LandingBounties";
+import { Octicon } from "./primer/Octicon";
 
 const flows=[['01 / Published bounty','A clear issue. A visible reward.','Published by a maintainer through the GitBounty GitHub App. Read the requirements and discuss your approach before you start.','acme/webkit #128\nMake keyboard navigation work for everyone','Frontend · Accessibility','40 bounty points'],['02 / Pull request','Your code. Their review.','Open a pull request that closes the issue and go through the normal GitHub review process. No GitBounty account needed yet — eligibility follows the PR.','feat: add keyboard focus to filter menu\nCloses #128 · PR #142 by @sam-dev','Review and merge on GitHub','Contribution in progress'],['03 / Contribution recorded','Merged work. Lasting credit.','GitHub sends a webhook when the PR merges. GitBounty checks it against eligibility rules, then allocates points to the author’s GitHub ID — even before they’ve signed up.','@sam-dev · acme/webkit #142\n40 bounty points + 5 baseline points','Recorded for the PR author','45 points to claim']];
 const roles={contributor:[['01 / CONNECT','Bring your GitHub identity.','Sign in to explore bounties and keep your work connected to your account.'],['02 / CONTRIBUTE','Find something you can fix.','Choose an issue, follow the contribution guide, and open your pull request.'],['03 / BUILD YOUR RECORD','Make the merge count.','After an eligible merge, claim your allocated points and see the contribution in your history.']],maintainer:[['01 / CONNECT','Bring your project.','Sign in with GitHub, then connect the GitBounty GitHub App to a public repository you administer or maintain.'],['02 / PUBLISH','Point to the work that matters.','Choose an open issue, set a category and point reward, then review and publish.'],['03 / REVIEW','Keep your GitHub workflow.','Review the contribution and merge when ready. Connect the GitHub App for automatic merge processing.']]};
@@ -42,13 +44,22 @@ export default function BroadsheetLanding() {
     };
     const scroll=() => {cancelAnimationFrame(frame); frame=requestAnimationFrame(update);};
     const hero=element.querySelector(".hero");
-    const glow=event => {
-      if(motion?.matches) return;
-      const bounds=hero.getBoundingClientRect();
-      hero.style.setProperty("--mx",(event.clientX-bounds.left)+"px");
-      hero.style.setProperty("--my",(event.clientY-bounds.top)+"px");
+    let heroBounds = null;
+    const updateBounds = () => { if (hero) heroBounds = hero.getBoundingClientRect(); };
+    window.addEventListener("resize", updateBounds, { passive: true });
+    window.addEventListener("scroll", updateBounds, { passive: true });
+    let glowFrame;
+    const glow = event => {
+      if (motion?.matches) return;
+      if (!heroBounds) updateBounds();
+      cancelAnimationFrame(glowFrame);
+      glowFrame = requestAnimationFrame(() => {
+        if (!heroBounds || !hero) return;
+        hero.style.setProperty("--mx", (event.clientX - heroBounds.left) + "px");
+        hero.style.setProperty("--my", (event.clientY - heroBounds.top) + "px");
+      });
     };
-    hero.addEventListener("pointermove",glow);
+    hero?.addEventListener("pointermove", glow, { passive: true });
     const observer=typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(entries => {
       entries.forEach(entry => {if(entry.isIntersecting){entry.target.classList.add("in");observer.unobserve(entry.target);}});
     },{threshold:.12});
@@ -56,7 +67,7 @@ export default function BroadsheetLanding() {
     window.addEventListener("scroll",scroll,{passive:true});
     motion?.addEventListener("change",scroll);
     update();
-    return () => {window.removeEventListener("scroll",scroll);hero.removeEventListener("pointermove",glow);motion?.removeEventListener("change",scroll);cancelAnimationFrame(frame);observer?.disconnect();element.classList.remove("enhanced");};
+    return () => {window.removeEventListener("scroll",scroll);window.removeEventListener("resize",updateBounds);window.removeEventListener("scroll",updateBounds);hero?.removeEventListener("pointermove",glow);motion?.removeEventListener("change",scroll);cancelAnimationFrame(frame);cancelAnimationFrame(glowFrame);observer?.disconnect();element.classList.remove("enhanced");};
   },[]);
   return <div className="landing-preview" ref={root}>
 {error && <p role="status" className="wrap">{error}</p>}
@@ -67,18 +78,18 @@ export default function BroadsheetLanding() {
 
 <header className="nav" id="nav">
   <div className="wrap navrow">
-    <a className="brand" href="/"><Image src="/favicon.svg" width={32} height={32} unoptimized alt="" />GitBounty</a>
+    <Link className="brand" href="/" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><Octicon name="mark-github" size={30} />GitBounty</Link>
     <nav className="navlinks" aria-label="Primary">
       <a href="#workflow">How it works</a>
       <a href="#published">Browse issues</a>
       <a href="#identity">For contributors</a>
-      <a href="/wallet">App wallet</a>
+      <Link href="/wallet">App wallet</Link>
     </nav>
     <div className="actions">
-      <a className="signin btn"  href={user ? "/explore" : loginHref()}>{user ? "@"+user.github_login : "Sign in with GitHub"}</a>
-      <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
+      <Link className="signin btn" href={user ? "/explore" : loginHref()}>{user ? "@"+user.github_login : "Sign in with GitHub"}</Link>
+      <Link className="btn primary" href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></Link>
     </div>
-    <details className="landing-mobile-menu"><summary>Menu</summary><nav aria-label="Mobile navigation"><a href="#published">Browse issues</a><a href="/bounties">Fuji escrow bounties</a><a href="#workflow">How it works</a><a href="/maintainers">Maintainer workspace</a><a href="/docs">Docs</a></nav></details>
+    <details className="landing-mobile-menu"><summary>Menu</summary><nav aria-label="Mobile navigation"><a href="#published">Browse issues</a><Link href="/bounties">Fuji escrow bounties</Link><a href="#workflow">How it works</a><Link href="/maintainers">Maintainer workspace</Link><Link href="/docs">Docs</Link></nav></details>
   </div>
 </header>
 
@@ -93,8 +104,8 @@ export default function BroadsheetLanding() {
     <h1 className="reveal">Build open source.<span>Get rewarded.</span></h1>
     <p className="intro reveal">Pick an issue worth solving. Ship your fix on GitHub. Build your reputation and claim funded rewards—all from one place.</p>
     <div className="actions reveal">
-      <a className="btn primary"  href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></a>
-      <a className="btn"  href={destination("/maintainers")}>Create a bounty <span aria-hidden="true">→</span></a>
+      <Link className="btn primary" href={destination("/explore")}>Explore bounties <span aria-hidden="true">↗</span></Link>
+      <Link className="btn" href={destination("/maintainers")}>Create a bounty <span aria-hidden="true">→</span></Link>
     </div>
     <p className="micro reveal"><a href="#published">Browse without signing in ↓</a> · App-managed wallets · SmoothSend-sponsored flow</p>
     <p className="sample">Avalanche Fuji demo · Test USDC has no monetary value</p>
@@ -335,8 +346,8 @@ export default function BroadsheetLanding() {
       <h2>Your next issue<br />could be the one.</h2>
       <p>Help a project move forward. Take your credit with you.</p>
       <div className="actions">
-        <a className="btn primary"  href={destination("/explore")}>Explore bounties ↗</a>
-        <a className="btn"  href={destination("/maintainers")}>Create a bounty →</a>
+        <Link className="btn primary" href={destination("/explore")}>Explore bounties ↗</Link>
+        <Link className="btn" href={destination("/maintainers")}>Create a bounty →</Link>
       </div>
     </div>
   </div>
@@ -348,7 +359,7 @@ export default function BroadsheetLanding() {
   <div className="wrap">
     <div className="footer-main">
       <div className="footer-brand">
-        <a className="brand" href="/"><Image src="/favicon.svg" width={32} height={32} unoptimized alt="" />GitBounty</a>
+        <Link className="brand" href="/" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><Octicon name="mark-github" size={30} />GitBounty</Link>
         <p>Find worthwhile issues. Build a contribution history that follows your GitHub identity.</p>
         <span className="footer-tag">Open-source work, made visible.</span>
       </div>
@@ -367,9 +378,9 @@ export default function BroadsheetLanding() {
         </div>
         <div>
           <h3>Information</h3>
-          <a  href={"/docs"}>Docs</a>
-          <a  href={"/privacy"}>Privacy</a>
-          <a  href={"/terms"}>Terms</a>
+          <Link href={"/docs"}>Docs</Link>
+          <Link href={"/privacy"}>Privacy</Link>
+          <Link href={"/terms"}>Terms</Link>
         </div>
       </nav>
     </div>

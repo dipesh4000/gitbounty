@@ -1,31 +1,31 @@
 :root {
-  --canvas: #08090d;
-  --canvas-raised: #0c0d12;
-  --surface: #101219;
-  --surface-raised: #141722;
-  --surface-active: #191c28;
-  --line-soft: #20232f;
-  --line: #2c2f3e;
-  --line-strong: #49465e;
-  --text: #f4f4f8;
-  --text-secondary: #bcc0ce;
-  --text-muted: #a3a8ba;
-  --signal: #c4b5fd;
-  --signal-hover: #ddd3ff;
-  --signal-dark: #2c1c49;
-  --signal-ink: #140c26;
-  --status: #3ddb82;
-  --focus: #c4b5fd;
-  --danger: #f08b73;
-  --font-display: "Mona Sans", system-ui, sans-serif;
-  --font-body: "Mona Sans", system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "Courier New", monospace;
+  --canvas: #0d1117;
+  --canvas-raised: #161b22;
+  --surface: #161b22;
+  --surface-raised: #21262d;
+  --surface-active: #30363d;
+  --line-soft: #21262d;
+  --line: #30363d;
+  --line-strong: #484f58;
+  --text: #e6edf3;
+  --text-secondary: #7d8590;
+  --text-muted: #848d97;
+  --signal: #2f81f7;
+  --signal-hover: #58a6ff;
+  --signal-dark: #0d2847;
+  --signal-ink: #ffffff;
+  --status: #3fb950;
+  --focus: #2f81f7;
+  --danger: #f85149;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 72px; background: var(--canvas); }
-body { margin: 0; background: var(--canvas); color: var(--text); font-family: var(--font-body); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-body::selection, ::selection { background: var(--signal); color: #0b1008; }
+body { margin: 0; background: var(--canvas); color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body::selection, ::selection { background: var(--signal); color: #ffffff; }
 body::-webkit-scrollbar { width: 10px; }
 body::-webkit-scrollbar-track { background: var(--canvas); }
 body::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid var(--canvas); }
@@ -35,13 +35,13 @@ button { color: inherit; }
 a { color: inherit; text-decoration: none; }
 h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
-h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.035em; font-weight: 600; }
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; font-weight: 600; }
 p { color: var(--text-secondary); max-width: 65ch; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .mono { font-family: var(--font-mono); }
 
-.skip-link { position: fixed; top: 8px; left: 8px; z-index: 999; transform: translateY(-150%); background: var(--signal); color: #0b1008; padding: 9px 14px; border-radius: 3px; font-weight: 700; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 999; transform: translateY(-150%); background: var(--signal); color: #ffffff; padding: 6px 12px; border-radius: 6px; font-weight: 600; }
 .skip-link:focus { transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

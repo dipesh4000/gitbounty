@@ -22,6 +22,7 @@ import {
 } from "../lib/api";
 import { promisedReward, type PaymentConfig } from "../lib/payments";
 import { useApiResource } from "../lib/useApiResource";
+import { Octicon } from "./primer/Octicon";
 
 /*
   The maintainer workspace: pick a repository you are authorised to manage, choose open issues from it,
@@ -64,10 +65,10 @@ export function MaintainerWorkspace({ onPublished }: { onPublished: () => void }
   return (
     <section className="bounty-manager" aria-label="Maintainer workspace">
       <div className="app-tabs" role="tablist" aria-label="Maintainer views">
-        <button type="button" role="tab" aria-selected={tab === "publish"} onClick={() => setTab("publish")}>
+        <button type="button" role="tab" aria-selected={tab === "publish"} onClick={() => setTab("publish")} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
           Publish bounties
         </button>
-        <button type="button" role="tab" aria-selected={tab === "published"} onClick={() => setTab("published")}>
+        <button type="button" role="tab" aria-selected={tab === "published"} onClick={() => setTab("published")} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
           My published bounties
         </button>
       </div>

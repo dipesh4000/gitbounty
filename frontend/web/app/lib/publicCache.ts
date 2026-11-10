@@ -5,35 +5,83 @@ const LIMIT = 30;
 type Entry = { expires: number; data: unknown };
 let generation = 0;
 
-function entries(): Record<string, Entry> {
+// High-performance L1 in-memory cache to avoid repeated JSON serialization/deserialization
+const memoryCache = new Map<string, Entry>();
+
+function loadFromStorage(): Record<string, Entry> {
   try {
-    const parsed = JSON.parse(sessionStorage.getItem(KEY) || "{}") as unknown;
+    const raw = sessionStorage.getItem(KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return Object.fromEntries(Object.entries(parsed).filter(([, entry]) =>
-      entry && typeof entry === "object" && typeof entry.expires === "number" && "data" in entry));
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, entry]) =>
+          entry &&
+          typeof entry === "object" &&
+          typeof (entry as Entry).expires === "number" &&
+          "data" in entry,
+      ),
+    ) as Record<string, Entry>;
   } catch {
     return {};
   }
 }
 
-export function publicCacheGeneration() { return generation; }
+export function publicCacheGeneration() {
+  return generation;
+}
 
 export function readPublicCache(key: string): Entry | undefined {
-  const entry = entries()[key];
-  return entry && entry.expires > Date.now() ? entry : undefined;
+  const now = Date.now();
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage && !sessionStorage.getItem(KEY)) {
+      memoryCache.clear();
+    }
+  } catch {
+    /* Ignore storage access errors */
+  }
+
+  // 1. Check L1 Memory cache first (0ms latency, zero GC pressure)
+  const inMemory = memoryCache.get(key);
+  if (inMemory) {
+    if (inMemory.expires > now) {
+      return inMemory;
+    }
+    memoryCache.delete(key);
+  }
+
+  // 2. Check L2 SessionStorage if not in memory
+  const stored = loadFromStorage()[key];
+  if (stored && stored.expires > now) {
+    memoryCache.set(key, stored);
+    return stored;
+  }
+  return undefined;
 }
 
 export function writePublicCache(key: string, data: unknown, started: number) {
   if (started !== generation) return; // A write invalidated this in-flight read.
+  const entry: Entry = { expires: Date.now() + TTL, data };
+  memoryCache.set(key, entry);
+
   try {
-    const fresh = Object.entries(entries()).filter(([name, entry]) => name !== key && entry.expires > Date.now());
-    sessionStorage.setItem(KEY, JSON.stringify(Object.fromEntries([
-      ...fresh.slice(-(LIMIT - 1)), [key, { expires: Date.now() + TTL, data }],
-    ])));
-  } catch { /* Storage denied/full: the API still works. */ }
+    const current = loadFromStorage();
+    const now = Date.now();
+    const fresh = Object.entries(current).filter(([name, e]) => name !== key && e.expires > now);
+    const updated = Object.fromEntries([...fresh.slice(-(LIMIT - 1)), [key, entry]]);
+    sessionStorage.setItem(KEY, JSON.stringify(updated));
+  } catch {
+    /* Storage denied/full: in-memory cache still works. */
+  }
 }
 
 export function clearPublicCache() {
   generation += 1;
-  try { sessionStorage.removeItem(KEY); } catch { /* Storage is optional. */ }
+  memoryCache.clear();
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    /* Storage is optional. */
+  }
 }

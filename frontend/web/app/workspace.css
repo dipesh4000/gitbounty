@@ -156,8 +156,8 @@
 .bounty-publish-bar > span { color: var(--text-muted); font-size: 12px; }
 .bounty-publish-bar > span:first-child { color: var(--text-secondary); white-space: nowrap; }
 .bounty-publish-bar strong { color: var(--text); font: 600 14px/1 var(--font-mono); }
-.bounty-publish-bar button { min-height: 42px; padding: 0 16px; border: 1px solid #7c3aed; border-radius: 8px; background: #7c3aed; color: #fff; font-size: 13px; font-weight: 750; cursor: pointer; }
-.bounty-publish-bar button:hover { background: #6d28d9; }
+.bounty-publish-bar button { min-height: 42px; padding: 0 16px; border: 1px solid #2ea043; border-radius: 6px; background: #238636; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bounty-publish-bar button:hover { background: #2ea043; }
 .bounty-publish-bar button:disabled { border-color: var(--line); background: var(--surface); color: var(--text-muted) !important; -webkit-text-fill-color: var(--text-muted); cursor: not-allowed; }
 .bounty-table .app-table-head, .bounty-table .app-table-row { grid-template-columns: 50px minmax(260px,1.4fr) minmax(175px,.9fr) 150px 90px; padding: 0 18px; }
 .bounty-table .app-table-row { min-height: 86px; }
