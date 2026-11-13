@@ -1,6 +1,35 @@
-# App custody rollout
+# App Custody & Account Abstraction Rollout
 
-## October 19 workspace correction
+```mermaid
+flowchart TD
+    subgraph LoginFlow["OAuth Login & Provisioning"]
+        GH["GitHub OAuth Verification"] --> AuthUser["Authenticated GitHub ID"]
+        AuthUser --> GenSigner["Derive Managed Signer (EOA)"]
+        GenSigner --> EncryptKey["Encrypt Key with WALLET_ENCRYPTION_KEY (Fernet)"]
+        EncryptKey --> StoreDB[("Store in PostgreSQL (users_wallets)")]
+    end
+
+    subgraph SmartAccount["SmoothSend ERC-4337 Smart Account"]
+        StoreDB --> DeriveSA["Derive Counterfactual Smart Account Address"]
+        DeriveSA --> UserWallet["User Display Wallet Address (Fuji)"]
+    end
+
+    subgraph SponsoredAction["Sponsored UserOperation Execution"]
+        UserAction["User Reviews & Confirms Action (Fund / Claim / Refund)"]
+        UserAction --> BuildOp["Server Builds Exact Transaction Call"]
+        BuildOp --> ServerSign["Server Signs with Decrypted Signer"]
+        ServerSign --> Paymaster["SmoothSend Paymaster Sponsors Gas"]
+        Paymaster --> Exec["Execute on GitBountyEscrow (Fuji)"]
+    end
+
+    UserWallet --> UserAction
+
+    classDef default fill:#F8FAFC,stroke:#64748B,stroke-width:1.5px,color:#0F172A;
+```
+
+---
+
+## October 19 Workspace Correction
 
 The workspace Payments screen now always uses the custodial app wallet. Loading,
 failed or direct-mode configuration never mounts legacy browser-wallet controls.

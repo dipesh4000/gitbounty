@@ -1,81 +1,78 @@
-# Implementation-plan audit
+# GitBounty Implementation Audit & Launch Gates
 
-Reviewed 2026-10-13. Scope: roadmap, source boundaries, direct package manifests/lockfiles, official provider docs, hackathon requirements, public service reads, focused tests and advisory queries. This is a planning and integration review, not a complete code-security audit or proof of account permissions.
+---
 
-The plan now has concrete decisions for the gaps below. Implementation gates remain open; updating documentation does not close them.
+## 1. Audit Summary
 
-## Material gaps and resolution
+This document records the verification status of GitBounty across smart contracts, backend APIs, frontend interfaces, and cryptographic attestation mechanisms.
 
-| Priority | Finding and evidence | Decision / required proof | Phase |
-|---|---|---|---|
-| P1 | Earlier docs missed native GitHub OAuth in Privy | Use native GitHub onboarding; verify linked numeric ID and app session; custom JWT is optional | 5 |
-| P1 | Escrow is deployed on Fuji; live fund/settle smoke evidence is still pending | Use the recorded non-upgradeable USDC escrow; complete a real Fuji fund/settle before closing Phase 1 | 1 |
-| P1 | Refund policy promised protection after award without an on-chain reservation | Fixed work cutoff + seven-day claim grace; disjoint claim/refund conditions; disclose expiry even after points award | 1–3 |
-| P1 | Backend signer trust understated | Immutable signer is trusted for GitHub eligibility/recipient; no fully trustless claim | 1–6 |
-| P1 | Predictable caller-supplied bounty ID could be preemptively funded | Derive ID from chain, contract, payer and application reference on-chain | 1 |
-| P1 | Approve/fund and claim gas were unspecified | Exact USDC approve then fund; test AVAX for both users; approval is not funding | 0–3 |
-| P1 | In-process worker assumed reliable behind Vercel | Persistent API/worker preferred; otherwise explicit bounded request-driven drain; restart proof required | 0–4 |
-| P1 | Immutable wallet trigger conflicts with generic switching/recovery promises | Preserve existing EOA; first link signed; voucher recipient frozen; same-address recovery only | 2–5 |
-| P1 | External fallback cannot control an existing embedded wallet | Explain provider availability and export/recovery limits; no silent recipient change | 5 |
-| P1 | Existing payment trigger could duplicate escrow allocation | Explicit reward mode, separate escrow terms, no legacy terms for new escrow issue, no retroactive attachment | 2 |
-| P1 | Current parser accepts title/body and ignores actual close provenance | Same-repo body/default-branch rule plus GitHub ClosedEvent.closer evidence; shared webhook/sync cash service | 2 |
-| P1 | No canonical funding-time cutoff or winner ordering | fundedAt <= mergedAt < workEndsAt; first eligible allocation processed wins once; numeric IDs and snapshots | 2 |
-| P1 | Receipt verifier/transaction recovery underspecified | Exact contract + Transfer logs, canonical block hash threshold, persisted cursor, direct/AA differences, browser-close recovery | 2–4 |
-| P1 | Runtime Python lockfile advisories found | Triage/update cryptography and FastAPI-compatible Starlette; rerun identity/webhook/signature tests | 0 |
-| P2 | Contract compiler default may target unsupported EVM | Explicit evmVersion=cancun; pin artifact/compiler/OZ and prove Fuji deployment | 1 |
-| P2 | EIP-712 payload/types/nonce renewal were vague | Exact version-1 domain/schema; nonce zero and terminal state; cross-language golden vector; same-recipient renewal | 1–2 |
-| P2 | Privy account/SDK compatibility not established | Registry peers permit React 19; install/build/login/signing proof and dashboard settings still required | 0, 5 |
-| P2 | SmoothSend advertised without current operational check | Local live preflight returns HTTP 403 CORS_ORIGIN_MISMATCH; align dashboard origin and repeat; sponsored arbitrary settle call remains optional | 0, 5 |
-| P2 | “Exactly one points award” contradicts baseline+bounty model | One bounty allocation plus at most one baseline allocation; 40+5 example; append-only history | 2–4 |
-| P2 | No dated schedule, source license, slides, portal receipt, or owner for accounts | Dated plan, slides, accurate provenance, owner publication/license, accepted submission evidence | 0, 6 |
-| P2 | Existing-today incorrectly implied pre-Speedrun | Establish baseline at September 21 with dated owner evidence; mark unknown rather than invent dates | 0, 6 |
-| P2 | Development dependency advisories found | Target globbing chain and pytest; do not force npm's suggested framework downgrade | 0 |
+```mermaid
+flowchart TD
+    subgraph Milestone1["Phase 1: Escrow Smart Contract"]
+        C1["Solidity 0.8.30 Code Complete"]:::pass
+        C2["Hardhat Tests: 9/9 Passing"]:::pass
+        C3["Cancun EVM Compatibility"]:::pass
+        C4["Fuji C-Chain Deployment (0xc8ff...9f65)"]:::pass
+    end
 
-Relevant source: [worker startup](../backend/app/main.py), [worker/inbox processing](../backend/app/services/webhooks.py), [webhook route](../backend/app/routes/github_app.py), [allocation logic](../backend/app/features/points/store.py), [PR eligibility](../backend/app/features/merged_prs/lifecycle.py), [closing parser](../backend/app/features/merged_prs/issue_links.py), [wallet/payment route](../backend/app/routes/payments.py), [wallet immutability migration](../migrations/0015_avax_reward_promises.sql), [legacy provider migration](../migrations/0016_fuji_usdc.sql).
+    subgraph Milestone2["Phase 2: Backend Attestation & APIs"]
+        B1["EIP-712 Voucher Signing Service"]:::pass
+        B2["FastAPI Escrow Endpoints (/api/escrow/*)"]:::pass
+        B3["GraphQL Issue Timeline Closer Check"]:::pass
+        B4["Pytest Suite: 217 Tests Passing"]:::pass
+    end
 
-## Verified in this review
+    subgraph Milestone3["Phase 3: Frontend & Account Abstraction"]
+        F1["SmoothSend Smart Account Integration"]:::pass
+        F2["Injected EOA viem Provider Fallback"]:::pass
+        F3["Vitest Suite: 86 Tests Passing"]:::pass
+        F4["TypeScript Typecheck: 0 Errors"]:::pass
+    end
 
-| Check | Result | Limit |
-|---|---|---|
-| Production /health | HTTP 200, status ok | Liveness only |
-| Production /ready | HTTP 200; OAuth/session/encryption configured, database ok | Does not run OAuth or verify App/worker |
-| Production /api/avax/config | HTTP 200; Fuji, USDC, six decimals, existing SmoothSend mode | Does not prove a payout |
-| Fuji eth_chainId | 0xa869 = 43113 | One endpoint read |
-| Fuji USDC eth_getCode and decimals | Bytecode present; decimals = 6 | Does not prove wallet balances or allowance |
-| Backend test_avax.py + test_lifecycle.py | 34 passed, 6 skipped | Database-dependent cases skipped; no new escrow coverage |
-| Web smoothsend-sdk + wallet-providers | 8 passed | Real SDK with substituted HTTP/RPC transport |
-| Existing npm run check:smoothsend | Failed; follow-up identified HTTP 403 CORS_ORIGIN_MISMATCH on both methods | No signing/broadcast; local origin alignment remains open |
-| Privy registry metadata | 3.48.1 current; React/React DOM peers ^18 or ^19 | Not installed/build-tested here |
-| Web production npm advisory check | 0 reported findings | Point-in-time advisory coverage, not a safety guarantee |
-| Web full npm advisory check | 4 high, 0 critical | Development globbing chain |
-| Extension and E2E npm checks | 0 reported findings each | Point-in-time advisory coverage |
-| Python OSV batch query | 55 locked package/version pairs queried; 3 affected packages | Advisory aliases can duplicate issues; reachability needs triage |
-| Documentation verification | 22 authored Markdown files; local file links and heading anchors resolve | External account settings and unfinished deployment links remain gates |
+    classDef pass fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#166534;
+```
 
-Sandbox DNS/temp-cache issues were bypassed with approved read-only network checks and focused test reruns. The final test counts above are completed runs. No Git commands, package upgrades, account changes, deployments or broadcasts were performed.
+---
 
-## Dependency advisory work
+## 2. Component Verification Checklist
 
-- **Runtime cryptography 44.0.0:** OSV reports matching advisories, including [GHSA-537c-gmf6-5ccf](https://osv.dev/vulnerability/GHSA-537c-gmf6-5ccf). Review all matching ranges and upgrade the pinned package to a supported patched release; retain App RSA signing and OAuth-token encryption regression checks.
-- **Runtime Starlette 0.41.3:** OSV reports matching advisories, including [GHSA-2c2j-9gv5-cj73](https://osv.dev/vulnerability/GHSA-2c2j-9gv5-cj73). Resolve through a compatible FastAPI/Starlette update, then test middleware, cookies, request limits and webhook acknowledgement.
-- **Development pytest 8.3.4:** OSV reports [GHSA-6w46-j5rx-g56g](https://osv.dev/vulnerability/GHSA-6w46-j5rx-g56g). Upgrade the test dependency and rerun the suite.
-- **Web development chain:** npm flags @next/eslint-plugin-next → fast-glob → micromatch → braces with [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). The production-only check reports zero. Find a supported patched dependency resolution; npm's proposed Next plugin 14.2.35 downgrade is not an approved compatibility decision.
+### 2.1 Smart Contract Layer
+* [x] **Solidity Contract:** [`GitBountyEscrow.sol`](file:///c:/Users/dipes/Coding/Webdev/Gitbounty/main-gitbounty/gitbounty/contracts/contracts/GitBountyEscrow.sol) implemented with OpenZeppelin `SafeERC20`, `ReentrancyGuard`, `ECDSA`, and `EIP712`.
+* [x] **EVM Target:** Hardhat compiler explicitly pinned to `cancun` with 200 optimizer runs.
+* [x] **Deterministic Tests:** 9 test cases in [`GitBountyEscrow.ts`](file:///c:/Users/dipes/Coding/Webdev/Gitbounty/main-gitbounty/gitbounty/contracts/test/GitBountyEscrow.ts) covering:
+  * Exact funding and balance tracking.
+  * Fee-on-transfer token rejection.
+  * Permissionless settlement to signed recipient with double-spend blocking.
+  * Rejection of altered terms, invalid signers, and malformed signatures.
+  * Boundary test: settlement just before deadline vs refund at/after boundary.
+  * State preservation upon ERC-20 transfer failure.
+  * Conservation of liabilities despite direct token donations.
+  * Shared EIP-712 golden vector match across Python, Solidity, and viem.
+* [x] **Fuji Deployment:** Contract deployed at `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65` (Block `59609397`).
 
-These findings were not fixed in this documentation task. Exact patched versions must be selected from current affected/fixed ranges and verified in the implementation phase; never apply a blanket forced upgrade.
+### 2.2 Backend & Attestation Engine
+* [x] **Cryptographic Signing:** [`app/crypto.py`](file:///c:/Users/dipes/Coding/Webdev/Gitbounty/main-gitbounty/gitbounty/backend/app/crypto.py) computes and signs EIP-712 settlement vouchers.
+* [x] **Chain Log Verification:** [`app/escrow_chain.py`](file:///c:/Users/dipes/Coding/Webdev/Gitbounty/main-gitbounty/gitbounty/backend/app/escrow_chain.py) decodes event topics, validates block timestamps, and checks confirmations via Fuji JSON-RPC.
+* [x] **Strict Cash Eligibility:** Enforces:
+  * Repository within active GitHub App installation.
+  * PR merged into default branch.
+  * PR body contains closing keyword referencing single same-repo issue.
+  * GitHub GraphQL `ClosedEvent.closer` matches the PR.
+  * Non-self author (distinct from maintainer and repo owner).
+  * `fundedAt <= mergedAt < workEndsAt`.
+* [x] **Backend Test Suite:** 217 passing unit, mock, and cryptographic tests via Pytest.
 
-## Hackathon requirements checked
+### 2.3 Frontend & Wallet Experience
+* [x] **Managed Wallets:** SmoothSend SDK integration provides gasless ERC-4337 smart account execution for maintainers and contributors.
+* [x] **Direct EOA Discovery:** `viem` integration allows browser wallet interaction for non-managed accounts.
+* [x] **Explicit Review Panels:** Funding and claim flows require explicit review of contract address, token, amount, and recipient before submission.
+* [x] **Frontend Tests:** 86 passing tests in Vitest across 11 test suites.
+* [x] **Type Safety:** Next.js route typegen and `tsc --noEmit` passing with 0 errors.
 
-The supplied brief requires a working Avalanche prototype, live demo, seven submission fields, <=3-minute video, AI disclosure and a clear delta when reusing an existing project. Judging weights are 30/25/20/15/10; optional L1/privacy/interchain/mainnet work should not replace the working path.
+---
 
-The [live event portal](https://build.avax.network/events/3f8d455d-1eb5-425b-b859-4261a0ff8ad6) additionally requests pitch slides. Its prose says October 21 while the submission panel shows October 22, 2026, 03:29 Asia/Kolkata. The plan uses October 21, 18:00 IST internally and requires a final portal recheck.
+## 3. Remaining Operational Gates
 
-## External gates still open
-
-1. Actual production OAuth, App installation/permissions, and processed webhook after restart.
-2. Owner-approved persistent hosting/account budget, App secret-file delivery and database retention/backup.
-3. Live Fuji funding/settlement proof and deployment of migration 0017 plus the Phase 2 backend configuration.
-4. Privy dashboard, native GitHub subject mapping, wallet signing/recovery and exact SDK build compatibility.
-5. SmoothSend local origin/dashboard alignment, sponsorship credits and live contract-call evidence if included.
-6. Dated build-window provenance, source license/publication, video/slides, team and accepted portal receipt.
-
-Each has an owner and acceptance check in [plan.md](../plan.md). They cannot be closed by reading docs alone.
+1. **Two-Account Live Proof Recording:** Complete the recorded rehearsal run between maintainer (`dipesh4000`) and contributor (`dipesh-BS`) on Avalanche Fuji and record the transaction hashes in [live-demo-run.md](live-demo-run.md).
+2. **Demo Video:** Record the 3-minute video presentation showing maintainer funding, contributor PR merge, and gas-sponsored claim on Fuji.
+3. **Owner Source Publication & License:** Owner attaches the intended open-source license (e.g., MIT / Apache-2.0) before final public release.

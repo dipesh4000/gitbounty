@@ -1,4 +1,35 @@
-# Live two-account run
+# Live Two-Account Verification Run
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Maintainer as Maintainer (dipesh4000 #87355477)
+    participant GB as GitBounty App
+    participant GH as GitHub (dipesh4000/gitbounty)
+    participant Escrow as GitBountyEscrow (Fuji)
+    actor Contributor as Contributor (dipesh-BS #288853389)
+
+    Maintainer->>GH: Create Fresh Issue (e.g., #1)
+    Maintainer->>GB: Select Issue & Fund 1.00 USDC
+    GB->>Escrow: Sponsored UserOp: fund(referenceId, 1.00 USDC)
+    Escrow-->>GB: Event BountyFunded (bountyId, claimUntil)
+    
+    Contributor->>GH: Open Pull Request with "Closes #1" targeting main
+    Maintainer->>GH: Review & Merge PR
+    
+    GH->>GB: Webhook (pull_request.closed)
+    GB->>GH: Verify ClosedEvent.closer matches PR
+    GB->>GB: Allocate win to dipesh-BS (288853389)
+    
+    Contributor->>GB: Sign in as dipesh-BS & confirm claim
+    GB->>Escrow: Sponsored UserOp: settle(voucher, signature)
+    Escrow->>Contributor: Transfer 1.00 USDC
+    Escrow-->>GB: Event BountySettled
+```
+
+---
+
+## Operator Identities and Setup
 
 Public GitHub API identities verified October 17, 2026:
 

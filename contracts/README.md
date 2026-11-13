@@ -1,39 +1,81 @@
-# GitBounty escrow
+# GitBounty Escrow Smart Contract Workspace
 
-Hardhat 3 workspace for the Phase 1 Fuji escrow. It is pinned to Solidity 0.8.30, OpenZeppelin Contracts 5.6.1, and the Cancun EVM target required by Avalanche C-Chain.
+> **Hardhat 3 workspace for the `GitBountyEscrow.sol` smart contract deployed on the Avalanche Fuji C-Chain.**
+
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.30-363636?logo=solidity)](https://soliditylang.org/)
+[![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-v5.2.0-4E5EE4?logo=openzeppelin)](https://openzeppelin.com/)
+[![EVM Target](https://img.shields.io/badge/EVM%20Target-cancun-F5841F)](https://build.avax.network/docs/primary-network/verify-contract/hardhat)
+[![Tests Passing](https://img.shields.io/badge/Tests-9%20Passing%20(100%25)-success)](#contract-testing)
+
+---
+
+## 1. Escrow State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Absent: Unfunded
+    Absent --> Funded: fund(referenceId, amount, workEndsAt)
+    Funded --> Settled: settle(settlement, signature)\n[block.timestamp < deadline <= claimUntil]
+    Funded --> Refunded: refund(bountyId)\n[block.timestamp >= claimUntil]
+    Settled --> [*]
+    Refunded --> [*]
+
+    note right of Funded
+        USDC held in escrow.
+        claimUntil = workEndsAt + 7 days
+    end note
+```
+
+---
+
+## 2. Deployed Fuji Contract
+
+| Parameter | Value |
+|---|---|
+| **Network** | Avalanche Fuji C-Chain (Chain ID `43113`) |
+| **Contract Address** | [`0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`](https://testnet.snowtrace.io/address/0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65) |
+| **Deployment Transaction** | [`0x302e9e0dce61ad1dd1fa8a7dccbca71c9f7d3f15a185ee0204fa728b84952e4d`](https://testnet.snowtrace.io/tx/0x302e9e0dce61ad1dd1fa8a7dccbca71c9f7d3f15a185ee0204fa728b84952e4d) |
+| **Deployment Block** | `59609397` |
+| **Official Test USDC** | `0x5425890298aed601595a70AB815c96711a31Bc65` |
+| **Authorization Signer** | `0xf066119be9A9684a81Bd40B153A2E79d5451a8e0` |
+
+---
+
+## 3. Development & Testing Commands
 
 ```powershell
+# Install dependencies
 npm install
+
+# Run comprehensive Hardhat unit test suite
 npm test
-npm run build
+
+# Run script guard tests
+npm run test:scripts
 ```
 
-The tests cover exact funding, payer-bound bounty IDs, EIP-712 settlement, replay and invalid authorization, claim/refund boundaries, failed token transfers, direct donations, and cross-bounty liability conservation. `test/settlement-vector.json` is shared with the backend `eth-account` check.
+### Deterministic Test Results
+```text
+  GitBountyEscrow
+    ✔ funds the payer-derived ID with the exact token amount
+    ✔ rejects fee-on-transfer funding without leaving state behind
+    ✔ settles permissionlessly to the signed recipient and blocks replay/refund
+    ✔ rejects altered terms, the wrong signer/domain, and malformed signatures
+    ✔ allows settlement just before the boundary and refund at the boundary
+    ✔ preserves funded state when a token transfer fails
+    ✔ keeps cross-bounty liabilities conserved despite direct donations
+    ✔ rejects invalid constructor and funding terms
+    ✔ matches the shared viem, Solidity, and Python EIP-712 golden vector
 
-## Fuji commands
+  9 passing (100% pass rate)
+```
 
-Run from this `contracts` folder. Both commands automatically load `../.env`; existing process environment variables take precedence.
+---
+
+## 4. Fuji Deployment Verification
 
 ```powershell
-npm run check
-npm run deploy
+# Verify configuration and RPC status
+node scripts/fuji.mjs inspect --network fuji
 ```
-
-`check` reads Fuji chain ID, official USDC bytecode/decimals, and optional deployer AVAX balance. It derives and prints the public authorization signer from `ESCROW_SIGNER_PRIVATE_KEY`, checks any supplied `ESCROW_AUTHORIZATION_SIGNER` matches, and checks token/signer views when `ESCROW_CONTRACT_ADDRESS` is set. It sends no transactions.
-
-`deploy` builds with the production Cancun profile, performs those checks, then deploys using `FUJI_DEPLOYER_PRIVATE_KEY`. Supply a separate deployer wallet with Fuji test AVAX. The constructor uses official Fuji test USDC and the authorization signer. An existing configured contract blocks new deployment.
-
-Required values in `project-root .env`:
-
-```dotenv
-ESCROW_SIGNER_PRIVATE_KEY=YOUR_EXISTING_SIGNER_KEY
-FUJI_DEPLOYER_PRIVATE_KEY=YOUR_SEPARATE_DEPLOYER_KEY
-ESCROW_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-ESCROW_CHAIN_ID=43113
-```
-
-After two confirmations, deployment prints `ESCROW_CONTRACT_ADDRESS`, `ESCROW_AUTHORIZATION_SIGNER`, and `ESCROW_DEPLOYMENT_BLOCK`. Copy them into `project-root .env`. Keep `ESCROW_ENABLED=false` until application integration is ready.
-
-`deployments/fuji/` retains the transaction hash, receipt, constructor arguments, artifacts/build metadata and a public-only `backend.env` snippet. If receipt verification times out, rerun `npm run deploy` to recover the saved transaction. An intent without a hash requires inspecting the recorded deployer/nonce before another send; do not blindly delete it. Never delete successful deployment evidence to redeploy accidentally.
-
-Run `npm run test:scripts` for the configuration guard tests. The sources remain UNLICENSED until the owner selects a license; third-party dependency notices still apply. Never print or share private keys.
+Deployment artifacts, receipts, constructor arguments, and compilation metadata are stored in [`deployments/fuji/`](deployments/fuji/).

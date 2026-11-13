@@ -1,216 +1,162 @@
-# Development and deployment setup
+# GitBounty Development & Setup Guide
 
-This guide covers the existing application and names planned settings for the hackathon escrow/Privy work. Planned settings are not usable until their corresponding code exists.
+This guide covers local environment setup, configuration, smart contract deployment, and testing workflows for GitBounty.
 
-## Prerequisites
+---
 
-- Python 3.12
-- uv
-- Node.js 24
-- PostgreSQL
-- Two GitHub accounts for the live flow
-- A GitHub OAuth app and GitHub App
-- An Avalanche-compatible wallet with Fuji test AVAX
-- Official Fuji test USDC
-- A Privy application when Phase 5 begins
-- A Fuji RPC endpoint
+## 1. Prerequisites
 
-## Repository layout
+* **Node.js:** v24.x (LTS recommended)
+* **Python:** 3.12 (managed via `uv`)
+* **PostgreSQL:** v15+ (Local instance or Supabase)
+* **Git:** Installed and configured
+* **Avalanche Wallet:** An EVM wallet with Fuji test AVAX and Fuji test USDC
 
-Run commands from the component directory; this is not a root npm workspace.
+---
+
+## 2. Repository Layout
+
+GitBounty is organized into distinct functional workspaces:
 
 ```text
-backend/             FastAPI application
-frontend/web/        Next.js website
-frontend/extension/  optional browser extension
-migrations/          PostgreSQL migrations
-e2e/                 browser tests
-contracts/           planned Solidity workspace
+gitbounty/
+├── contracts/               # Solidity workspace (Hardhat 3)
+├── backend/                 # FastAPI application (Python 3.12)
+├── frontend/web/            # Next.js 16 Web Application
+├── migrations/              # Numbered PostgreSQL schema migrations
+└── docs/                    # Architectural and setup specifications
 ```
 
-## Database
+---
 
-Use a throwaway local PostgreSQL database for development and tests. Configure `DATABASE_URL` in the ignored `project-root .env` file. Apply migrations through the existing runner:
+## 3. Environment Configuration
+
+Copy `.env.example` in `gitbounty/` to `.env`:
 
 ```powershell
-cd backend
+cp gitbounty/.env.example gitbounty/.env
+```
+
+### Essential Environment Variables
+
+```ini
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gitbounty
+
+# Security & Sessions
+SESSION_SECRET=your-32-byte-hex-session-secret
+TOKEN_ENCRYPTION_KEY=your-fernet-token-encryption-key
+WALLET_ENCRYPTION_KEY=your-fernet-wallet-encryption-key
+
+# GitHub OAuth & GitHub App
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_CALLBACK_URL=http://localhost:8001/auth/github/callback
+GITHUB_APP_ID=your-app-id
+GITHUB_APP_SLUG=gitbounty-app
+GITHUB_APP_PRIVATE_KEY_PATH=/path/to/private-key.pem
+GITHUB_WEBHOOK_SECRET=your-webhook-secret
+
+# Avalanche Fuji Escrow Configuration
+ESCROW_ENABLED=true
+ESCROW_CHAIN_ID=43113
+ESCROW_CONTRACT_ADDRESS=0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65
+ESCROW_TOKEN_ADDRESS=0x5425890298aed601595a70AB815c96711a31Bc65
+ESCROW_AUTHORIZATION_SIGNER_KEY=your-64-char-hex-signer-private-key
+ESCROW_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+
+# Account Abstraction (SmoothSend)
+MANAGED_WALLETS_ENABLED=true
+ESCROW_EXECUTION_MODE=sponsored
+SMOOTHSEND_SERVER_KEY=your-smoothsend-server-key
+NEXT_PUBLIC_SMOOTHSEND_PUBLISHABLE_KEY=your-smoothsend-publishable-key
+```
+
+---
+
+## 4. Smart Contracts Workspace
+
+```mermaid
+flowchart LR
+    A["Install Dependencies"] --> B["Run Hardhat Tests"] --> C["Inspect Fuji Deployment"]
+    
+    A -->|"npm install"| B
+    B -->|"npm test"| C
+    C -->|"node scripts/fuji.mjs inspect"| D["Verified!"]
+
+    classDef default fill:#F8FAFC,stroke:#64748B,stroke-width:1.5px,color:#0F172A;
+```
+
+```powershell
+cd gitbounty/contracts
+npm install
+npm test
+```
+
+### Deploying to Avalanche Fuji (Optional / Operator Only)
+```powershell
+node scripts/fuji.mjs deploy --network fuji
+node scripts/fuji.mjs inspect --network fuji
+```
+
+---
+
+## 5. Backend API Setup
+
+```powershell
+cd gitbounty/backend
 uv sync --locked
-uv run python dev/migrate.py status
-uv run python dev/migrate.py up
 ```
 
-Never apply migrations to a shared database without explicit owner approval and a backup. Never edit an applied migration.
-
-## Existing backend configuration
-
-Copy `.env.example` to ignored `project-root .env` and configure only the values required for the feature under test:
-
-- `DATABASE_URL`
-- `SESSION_SECRET`
-- `TOKEN_ENCRYPTION_KEY`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GITHUB_CALLBACK_URL`
-- `FRONTEND_URL`
-- `GITHUB_APP_ID`
-- `GITHUB_APP_SLUG`
-- `GITHUB_APP_PRIVATE_KEY_PATH`
-- `GITHUB_WEBHOOK_SECRET`
-- `SECURE_COOKIES`
-- `ADMIN_GITHUB_IDS` when testing moderation
-
-The current SmoothSend path additionally recognizes its existing `AVAX_*` and `SMOOTHSEND_*` settings. Those remain historical/current compatibility settings until the new escrow flow replaces or reuses them.
-
-Start the API:
-
+### Running Backend Tests
 ```powershell
-cd backend
-uv run uvicorn app.main:app --reload --port 8001
+& .venv\Scripts\python.exe -m pytest tests -q
+```
+
+### Starting the FastAPI Server
+```powershell
+& .venv\Scripts\uvicorn.exe app.main:app --reload --port 8001
 ```
 
 Useful endpoints:
+* **API Documentation:** [http://localhost:8001/docs](http://localhost:8001/docs)
+* **Health Check:** [http://localhost:8001/health](http://localhost:8001/health)
+* **Readiness Diagnostic:** [http://localhost:8001/ready](http://localhost:8001/ready)
 
-- `http://localhost:8001/health`
-- `http://localhost:8001/ready`
-- `http://localhost:8001/docs`
+---
 
-## Website
-
-Backend, Next.js and contract commands all read the same `gitbounty/.env`, located next to this project's `agent.md`. Copy the root `.env.example` for a new checkout. Set only `NEXT_PUBLIC_*` variables for values intended for browser code; server secrets must never use that prefix. Restart running processes after changing settings. Deployment hosts still use their environment settings; those override the local file.
-
-`GITBOUNTY_ENV_FILE=""` disables file loading for isolated tests. Existing process environment variables take precedence over file values.
+## 6. Frontend Web Setup
 
 ```powershell
-cd frontend/web
-npm.cmd ci
-npm.cmd run dev
+cd gitbounty/frontend/web
+npm install
 ```
 
-Open `http://localhost:3000`.
-
-Checks:
-
+### Validating Code and Types
 ```powershell
-npm.cmd test
-npm.cmd run lint
-npm.cmd run typecheck
-npm.cmd run build
+# TypeScript Typecheck
+npm run typecheck
+
+# Unit and Integration Tests
+npm test
 ```
 
-## Backend checks
-
+### Running Next.js Dev Server
 ```powershell
-cd backend
-uv run pytest
+npm run dev
 ```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Database-backed tests require an isolated local database. A run that skips database tests is not full verification.
+---
 
-## Browser checks
+## 7. PostgreSQL Migrations
 
-Follow [../e2e/README.md](../e2e/README.md). The harness must use isolated local data and simulated GitHub unless a test explicitly documents live external effects.
+Migrations are stored in [`gitbounty/migrations/`](file:///c:/Users/dipes/Coding/Webdev/Gitbounty/main-gitbounty/gitbounty/migrations/).
 
-## Planned contract workspace
-
-Phase 1 will add `contracts/` using Hardhat 3, Node 24 and viem:
-
-```text
-contracts/
-  contracts/GitBountyEscrow.sol
-  test/escrow.test.ts
-  scripts/deploy-fuji.ts
-  hardhat.config.ts
-  package.json
-  package-lock.json
-  deployments/fuji.json
+To inspect or apply migrations:
+```powershell
+cd gitbounty/backend
+uv run python dev/migrate.py status
+uv run python dev/migrate.py up
 ```
-
-The deployment record may contain public addresses, transaction hashes, chain ID, compiler metadata, and constructor arguments. It must never contain deployer or signer private keys.
-
-Pin compiler and dependencies, set evmVersion = cancun explicitly, and retain Standard JSON build input/output and optimizer settings. [Avalanche compiler guidance](https://build.avax.network/docs/primary-network/verify-contract/hardhat) warns against relying on newer compiler defaults. Contract commands will become executable setup instructions only when this workspace exists.
-
-Planned public configuration:
-
-- Fuji chain ID `43113`
-- Fuji RPC URL
-- official Fuji USDC address
-- deployed escrow contract address
-- Snowtrace base URL
-
-Planned server-only configuration:
-
-- settlement authorization signer or external signer reference
-- expected immutable signer address and deployment block
-- optional RPC provider credential
-
-Planned browser configuration:
-
-- Privy app ID
-- chain ID
-- escrow and token addresses
-
-The API should return authoritative public payment configuration so the frontend does not duplicate it inconsistently.
-
-## Planned Privy setup
-
-When Phase 5 begins:
-
-1. Create/configure a Privy app for the exact development and production origins.
-2. Enable native GitHub OAuth; it is supported by current Privy docs. Keep the existing direct OAuth route as fallback.
-3. Configure Avalanche Fuji as the default and supported EVM chain.
-4. Enable embedded EOA creation and external EVM wallets; preserve any existing immutable receiving EOA.
-5. Verify the access token and linked identity server-side, map its numeric GitHub subject to the existing user, then establish the normal GitBounty app session. Reject conflicting app/Privy identities.
-6. Require a wallet signature challenge before persisting the payout address.
-7. Retain the separate GitHub owner-authorization token flow for permission checks and App installation reads. A Privy access token is not a GitHub API credential.
-8. Test logout, token refresh, two-account migration, same-address recovery/export and MFA. Custom JWT is an optional existing-auth alternative, not required for native GitHub login.
-
-Official references: [native GitHub OAuth](https://docs.privy.io/authentication/user-authentication/login-methods/oauth), [access tokens](https://docs.privy.io/authentication/user-authentication/access-tokens), and [connect or create a wallet](https://docs.privy.io/wallets/connectors/usage/connect-or-create).
-
-## GitHub configuration
-
-OAuth is used for user identity and user-specific GitHub actions. The GitHub App is used for repository installation scope and webhook processing.
-
-For the live demo:
-
-- use a dedicated public repository;
-- enable Issues;
-- install the GitHub App only on the selected repository;
-- configure the production webhook URL and secret;
-- request only permissions required by the actual API calls;
-- use two distinct GitHub users for payer and contributor.
-
-## Fuji assets
-
-Use faucet AVAX only for gas and official Fuji test USDC for the bounty. Test assets have no monetary value. Verify token address and decimals against current official Avalanche/Circle information before deployment rather than copying an old address blindly.
-
-Checked October 13: Fuji chain ID 43113, USDC 0x5425890298aed601595a70AB815c96711a31Bc65 has bytecode and six decimals. A needs USDC plus AVAX for exact allowance approval and funding; B needs AVAX for a direct claim. Pre-fund both before recording. SmoothSend sponsorship is an optional separately verified enhancement.
-
-## Deployment configuration
-
-The current Vercel configuration routes website, API, authentication, webhooks, and health endpoints under one origin. The target persistent Python API needs explicit proxy rewrites, host secret-file delivery and a worker restart check. Confirm operator account/budget first; a sleeping free instance is not an always-on worker. The fallback is bounded authenticated request-driven drain/sync with saved inbox state.
-
-Production must configure:
-
-- exact frontend and OAuth callback URLs;
-- secure cookies;
-- production database and migration status;
-- GitHub App private key and webhook secret;
-- Fuji RPC and contract configuration;
-- Privy public/server configuration when implemented;
-- authorization signer through secure secret storage;
-- logs that exclude secrets and transaction authorization payloads where sensitive.
-
-Before implementing the new flow, resolve the advisory findings and operational preflights in [dependency-boundaries.md](dependency-boundaries.md). Same-origin proxy cookies, callback redirects, App permissions, TLS/pool limits and worker progress need live checks after deployment.
-
-## Local-to-live promotion
-
-1. Pass deterministic contract tests.
-2. Pass backend and frontend tests locally.
-3. Run a local integration flow against a local EVM node.
-4. Deploy the exact tested contract artifact to Fuji.
-5. Verify a manual fund/settle smoke test.
-6. Deploy the application configuration.
-7. Run the two-account GitHub-to-Fuji flow in [testing-data.md](testing-data.md).
-8. Record public evidence in [hackathon-submission.md](hackathon-submission.md).
-
-Never use successful local or simulated tests as a claim that production or Fuji has been verified.
+Migrations 0001 through 0020 establish user identity, webhook queue tables, points ledger, escrow contracts, and smart account bindings.

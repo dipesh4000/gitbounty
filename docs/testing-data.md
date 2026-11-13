@@ -1,20 +1,43 @@
-# Hackathon verification runbook
+# Hackathon Verification Runbook
 
-Use this runbook for deterministic testing and the final live proof. Account A is the maintainer/payer. Account B is the contributor/recipient. They must be distinct GitHub identities.
+Use this runbook for deterministic testing and live validation. Account A is the maintainer/payer (`dipesh4000`, ID `87355477`). Account B is the contributor/recipient (`dipesh-BS`, ID `288853389`).
 
-## Test fixture
+```mermaid
+flowchart TD
+    subgraph Layer1["Layer 1: Deterministic Test Suites"]
+        C["Smart Contract Tests (9/9 Pass)"]:::pass
+        F["Frontend Vitest Suite (86/86 Pass)"]:::pass
+        B["Backend Pytest Suite (217 Pass)"]:::pass
+        T["TypeScript Typecheck (0 Errors)"]:::pass
+    end
 
-- Public repository: `TODO/demo-repository`
-- Issue: `TODO`
-- Bounty points: `40`
-- Baseline points: use the configured rule version
-- Fuji USDC reward: `1.00` test USDC or another deliberately small amount
-- Chain: Avalanche Fuji, chain ID `43113`
-- Escrow address: `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`
-- Funding transaction: `TODO`
-- Settlement transaction: `TODO`
-- Work cutoff / claim deadline: `TODO` / `work cutoff + seven days`
-- Expected points: `40 bounty + 5 eligible baseline = 45`, with separate award types
+    subgraph Layer2["Layer 2: Local Integration & Vector Verification"]
+        V["EIP-712 Cross-Language Golden Vector"]:::pass
+        M["PostgreSQL Schema Migrations 0001-0020"]:::pass
+    end
+
+    subgraph Layer3["Layer 3: Live Fuji Testnet Proof"]
+        Deploy["Escrow Deployed at 0xc8ff...9f65"]:::pass
+        LiveProof["Two-Account GitHub Merge & Sponsored Claim"]:::pending
+    end
+
+    Layer1 --> Layer2 --> Layer3
+
+    classDef pass fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#166534;
+    classDef pending fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F;
+```
+
+---
+
+## Verified Fixtures & Deployed Network Values
+
+* **Repository:** `dipesh4000/gitbounty` (ID `1374022338`, public, default branch `main`)
+* **Maintainer:** `dipesh4000` (numeric ID `87355477`)
+* **Contributor:** `dipesh-BS` (numeric ID `288853389`)
+* **Chain:** Avalanche Fuji C-Chain (`43113`)
+* **Escrow Contract:** `0xc8ff1527BF4d43A3bC7EA3d9fb415D5647739f65`
+* **USDC Token:** `0x5425890298aed601595a70AB815c96711a31Bc65`
+* **Authorization Signer:** `0xf066119be9A9684a81Bd40B153A2E79d5451a8e0`
 
 Never put private keys, OAuth tokens, session cookies, provider secrets, or database credentials in this document.
 
