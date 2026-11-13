@@ -44,23 +44,27 @@ Reputation points exist as an immutable, off-chain ledger that tracks developer 
 ## The Problem & The Solution
 
 ```mermaid
-flowchart LR
-    subgraph Traditional["Traditional Bounty Platforms"]
-        direction TB
-        T1["Subjective Review & Bias"]:::redNode
-        T2["Unfunded Promises & Fake Rewards"]:::redNode
-        T3["Mutable Usernames / Impersonation"]:::redNode
-        T4["Manual Off-Platform Payouts"]:::redNode
-        T1 --> T2 --> T3 --> T4
-    end
+flowchart TB
+    subgraph Comparison[" "]
+        direction LR
 
-    subgraph GitBountyFlow["GitBounty System"]
-        direction TB
-        G1["GitHub App Proves PR & Merge"]:::greenNode
-        G2["On-Chain Escrow Locks USDC Upfront"]:::greenNode
-        G3["Immutable Numeric GitHub IDs"]:::greenNode
-        G4["EIP-712 Attested Smart Contract Claim"]:::greenNode
-        G1 --> G2 --> G3 --> G4
+        subgraph Traditional["Traditional Bounty Platforms"]
+            direction TB
+            T1["Subjective Review & Bias"]:::redNode
+            T2["Unfunded Promises & Fake Rewards"]:::redNode
+            T3["Mutable Usernames / Impersonation"]:::redNode
+            T4["Manual Off-Platform Payouts"]:::redNode
+            T1 --> T2 --> T3 --> T4
+        end
+
+        subgraph GitBountyFlow["GitBounty System"]
+            direction TB
+            G1["GitHub App Proves PR & Merge"]:::greenNode
+            G2["On-Chain Escrow Locks USDC Upfront"]:::greenNode
+            G3["Immutable Numeric GitHub IDs"]:::greenNode
+            G4["EIP-712 Attested Smart Contract Claim"]:::greenNode
+            G1 --> G2 --> G3 --> G4
+        end
     end
 
     classDef redNode fill:#991B1B,stroke:#F87171,stroke-width:2px,color:#FFFFFF;
