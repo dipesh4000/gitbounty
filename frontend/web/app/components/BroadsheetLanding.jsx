@@ -100,6 +100,8 @@ export default function BroadsheetLanding() {
   <div className="wrap hero-inner">
     <div className="hero-heading">
     <div className="hero-copy">
+    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "5px 14px", borderRadius: "999px", background: "rgba(232, 65, 66, 0.12)", border: "1px solid rgba(232, 65, 66, 0.28)", color: "#ff6b6c", fontSize: "11px", fontWeight: "600", letterSpacing: "0.05em", marginBottom: "14px" }}><span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#e84142", boxShadow: "0 0 8px #e84142" }}></span>AVALANCHE FUJI C-CHAIN (CHAIN ID: 43113)</div>
+    <br />
     <a className="announcement reveal" href="#workflow"><span>OPEN SOURCE, WITH REWARDS</span><b aria-hidden="true">→</b></a>
     <h1 className="reveal">Build open source.<span>Get rewarded.</span></h1>
     <p className="intro reveal">Pick an issue worth solving. Ship your fix on GitHub. Build your reputation and claim funded rewards—all from one place.</p>

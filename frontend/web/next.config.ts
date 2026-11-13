@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
   /* Hide Next's floating development badge. It only ever appears in `next dev`, never in a build, but it sits
      on top of the page and is the one thing that makes the development view differ from the deployed design. */
   devIndicators: false,
+
+  experimental: {
+    agentUpgrade: "security",
+  },
 };
 
 export default nextConfig;
